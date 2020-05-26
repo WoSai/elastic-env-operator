@@ -1,6 +1,6 @@
 # elastic-env-operator
 
-![Github Action](https://github.com/WoSai/elastic-env-operator/workflows/.github/workflows/main.yml/badge.svg) 
+![Github Action](https://github.com/WoSai/elastic-env-operator/workflows/.github/workflows/master.yml/badge.svg) 
 ![codecov](https://codecov.io/gh/WoSai/elastic-env-operator/branch/master/graph/badge.svg)
 
 
