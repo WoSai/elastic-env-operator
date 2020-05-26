@@ -4,7 +4,7 @@
 
 整体效果类似阿里的特性环境，如下图：
 
-![](https://yqfile.alicdn.com/7f53e7ae000a829838df2324ac98eb6838392dfd.png)
+![](https://cdn.ancii.com/article/image/v1/ez/Ju/_m/m_JzueHnNG9dtZ-kWJtDtXuQlTGSxuOADzMMhiO2UACYuHTbZLUD4F972VqqlXugLNwCHTQ5r54fuKH1ONqw939cnN5NncBb0UYUQwKy5us.jpg)
 
 本项目是作为弹性环境2.0版本的核心组件，将原弹性环境平台的核心逻辑以Kubernetes Operator的方式整合进Kubernetes生态之中。
 
