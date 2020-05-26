@@ -59,15 +59,17 @@ spec:
               - port
               type: object
             hostAlias:
-              properties:
-                hostname:
-                  type: string
-                ip:
-                  type: string
-              required:
-              - hostname
-              - ip
-              type: object
+              items:
+                properties:
+                  hostname:
+                    type: string
+                  ip:
+                    type: string
+                required:
+                - hostname
+                - ip
+                type: object
+              type: array
             image:
               description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
                 Important: Run "operator-sdk generate k8s" to regenerate code after

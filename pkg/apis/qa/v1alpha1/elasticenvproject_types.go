@@ -17,7 +17,7 @@ type ElasticEnvProjectSpec struct {
 	Environment []ElasticEnvProjectEnvVar     `json:"env,omitempty"`
 	Ports       []ElasticEnvProjectPortMapper `json:"ports,omitempty"`
 	HealthCheck ElasticEnvProjectHealthCheck  `json:"healthCheck,omitempty"`
-	HostAlias   ElasticEnvProjectHostAlias    `json:"hostAlias,omitempty"`
+	HostAlias   []ElasticEnvProjectHostAlias  `json:"hostAlias,omitempty"`
 	Path        []ElasticEnvProjectSubPath    `json:"path,omitempty"`
 	Volumes     []ElasticEnvProjectVolume     `json:"volumes,omitempty"`
 	Command     string                        `json:"command,omitempty"`

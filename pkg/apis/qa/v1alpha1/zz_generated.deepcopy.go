@@ -368,7 +368,11 @@ func (in *ElasticEnvProjectSpec) DeepCopyInto(out *ElasticEnvProjectSpec) {
 		copy(*out, *in)
 	}
 	out.HealthCheck = in.HealthCheck
-	out.HostAlias = in.HostAlias
+	if in.HostAlias != nil {
+		in, out := &in.HostAlias, &out.HostAlias
+		*out = make([]ElasticEnvProjectHostAlias, len(*in))
+		copy(*out, *in)
+	}
 	if in.Path != nil {
 		in, out := &in.Path, &out.Path
 		*out = make([]ElasticEnvProjectSubPath, len(*in))
