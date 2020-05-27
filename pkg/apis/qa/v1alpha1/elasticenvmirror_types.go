@@ -12,6 +12,8 @@ type ElasticEnvMirrorSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+	Selector              ElasticEnvMirrorSelector `json:"selector"`
+	ElasticEnvProjectSpec `json:",inline"`
 }
 
 // ElasticEnvMirrorStatus defines the observed state of ElasticEnvMirror
@@ -41,6 +43,11 @@ type ElasticEnvMirrorList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ElasticEnvMirror `json:"items"`
+}
+
+type ElasticEnvMirrorSelector struct {
+	Project string `json:"project"`
+	Plane   string `json:"plane"`
 }
 
 func init() {

@@ -30,6 +30,21 @@ spec:
           type: object
         spec:
           description: ElasticEnvPlaneSpec defines the desired state of ElasticEnvPlane
+          properties:
+            comment:
+              type: string
+            purpose:
+              description: 'INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
+                Important: Run "operator-sdk generate k8s" to regenerate code after
+                modifying this file Add custom validation using kubebuilder tags:
+                https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html'
+              enum:
+              - development
+              - test
+              - base
+              type: string
+          required:
+          - purpose
           type: object
         status:
           description: ElasticEnvPlaneStatus defines the observed state of ElasticEnvPlane

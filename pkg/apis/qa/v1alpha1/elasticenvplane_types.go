@@ -12,6 +12,8 @@ type ElasticEnvPlaneSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+	Purpose ElasticEnvPlanePurpose `json:"purpose"`
+	Comment string                 `json:"comment,omitempty"`
 }
 
 // ElasticEnvPlaneStatus defines the observed state of ElasticEnvPlane
@@ -42,6 +44,10 @@ type ElasticEnvPlaneList struct {
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ElasticEnvPlane `json:"items"`
 }
+
+// +kubebuilder:validation:Enum=development;test;base
+// +kubebuilder:default:=base
+type ElasticEnvPlanePurpose string
 
 func init() {
 	SchemeBuilder.Register(&ElasticEnvPlane{}, &ElasticEnvPlaneList{})
