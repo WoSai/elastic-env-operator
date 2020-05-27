@@ -30,11 +30,9 @@ jobs:
     - name: Build Docker Image
       run: operator-sdk build wosai/elastic-env-operatpr:v0.0.1
     - name: Log into DockerHub
-      env:
-        DOCKERHUB_ORG_USERNAME: ${{ secrets.DOCKERHUB_ORG_USERNAME }}
-        DOCKERHUB_ORG_ACCESS_TOKEN: ${{ secrets.DOCKERHUB_ORG_ACCESS_TOKEN }}
-      run: |
-        echo $DOCKERHUB_ORG_USERNAME
-        docker login --username $DOCKERHUB_ORG_USERNAME --password DOCKERHUB_ORG_ACCESS_TOKEN
+      uses: azure/docker-login@v1
+      with:
+        username: ${{ secrets.DOCKERHUB_ORG_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_ORG_ACCESS_TOKEN }}
     - name: Push Docker Image
       run: docker push wosai/elastic-env-operatpr:v0.0.1
