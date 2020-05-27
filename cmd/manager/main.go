@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"strings"
 
+	istio "istio.io/client-go/pkg/apis/networking/v1alpha3"
+
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
@@ -124,6 +126,12 @@ func main() {
 
 	// Setup all Controllers
 	if err := controller.AddToManager(mgr); err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+
+	// Setup istio objects
+	if err := istio.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}

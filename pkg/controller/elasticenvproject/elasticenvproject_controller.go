@@ -2,8 +2,10 @@ package elasticenvproject
 
 import (
 	"context"
+	"encoding/json"
 
 	qav1alpha1 "github.com/wosai/elastic-env-operator/pkg/apis/qa/v1alpha1"
+	istio "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -99,6 +101,14 @@ func (r *ReconcileElasticEnvProject) Reconcile(request reconcile.Request) (recon
 		// Error reading the object - requeue the request.
 		return reconcile.Result{}, err
 	}
+
+	rule := &istio.DestinationRule{}
+	if err := r.client.Get(context.TODO(), types.NamespacedName{Name: "documents", Namespace: request.Namespace}, rule); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	data, _ := json.Marshal(rule)
+	reqLogger.Info(string(data))
 
 	// Define a new Pod object
 	pod := newPodForCR(instance)
