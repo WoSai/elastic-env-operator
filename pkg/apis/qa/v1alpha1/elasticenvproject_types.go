@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -13,14 +14,14 @@ type ElasticEnvProjectSpec struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 	Image       string                        `json:"image,omitempty"`
-	Resources   ElasticEnvProjectResources    `json:"resources,omitempty"`
+	Resources   corev1.ResourceRequirements   `json:"resources,omitempty"`
 	Environment []ElasticEnvProjectEnvVar     `json:"env,omitempty"`
 	Ports       []ElasticEnvProjectPortMapper `json:"ports,omitempty"`
 	HealthCheck ElasticEnvProjectHealthCheck  `json:"healthCheck,omitempty"`
 	HostAlias   []ElasticEnvProjectHostAlias  `json:"hostAlias,omitempty"`
 	Path        []ElasticEnvProjectSubPath    `json:"path,omitempty"`
 	Volumes     []ElasticEnvProjectVolume     `json:"volumes,omitempty"`
-	Command     string                        `json:"command,omitempty"`
+	Command     []string                      `json:"command,omitempty"`
 	Args        []string                      `json:"args,omitempty"`
 }
 
@@ -51,17 +52,6 @@ type ElasticEnvProjectList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []ElasticEnvProject `json:"items"`
-}
-
-// ElasticEnvProjectResource 资源限制
-type ElasticEnvProjectResource struct {
-	CPU    string `json:"cpu,omitempty"`
-	Memory string `json:"memory,omitempty"`
-}
-
-type ElasticEnvProjectResources struct {
-	Limits   ElasticEnvProjectResource `json:"limits,omitempty"`
-	Requests ElasticEnvProjectResource `json:"requests,omitempty"`
 }
 
 type ElasticEnvProjectEnvVar struct {
