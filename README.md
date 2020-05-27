@@ -23,12 +23,65 @@
 ```yaml
 apiVersion: qa.shouqianba.com/v1alpha1
 kind: ElasticEnvProject
+metadata:
+  name: simple-server
+  namespace: default
+spec:
+  image: python:3.7
+  resouces:
+    limit:
+      cpu: 200
+      memory: 300
+    requests:
+      cpu: 50
+      memory: 100
+  ports:
+  - protocol: http
+    port: 80
+    containerPort: 8080
+  healthCheck:
+    path: "/"
+    port: 8080
+  command: python
+  args:
+  - -m
+  - http.server
+  - 8080
+  - --bind
+  - 127.0.0.1
 ```
 
 ### ElasticEnvPlane
 
 🍺
 
+#### YAML样例
+
+```yaml
+apiVersion: qa.shouqianba.com/v1alpha1
+kind: ElasticEnvPlane
+metadata:
+  name: staging
+  namespace: default
+spec:
+  purpose: base
+
+```
+
 ### ElasticEnvMirror
 
 🍺
+
+#### YAML样例
+
+```yaml
+apiVersion: qa.shouqianba.com/v1alpha1
+kind: ElasticEnvMirror
+metadata:
+  name: simple-server
+  namespace: default
+spec:
+  selector:
+    project: simple-server
+    plane: staging
+```
