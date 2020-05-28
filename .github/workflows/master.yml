@@ -1,6 +1,6 @@
 name: master
 
-on: [push, pull_request]
+on: [push, pull_request, release]
 
 jobs:
   build:
@@ -35,8 +35,9 @@ jobs:
         password: ${{ secrets.DOCKERHUB_ORG_ACCESS_TOKEN }}
     - name: Release Docker Image
       run: |
-        operator-sdk build $DOCKER_IMAGE:${{github.sha}}
-        docker push $DOCKER_IMAGE:${{github.sha}}
+        ver=`cat version/version.go | grep Version | grep -o "\d\+\.\d\+\.\d\+"`
+        operator-sdk build $DOCKER_IMAGE:$ver-${{github.sha}}
+        docker push $DOCKER_IMAGE:$ver-${{github.sha}}
     - name: Tag Docker Image
       if: ${{ github.event_name == 'release' }}
       run: |
