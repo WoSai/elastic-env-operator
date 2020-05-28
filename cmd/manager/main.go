@@ -75,8 +75,6 @@ func main() {
 	configLog.EncodeTime = zapcore.ISO8601TimeEncoder
 	configLog.TimeKey = "@timestamp"
 	jsonEncoder := zapcore.NewJSONEncoder(configLog)
-	zap.NewProduction()
-
 	log = zapcr.New(zapcr.UseDevMode(false), zapcr.WriteTo(os.Stdout), zapcr.Encoder(jsonEncoder))
 	logf.SetLogger(log)
 
