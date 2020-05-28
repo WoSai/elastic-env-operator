@@ -25,7 +25,7 @@ type ElasticEnvProjectSpec struct {
 	HealthCheck  ElasticEnvProjectHealthCheck  `json:"healthCheck,omitempty"`
 	HostAlias    []corev1.HostAlias            `json:"hostAlias,omitempty"`
 	Path         []ElasticEnvProjectSubPath    `json:"path,omitempty"`
-	Volumes      []corev1.Volume               `json:"volumes,omitempty"`
+	Volumes      []ElasticEnvProjectVolume     `json:"volumes,omitempty"`
 	Command      []string                      `json:"command,omitempty"`
 	Args         []string                      `json:"args,omitempty"`
 	// DisableIstio 当为true时，将不再创建Istio下的Gateway/VirtualService/DestinationRule等对象，只使用K8s原生对象

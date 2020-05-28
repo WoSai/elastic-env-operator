@@ -345,7 +345,7 @@ func (in *ElasticEnvProjectSpec) DeepCopyInto(out *ElasticEnvProjectSpec) {
 	}
 	if in.Volumes != nil {
 		in, out := &in.Volumes, &out.Volumes
-		*out = make([]v1.Volume, len(*in))
+		*out = make([]ElasticEnvProjectVolume, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
