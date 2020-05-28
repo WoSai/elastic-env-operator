@@ -1,0 +1,190 @@
+apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  annotations:
+    alm-examples: |-
+      [
+        {
+          "apiVersion": "qa.shouqianba.com/v1alpha1",
+          "kind": "ElasticEnvMirror",
+          "metadata": {
+            "name": "example-elasticenvmirror"
+          },
+          "spec": {
+            "size": 3
+          }
+        },
+        {
+          "apiVersion": "qa.shouqianba.com/v1alpha1",
+          "kind": "ElasticEnvPlane",
+          "metadata": {
+            "name": "example-elasticenvplane"
+          },
+          "spec": {
+            "size": 3
+          }
+        },
+        {
+          "apiVersion": "qa.shouqianba.com/v1alpha1",
+          "kind": "ElasticEnvProject",
+          "metadata": {
+            "name": "example-elasticenvproject"
+          },
+          "spec": {
+            "size": 3
+          }
+        }
+      ]
+    capabilities: Basic Install
+  name: elastic-env-operator.v
+  namespace: placeholder
+spec:
+  apiservicedefinitions: {}
+  customresourcedefinitions:
+    owned:
+    - description: ElasticEnvMirror is the Schema for the elasticenvmirrors API
+      kind: ElasticEnvMirror
+      name: elasticenvmirrors.qa.shouqianba.com
+      version: v1alpha1
+    - description: ElasticEnvPlane is the Schema for the elasticenvplanes API
+      kind: ElasticEnvPlane
+      name: elasticenvplanes.qa.shouqianba.com
+      version: v1alpha1
+    - description: ElasticEnvProject is the Schema for the elasticenvprojects API
+      kind: ElasticEnvProject
+      name: elasticenvprojects.qa.shouqianba.com
+      version: v1alpha1
+  displayName: Elastic Env Operator
+  icon:
+  - base64data: ""
+    mediatype: ""
+  install:
+    spec:
+      clusterPermissions:
+      - rules:
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          - services
+          - services/finalizers
+          - endpoints
+          - persistentvolumeclaims
+          - events
+          - configmaps
+          - secrets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - apps
+          resources:
+          - deployments
+          - daemonsets
+          - replicasets
+          - statefulsets
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        - apiGroups:
+          - monitoring.coreos.com
+          resources:
+          - servicemonitors
+          verbs:
+          - get
+          - create
+        - apiGroups:
+          - apps
+          resourceNames:
+          - elastic-env-operator
+          resources:
+          - deployments/finalizers
+          verbs:
+          - update
+        - apiGroups:
+          - ""
+          resources:
+          - pods
+          verbs:
+          - get
+        - apiGroups:
+          - apps
+          resources:
+          - replicasets
+          - deployments
+          verbs:
+          - get
+        - apiGroups:
+          - qa.shouqianba.com
+          resources:
+          - '*'
+          - elasticenvprojects
+          - elasticenvmirrors
+          verbs:
+          - create
+          - delete
+          - get
+          - list
+          - patch
+          - update
+          - watch
+        serviceAccountName: elastic-env-operator
+      deployments:
+      - name: elastic-env-operator
+        spec:
+          replicas: 1
+          selector:
+            matchLabels:
+              name: elastic-env-operator
+          strategy: {}
+          template:
+            metadata:
+              labels:
+                name: elastic-env-operator
+            spec:
+              containers:
+              - command:
+                - elastic-env-operator
+                env:
+                - name: WATCH_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.annotations['olm.targetNamespaces']
+                - name: POD_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+                - name: OPERATOR_NAME
+                  value: elastic-env-operator
+                image: wosai/elastic-env-operator:v0.0.1
+                imagePullPolicy: Always
+                name: elastic-env-operator
+                resources: {}
+              serviceAccountName: elastic-env-operator
+    strategy: deployment
+  installModes:
+  - supported: true
+    type: OwnNamespace
+  - supported: true
+    type: SingleNamespace
+  - supported: false
+    type: MultiNamespace
+  - supported: true
+    type: AllNamespaces
+  keywords:
+  - ""
+  maintainers:
+  - {}
+  maturity: alpha
+  provider: {}
+  version: 0.0.0

@@ -39,10 +39,6 @@ spec:
               items:
                 type: string
               type: array
-            diableIstio:
-              default: false
-              description: DisableIstio 当为true时，将不再创建Istio下的Gateway/VirtualService/DestinationRule等对象，只使用K8s原生对象
-              type: boolean
             env:
               items:
                 description: EnvVar represents an environment variable present in

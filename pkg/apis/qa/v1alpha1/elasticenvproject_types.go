@@ -13,16 +13,22 @@ type ElasticEnvProjectSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
-	Image       string                        `json:"image,omitempty"`
-	Resources   corev1.ResourceRequirements   `json:"resources,omitempty"`
-	Environment []ElasticEnvProjectEnvVar     `json:"env,omitempty"`
-	Ports       []ElasticEnvProjectPortMapper `json:"ports,omitempty"`
-	HealthCheck ElasticEnvProjectHealthCheck  `json:"healthCheck,omitempty"`
-	HostAlias   []ElasticEnvProjectHostAlias  `json:"hostAlias,omitempty"`
-	Path        []ElasticEnvProjectSubPath    `json:"path,omitempty"`
-	Volumes     []ElasticEnvProjectVolume     `json:"volumes,omitempty"`
-	Command     []string                      `json:"command,omitempty"`
-	Args        []string                      `json:"args,omitempty"`
+	Image string `json:"image,omitempty"`
+	// +kubebuilder:default:=1
+	Replicas     int32                         `json:"replicas,omitempty"`
+	NodeSelector map[string]string             `json:"nodeSelector,omitempty"`
+	Resources    corev1.ResourceRequirements   `json:"resources,omitempty"`
+	EnvVars      []corev1.EnvVar               `json:"env,omitempty"`
+	Ports        []ElasticEnvProjectPortMapper `json:"ports,omitempty"`
+	HealthCheck  ElasticEnvProjectHealthCheck  `json:"healthCheck,omitempty"`
+	HostAlias    []corev1.HostAlias            `json:"hostAlias,omitempty"`
+	Path         []ElasticEnvProjectSubPath    `json:"path,omitempty"`
+	Volumes      []ElasticEnvProjectVolume     `json:"volumes,omitempty"`
+	Command      []string                      `json:"command,omitempty"`
+	Args         []string                      `json:"args,omitempty"`
+	// DisableIstio 当为true时，将不再创建Istio下的Gateway/VirtualService/DestinationRule等对象，只使用K8s原生对象
+	// +kubebuilder:default:=false
+	DisableIstio bool `json:"diableIstio,omitempty"`
 }
 
 // ElasticEnvProjectStatus defines the observed state of ElasticEnvProject
@@ -54,20 +60,10 @@ type ElasticEnvProjectList struct {
 	Items           []ElasticEnvProject `json:"items"`
 }
 
-type ElasticEnvProjectEnvVar struct {
-	Name  string `json:"name"`
-	Value string `json:"value,omitempty"`
-}
-
 type ElasticEnvProjectPortMapper struct {
 	Protocol      string `json:"protocol,omitempty"`
 	ContainerPort int    `json:"containerPort"`
 	Port          int    `json:"port"`
-}
-
-type ElasticEnvProjectHostAlias struct {
-	Hostname string `json:"hostname"`
-	IP       string `json:"ip"`
 }
 
 type ElasticEnvProjectHealthCheck struct {
