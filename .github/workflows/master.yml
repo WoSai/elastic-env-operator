@@ -41,5 +41,5 @@ jobs:
     - name: Tag Docker Image
       if: ${{ github.event_name == 'release' }}
       run: |
-        docker tag $DOCKER_IMAGE:${{github.sha}} $DOCKER_IMAGE:${{github.ref}}
+        docker tag $DOCKER_IMAGE:$ver-${{github.sha}} $DOCKER_IMAGE:${{github.ref}}
         docker push $DOCKER_IMAGE:${{github.ref}}
