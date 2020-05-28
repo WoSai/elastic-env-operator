@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	"github.com/operator-framework/operator-sdk/pkg/status"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -9,6 +10,7 @@ import (
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
 // ElasticEnvProjectSpec defines the desired state of ElasticEnvProject
+// +k8s:openapi-gen=true
 type ElasticEnvProjectSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
@@ -23,7 +25,7 @@ type ElasticEnvProjectSpec struct {
 	HealthCheck  ElasticEnvProjectHealthCheck  `json:"healthCheck,omitempty"`
 	HostAlias    []corev1.HostAlias            `json:"hostAlias,omitempty"`
 	Path         []ElasticEnvProjectSubPath    `json:"path,omitempty"`
-	Volumes      []ElasticEnvProjectVolume     `json:"volumes,omitempty"`
+	Volumes      []corev1.Volume               `json:"volumes,omitempty"`
 	Command      []string                      `json:"command,omitempty"`
 	Args         []string                      `json:"args,omitempty"`
 	// DisableIstio 当为true时，将不再创建Istio下的Gateway/VirtualService/DestinationRule等对象，只使用K8s原生对象
@@ -32,10 +34,12 @@ type ElasticEnvProjectSpec struct {
 }
 
 // ElasticEnvProjectStatus defines the observed state of ElasticEnvProject
+// +k8s:openapi-gen=true
 type ElasticEnvProjectStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+	Conditions status.Conditions `json:"condition"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -60,26 +64,33 @@ type ElasticEnvProjectList struct {
 	Items           []ElasticEnvProject `json:"items"`
 }
 
+// ElasticEnvProjectPortMapper 对口映射规则
 type ElasticEnvProjectPortMapper struct {
+	// Protocol istio支持的协议列表，见：https://istio.io/docs/ops/configuration/traffic-management/protocol-selection/
+	// +kubebuilder:default:=http
+	// +kubebuilder:validation:Enum:=grpc;grpc-web;http;http2;https;mongo;mysql;redis;tcp;tls;udp
 	Protocol      string `json:"protocol,omitempty"`
 	ContainerPort int    `json:"containerPort"`
 	Port          int    `json:"port"`
 }
 
+// ElasticEnvProjectHealthCheck 健康检查配置
 type ElasticEnvProjectHealthCheck struct {
+	// +kubebuilder:default:=/
 	Path string `json:"path"`
 	Port int    `json:"port"`
 }
 
+// ElasticEnvProjectSubPath Ingress子路径映射配置
 type ElasticEnvProjectSubPath struct {
 	Path string `json:"path"`
 	Host string `json:"host"`
 }
 
+// ElasticEnvProjectVolume volume映射规则
 type ElasticEnvProjectVolume struct {
-	Source string `json:"source"`
-	Target string `json:"target"`
-	Type   string `json:"type,omitempty"`
+	Source    corev1.VolumeSource `json:"source"`
+	MountPath string              `json:"mountPath"`
 }
 
 func init() {
