@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	"github.com/operator-framework/operator-sdk/pkg/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -21,6 +22,8 @@ type ElasticEnvMirrorStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+	Conditions status.Conditions     `json:"condition"`
+	Phase      ElasticEnvMirrorPhase `json:"phase"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -45,10 +48,14 @@ type ElasticEnvMirrorList struct {
 	Items           []ElasticEnvMirror `json:"items"`
 }
 
+// ElasticEnvMirrorSelector 选择位面、项目
 type ElasticEnvMirrorSelector struct {
 	Project string `json:"project"`
 	Plane   string `json:"plane"`
 }
+
+// ElasticEnvMirrorPhase 位面镜像状态 todo: 定义状态
+type ElasticEnvMirrorPhase string
 
 func init() {
 	SchemeBuilder.Register(&ElasticEnvMirror{}, &ElasticEnvMirrorList{})

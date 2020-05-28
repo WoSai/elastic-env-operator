@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	"github.com/operator-framework/operator-sdk/pkg/status"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -13,6 +14,7 @@ type ElasticEnvPlaneSpec struct {
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
 	Purpose ElasticEnvPlanePurpose `json:"purpose"`
+	Owner   string                 `json:"owner,omitempty"`
 	Comment string                 `json:"comment,omitempty"`
 }
 
@@ -21,6 +23,8 @@ type ElasticEnvPlaneStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+	Conditions status.Conditions    `json:"conditions"`
+	Phase      ElasticEnvPlanePhase `json:"phase"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -45,9 +49,15 @@ type ElasticEnvPlaneList struct {
 	Items           []ElasticEnvPlane `json:"items"`
 }
 
+// ElasticEnvPlanePurpose Plane用途，分别对应开发、测试、基准环境
 // +kubebuilder:validation:Enum=development;test;base
 // +kubebuilder:default:=base
 type ElasticEnvPlanePurpose string
+
+// ElasticEnvPlanePhase Plane当前阶段
+// +kubebuilder:validation:Enum=creating;ready;locked;deleting
+// +kubebuilder:default:=creating
+type ElasticEnvPlanePhase string
 
 func init() {
 	SchemeBuilder.Register(&ElasticEnvPlane{}, &ElasticEnvPlaneList{})
