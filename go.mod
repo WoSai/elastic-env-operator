@@ -3,7 +3,7 @@ module github.com/wosai/elastic-env-operator
 go 1.13
 
 require (
-	github.com/operator-framework/operator-sdk v0.17.1
+	github.com/operator-framework/operator-sdk v0.17.2
 	go.uber.org/zap v1.14.1
 	istio.io/client-go v0.0.0-20200708142230-d7730fd90478
 	k8s.io/api v0.18.1
