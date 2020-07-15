@@ -5,9 +5,9 @@ go 1.13
 require (
 	github.com/operator-framework/operator-sdk v0.17.1
 	go.uber.org/zap v1.14.1
-	istio.io/client-go v0.0.0-20191113122552-9bd0ba57c3d2
-	k8s.io/api v0.17.4
-	k8s.io/apimachinery v0.17.4
+	istio.io/client-go v0.0.0-20200708142230-d7730fd90478
+	k8s.io/api v0.18.1
+	k8s.io/apimachinery v0.18.1
 	k8s.io/client-go v12.0.0+incompatible
 	sigs.k8s.io/controller-runtime v0.5.2
 )

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 
 	qav1alpha1 "github.com/wosai/elastic-env-operator/pkg/apis/qa/v1alpha1"
-	istio "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	istio "istio.io/client-go/pkg/apis/networking/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
