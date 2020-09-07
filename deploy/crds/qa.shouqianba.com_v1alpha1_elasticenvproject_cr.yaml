@@ -1,7 +1,0 @@
-apiVersion: qa.shouqianba.com/v1alpha1
-kind: ElasticEnvProject
-metadata:
-  name: example-elasticenvproject
-spec:
-  # Add fields here
-  size: 3

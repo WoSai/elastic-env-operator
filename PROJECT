@@ -1,0 +1,14 @@
+domain: shouqianba.com
+layout: go.kubebuilder.io/v2
+projectName: elastic-env-operator
+repo: github.com/wosai/elastic-env-operator
+resources:
+- group: qa
+  kind: SQBDeployment
+  version: v1alpha1
+- group: qa
+  kind: SQBApplication
+  version: v1alpha1
+version: 3-alpha
+plugins:
+  go.sdk.operatorframework.io/v2-alpha: {}

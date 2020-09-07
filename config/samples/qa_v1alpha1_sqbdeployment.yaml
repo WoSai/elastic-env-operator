@@ -1,0 +1,9 @@
+apiVersion: qa.shouqianba.com/v1alpha1
+kind: SQBDeployment
+metadata:
+  name: merchant-enrolment-base
+  namespace: ln
+spec:
+  selector:
+    app: merchant-enrolment
+    plane: base

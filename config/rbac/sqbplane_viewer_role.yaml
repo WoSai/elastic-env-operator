@@ -1,0 +1,20 @@
+# permissions for end users to view sqbplanes.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: sqbplane-viewer-role
+rules:
+- apiGroups:
+  - qa.shouqianba.com
+  resources:
+  - sqbplanes
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - qa.shouqianba.com
+  resources:
+  - sqbplanes/status
+  verbs:
+  - get

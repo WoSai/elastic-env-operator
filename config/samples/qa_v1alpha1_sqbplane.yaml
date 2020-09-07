@@ -1,0 +1,8 @@
+apiVersion: qa.shouqianba.com/v1alpha1
+kind: SQBPlane
+metadata:
+  name: base
+  namespace: ln
+spec:
+  description: ""
+

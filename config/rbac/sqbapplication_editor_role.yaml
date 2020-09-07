@@ -1,0 +1,24 @@
+# permissions for end users to edit sqbapplications.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: sqbapplication-editor-role
+rules:
+- apiGroups:
+  - qa.shouqianba.com
+  resources:
+  - sqbapplications
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - qa.shouqianba.com
+  resources:
+  - sqbapplications/status
+  verbs:
+  - get
