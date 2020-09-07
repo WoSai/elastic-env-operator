@@ -269,7 +269,7 @@ func (r *SQBApplicationReconciler) handleIstio(ctx context.Context, cr *qav1alph
 					Paths: []v1beta12.HTTPIngressPath{
 						{
 							Backend: v1beta12.IngressBackend{
-								ServiceName: "istio-ingressgateway",
+								ServiceName: "istio-ingressgateway" + "-" + cr.Namespace,
 								ServicePort: intstr.FromInt(80),
 							},
 						},
