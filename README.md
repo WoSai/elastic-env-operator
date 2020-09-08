@@ -133,10 +133,10 @@ spec:
     preStop: # 与postStart相同
 status:
   planes:
-    base: ""
-    test: ""
+    base: 1
+    test: 1
   mirrors: 
-    merchant-enrolment-base: ""
+    merchant-enrolment-base: 1
   initialized: true
 ```
 
@@ -155,8 +155,8 @@ spec:
   description: # 用途说明
 status:
   mirrors:
-    merchant-enrolment: ""
-    sales-system-api: ""
+    merchant-enrolment: 1
+    sales-system-api: 1
   initialized: true
 ```
 
