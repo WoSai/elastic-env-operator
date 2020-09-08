@@ -1838,11 +1838,11 @@ spec:
                 type: boolean
               mirrors:
                 additionalProperties:
-                  type: string
+                  type: integer
                 type: object
               planes:
                 additionalProperties:
-                  type: string
+                  type: integer
                 type: object
             type: object
         type: object

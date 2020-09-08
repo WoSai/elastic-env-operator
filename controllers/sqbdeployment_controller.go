@@ -366,8 +366,3 @@ func deleteDeploymentByLabel(c client.Client, ctx context.Context, namespace str
 	}
 	return nil
 }
-
-func getSpecialVirtualServiceHost(configMapData map[string]string, cr *v12.Deployment) string {
-	publicEntry := cr.Annotations[PublicEntryAnnotationKey]
-	return publicEntry
-}

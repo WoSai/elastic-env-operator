@@ -153,12 +153,12 @@ func (r *SQBApplicationReconciler) Operate(ctx context.Context, obj runtime.Obje
 	if err != nil {
 		return client.IgnoreNotFound(err)
 	}
-	mirrors := map[string]string{}
-	planes := map[string]string{}
+	mirrors := map[string]int{}
+	planes := map[string]int{}
 	for _, deployment := range deploymentList.Items {
-		mirrors[deployment.Name] = ""
+		mirrors[deployment.Name] = 1
 		if plane, ok := deployment.Labels[PlaneKey]; ok {
-			planes[plane] = ""
+			planes[plane] = 1
 		}
 	}
 	cr.Status.Mirrors = mirrors
@@ -425,7 +425,7 @@ func (r *SQBApplicationReconciler) handleNoIstio(ctx context.Context, cr *qav1al
 }
 
 // 根据plane生成DestinationRule的subsets
-func generateSubsets(cr *qav1alpha1.SQBApplication, planes map[string]string) []*v1beta14.Subset {
+func generateSubsets(cr *qav1alpha1.SQBApplication, planes map[string]int) []*v1beta14.Subset {
 	subsets := make([]*v1beta14.Subset, 0)
 	for plane := range planes {
 		subsets = append(subsets, &v1beta14.Subset{
@@ -439,7 +439,7 @@ func generateSubsets(cr *qav1alpha1.SQBApplication, planes map[string]string) []
 }
 
 // 根据plane和subpath获取匹配的route，或者生成route
-func getOrGenerateHttpRoutes(httpRoutes []*v1beta14.HTTPRoute, subpaths []qav1alpha1.Subpath, planes map[string]string,
+func getOrGenerateHttpRoutes(httpRoutes []*v1beta14.HTTPRoute, subpaths []qav1alpha1.Subpath, planes map[string]int,
 	configMapData map[string]string) []*v1beta14.HTTPRoute {
 	resultHttpRoutes := make([]*v1beta14.HTTPRoute, 0)
 	// 特殊处理base,base需要放在最后
@@ -494,7 +494,7 @@ func getOrGenerateHttpRoutes(httpRoutes []*v1beta14.HTTPRoute, subpaths []qav1al
 	}
 	// 处理基础环境
 	if ok {
-		planes["base"] = ""
+		planes["base"] = 1
 		for _, subpath := range subpaths {
 			found, route := findRoute(HTTPRoutes(httpRoutes), subpath.ServiceName, "base")
 			if found {
@@ -528,7 +528,7 @@ func getOrGenerateHttpRoutes(httpRoutes []*v1beta14.HTTPRoute, subpaths []qav1al
 
 // 根据plane生成tcp route
 func getOrGenerateTcpRoutes(tcpRoutes []*v1beta14.TCPRoute, cr *qav1alpha1.SQBApplication,
-	planes map[string]string) []*v1beta14.TCPRoute {
+	planes map[string]int) []*v1beta14.TCPRoute {
 	resultTcpRoutes := make([]*v1beta14.TCPRoute, 0)
 	_, ok := planes["base"]
 	if ok {
@@ -561,7 +561,7 @@ func getOrGenerateTcpRoutes(tcpRoutes []*v1beta14.TCPRoute, cr *qav1alpha1.SQBAp
 	}
 	// 处理基础环境
 	if ok {
-		planes["base"] = ""
+		planes["base"] = 1
 		found, route := findRoute(TCPRoutes(tcpRoutes), cr.Name, "base")
 		if found {
 			tcpRoute := v1beta14.TCPRoute(route.(TCPRoute))

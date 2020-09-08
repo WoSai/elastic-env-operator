@@ -256,14 +256,14 @@ func (in *SQBApplicationStatus) DeepCopyInto(out *SQBApplicationStatus) {
 	*out = *in
 	if in.Planes != nil {
 		in, out := &in.Planes, &out.Planes
-		*out = make(map[string]string, len(*in))
+		*out = make(map[string]int, len(*in))
 		for key, val := range *in {
 			(*out)[key] = val
 		}
 	}
 	if in.Mirrors != nil {
 		in, out := &in.Mirrors, &out.Mirrors
-		*out = make(map[string]string, len(*in))
+		*out = make(map[string]int, len(*in))
 		for key, val := range *in {
 			(*out)[key] = val
 		}
@@ -450,7 +450,7 @@ func (in *SQBPlaneStatus) DeepCopyInto(out *SQBPlaneStatus) {
 	*out = *in
 	if in.Mirrors != nil {
 		in, out := &in.Mirrors, &out.Mirrors
-		*out = make(map[string]string, len(*in))
+		*out = make(map[string]int, len(*in))
 		for key, val := range *in {
 			(*out)[key] = val
 		}

@@ -113,9 +113,9 @@ func (r *SQBPlaneReconciler) Operate(ctx context.Context, obj runtime.Object) er
 	if err != nil {
 		return err
 	}
-	mirrors := map[string]string{}
+	mirrors := map[string]int{}
 	for _, deployment := range deploymentList.Items {
-		mirrors[deployment.Name] = ""
+		mirrors[deployment.Name] = 1
 	}
 	cr.Status.Mirrors = mirrors
 	cr.Status.ErrorInfo = ""

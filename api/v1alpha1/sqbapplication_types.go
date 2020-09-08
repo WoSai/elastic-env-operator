@@ -83,8 +83,8 @@ type SQBApplicationStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Planes      map[string]string `json:"planes,omitempty"`
-	Mirrors     map[string]string `json:"mirrors,omitempty"`
+	Planes      map[string]int `json:"planes,omitempty"`
+	Mirrors     map[string]int `json:"mirrors,omitempty"`
 	Initialized bool              `json:"initialized,omitempty"`
 	ErrorInfo   string            `json:"errorInfo,omitempty"`
 }
