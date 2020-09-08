@@ -42,11 +42,11 @@ type IngressSpec struct {
 type Subpath struct {
 	Path        string `json:"path"`
 	ServiceName string `json:"serviceName"`
+	// +kubebuilder:default:=80
 	ServicePort int    `json:"servicePort"`
 }
 
 type ServiceSpec struct {
-	ServiceType v1.ServiceType   `json:"serviceType,omitempty"`
 	Ports       []v1.ServicePort `json:"ports"`
 }
 
@@ -55,7 +55,6 @@ type DeploySpec struct {
 	Image        string                   `json:"image,omitempty"`
 	Resources    *v1.ResourceRequirements `json:"resources,omitempty"`
 	Env          []v1.EnvVar              `json:"env,omitempty"`
-	EnvFrom      []v1.EnvFromSource       `json:"envFrom,omitempty"`
 	HealthCheck  *v1.Probe                `json:"healthCheck,omitempty"`
 	Volumes      []v1.Volume              `json:"volumes,omitempty"`
 	VolumeMounts []v1.VolumeMount         `json:"volumeMounts,omitempty"`
@@ -64,7 +63,8 @@ type DeploySpec struct {
 }
 
 type NodeAffinity struct {
-	Weight *int32   `json:"weight,omitempty"`
+	// +kubebuilder:default:=100
+	Weight int32   `json:"weight"`
 	Key    string   `json:"key"`
 	Values []string `json:"values"`
 }

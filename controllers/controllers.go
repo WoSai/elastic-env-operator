@@ -123,7 +123,7 @@ func ignoreNoMatchError(err error) error {
 	return nil
 }
 
-type SQBReconciler interface {
+type ISQBReconciler interface {
 	// 初始化逻辑
 	IsInitialized(ctx context.Context, obj runtime.Object) (bool, error)
 	// 正常处理逻辑
@@ -135,7 +135,7 @@ type SQBReconciler interface {
 }
 
 // reconcile公共逻辑流程
-func HandleReconcile(r SQBReconciler, ctx context.Context, obj runtime.Object) (ctrl.Result, error) {
+func HandleReconcile(r ISQBReconciler, ctx context.Context, obj runtime.Object) (ctrl.Result, error) {
 	if yes, err := r.IsInitialized(ctx, obj); !yes {
 		if err != nil {
 			r.ReconcileFail(ctx, obj, err)

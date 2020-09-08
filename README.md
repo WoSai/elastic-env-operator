@@ -8,7 +8,7 @@ k8s operator就是自定义的k8s controller，我们可以自定义资源(CRD)�
 - Kubernetes API Version: v1
 - istio API version: v1beta1
 - operator framework version: v1.0.0
-- Kubernetes version： 1.12+
+- Kubernetes version： 1.16+
 
 
 ## 资源依赖关系
@@ -33,8 +33,7 @@ metadata:
   annotations:
     qa.shouqianba.com/istio-inject: "false" # 是否开启istio注入
     qa.shouqianba.com/ingress-open: "false" # 是否打开ingress
-    qa.shouqianba.com/delete: "true"  # 是否明确删除
-    qa.shouqianba.com/delete-password: ""  # 删除操作的密码，需要提前配置在configmap
+    qa.shouqianba.com/delete: "xxx"  # 公钥加密metadata.name得到，表示明确删除
     qa.shouqianba.com/passthrough-service: # 透传到Service的annotation,下同
     qa.shouqianba.com/passthrough-ingress:
     qa.shouqianba.com/passthrough-destinationrule:
@@ -48,12 +47,10 @@ spec:
     serviceName: sales-system-service
     servicePort: 80
   # service相关配置
-  serviceType: "" # ClusterIP 或者　NodePort
   ports:
   - port: 80
     targetPort: 8080
     protocol: TCP  # istio定义的protocol类型，service port的name需要以protocol开头
-    nodePort: 30000 # serviceType=NodePort时填写
   # deployment相关配置
   replicas: 1  # 可选，副本数，默认1
   image: # 镜像，必选
@@ -81,11 +78,6 @@ spec:
       secretKeyRef:
         name: ""
         key: ""
-  envFrom: # 环境变量
-    configMapRef:
-      name: ""
-    secretRef:
-      name: ""
   healthCheck:  # 健康检查，同时应用到livenessProbe和readinessProbe,exec,httpGet,tcpSocket三选一
     exec:
       command:
@@ -158,8 +150,7 @@ metadata:
   name: base # 环境名
   namespace: sqb  # 命名空间
   annotations:
-    qa.shouqianba.com/delete: "true"  # 是否明确删除
-    qa.shouqianba.com/delete-password: ""  # 删除操作的密码，需要提前配置在configmap
+    qa.shouqianba.com/delete: "xxx"  # 明确删除
 spec:
   description: # 用途说明
 status:
@@ -178,9 +169,8 @@ metadata:
   name: merchant-enrolment-base # 部署名
   namespace: sqb
   annotations:
-    qa.shouqianba.com/delete: "true"  # 是否明确删除
-    qa.shouqianba.com/delete-password: ""  # 删除操作的密码，需要提前配置在configmap
-    qa.shouqianba.com/public-entry: "true" #开启外网入口
+    qa.shouqianba.com/delete: "true"  # 明确删除
+    qa.shouqianba.com/public-entry: "merchant-enrolment-test1.iwosai.com" #外网入口
     qa.shouqianba.com/passthrough-deployment: # 透传到下游deployment的annotation
     qa.shouqianba.com/passthrough-pod:
 spec:
@@ -231,8 +221,7 @@ data:
     {"key": "value"}
   istioInject: "false" # 集群服务默认是否开启istio注入，被SQBApplication的annotations.qa.shouqianba.com/istio-inject覆盖
   istioTimeout: "30" # istio超时时间，单位秒
-  istioGateways: "echo-gateway.default.svc.cluster.local,mesh" # istio的virtualservice的gateways配置
-  deletePassword: "wosai1234" # 删除密码
+  istioGateways: "istio-system/ingressgateway,mesh" # istio的virtualservice的gateways配置
   
 ```
 

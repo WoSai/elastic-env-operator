@@ -164,7 +164,7 @@ func (r *SQBApplicationReconciler) Operate(ctx context.Context, obj runtime.Obje
 	cr.Status.Mirrors = mirrors
 	cr.Status.Planes = planes
 	if len(planes) == 0 {
-		if cr.Spec.Replicas != nil && cr.Spec.Image != "" {
+		if cr.Spec.Image != "" {
 			// 如果没有环境，创建一个base环境
 			basePlane := &qav1alpha1.SQBPlane{
 				ObjectMeta: v1.ObjectMeta{Namespace: cr.Namespace, Name: "base"},
@@ -208,7 +208,6 @@ func (r *SQBApplicationReconciler) Operate(ctx context.Context, obj runtime.Obje
 		service.Spec.Selector = map[string]string{
 			AppKey: cr.Name,
 		}
-		service.Spec.Type = cr.Spec.ServiceType
 		if anno, ok := cr.Annotations[ServiceAnnotationKey]; ok {
 			err = json.Unmarshal([]byte(anno), &service.Annotations)
 			if err != nil {
@@ -284,9 +283,9 @@ func (r *SQBApplicationReconciler) handleIstio(ctx context.Context, cr *qav1alph
 				rules = append(rules, rule)
 			}
 			for _,deployment := range deploymentList.Items {
-				if publicEntry,ok := deployment.Annotations[PublicEntryAnnotationKey]; ok && publicEntry == "true" {
+				if publicEntry,ok := deployment.Annotations[PublicEntryAnnotationKey]; ok {
 					rule := v1beta12.IngressRule{
-						Host: getSpecialVirtualServiceHost(configMapData, &deployment),
+						Host: publicEntry,
 						IngressRuleValue: ingressRule,
 					}
 					rules = append(rules, rule)

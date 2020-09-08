@@ -2,8 +2,8 @@ package controllers
 
 import (
 	"context"
-	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/gogo/protobuf/proto"
+	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	v1beta12 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	v13 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
@@ -113,8 +113,8 @@ var _ = Describe("Controller", func() {
 		Expect(instance.Status.Initialized).To(BeTrue())
 		Expect(containString(instance.Finalizers, SqbplaneFinalizer)).To(BeTrue())
 		err = k8sClient.Delete(ctx, sqbplane)
-		time.Sleep(time.Second)
 		Expect(err).NotTo(HaveOccurred())
+		time.Sleep(time.Second)
 	})
 
 	It("create application success,create base sqbdeployment,create service", func() {
@@ -126,7 +126,6 @@ var _ = Describe("Controller", func() {
 			},
 			Spec: qav1alpha1.SQBApplicationSpec{
 				ServiceSpec: qav1alpha1.ServiceSpec{
-					ServiceType: "ClusterIP",
 					Ports: []v12.ServicePort{
 						{
 							Port:       int32(80),
@@ -164,7 +163,7 @@ var _ = Describe("Controller", func() {
 		err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, service)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(service.Spec.Selector[AppKey]).To(Equal(applicationName))
-		Expect(service.Spec.Type, "ClusterIP")
+		Expect(service.Spec.Type, v12.ServiceTypeClusterIP)
 		port := service.Spec.Ports[0]
 		Expect(port.Name).To(Equal("http-80"))
 		Expect(port.Protocol).To(Equal(v12.ProtocolTCP))
@@ -191,7 +190,6 @@ var _ = Describe("Controller", func() {
 				},
 				Spec: qav1alpha1.SQBApplicationSpec{
 					ServiceSpec: qav1alpha1.ServiceSpec{
-						ServiceType: "ClusterIP",
 						Ports: []v12.ServicePort{
 							{
 								Port:       int32(80),
@@ -267,7 +265,7 @@ var _ = Describe("Controller", func() {
 					},
 					NodeAffinity: []qav1alpha1.NodeAffinity{
 						{
-							Weight: proto.Int32(100),
+							Weight: 100,
 							Key:    "node",
 							Values: []string{"qa"},
 						},
@@ -285,13 +283,6 @@ var _ = Describe("Controller", func() {
 								TCPSocket: &v12.TCPSocketAction{
 									Port: intstr.FromInt(8080),
 								},
-							},
-						},
-					},
-					EnvFrom: []v12.EnvFromSource{
-						{
-							ConfigMapRef: &v12.ConfigMapEnvSource{
-								LocalObjectReference: v12.LocalObjectReference{Name: "envfrom"},
 							},
 						},
 					},
@@ -344,7 +335,6 @@ var _ = Describe("Controller", func() {
 			initContainer := deployment.Spec.Template.Spec.InitContainers[0]
 			Expect(initContainer.Image).To(Equal("busybox"))
 			Expect(initContainer.Command).To(Equal([]string{"sleep", "1"}))
-			Expect(container.EnvFrom[0].ConfigMapRef.Name).To(Equal("envfrom"))
 			Expect(container.VolumeMounts[0].Name).To(Equal("volume1"))
 			Expect(container.VolumeMounts[0].MountPath).To(Equal("/tmp"))
 			nodeAffinity := deployment.Spec.Template.Spec.Affinity.NodeAffinity.
@@ -513,7 +503,6 @@ var _ = Describe("Controller", func() {
 				},
 				Spec: qav1alpha1.SQBApplicationSpec{
 					ServiceSpec: qav1alpha1.ServiceSpec{
-						ServiceType: "ClusterIP",
 						Ports: []v12.ServicePort{
 							{
 								Port:       int32(80),
@@ -591,10 +580,10 @@ var _ = Describe("Controller", func() {
 			ingress := &v1beta1.Ingress{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, ingress)
 			Expect(ingress.Spec.Rules[0].Host).To(Equal(applicationName + ".beta.iwosai.com"))
-			Expect(ingress.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName).To(Equal("istio-ingressgateway"))
+			Expect(ingress.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName).To(Equal("istio-ingressgateway-" + namespace))
 			Expect(ingress.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort).To(Equal(intstr.FromInt(80)))
 			Expect(ingress.Spec.Rules[1].Host).To(Equal(applicationName + ".iwosai.com"))
-			Expect(ingress.Spec.Rules[1].HTTP.Paths[0].Backend.ServiceName).To(Equal("istio-ingressgateway"))
+			Expect(ingress.Spec.Rules[1].HTTP.Paths[0].Backend.ServiceName).To(Equal("istio-ingressgateway-" + namespace))
 			Expect(ingress.Spec.Rules[1].HTTP.Paths[0].Backend.ServicePort).To(Equal(intstr.FromInt(80)))
 		})
 

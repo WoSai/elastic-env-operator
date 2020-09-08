@@ -19,10 +19,10 @@ package controllers
 import (
 	"context"
 	"encoding/json"
-	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	types2 "github.com/gogo/protobuf/types"
+	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	v1beta14 "istio.io/api/networking/v1beta1"
 	"istio.io/client-go/pkg/apis/networking/v1beta1"
 	v12 "k8s.io/api/apps/v1"
@@ -36,7 +36,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"strings"
 )
 
 // SQBDeploymentReconciler reconciles a SQBDeployment object
@@ -51,7 +50,6 @@ type SQBDeploymentReconciler struct {
 
 func (r *SQBDeploymentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	_ = r.Log.WithValues("sqbdeployment", req.NamespacedName)
 	instance := &qav1alpha1.SQBDeployment{}
 	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
@@ -99,7 +97,6 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 	if err != nil {
 		return err
 	}
-	//isIstioEnable := isIstioEnable(r.Client, ctx, configMapData, application)
 	deploymentName := getSubsetName(cr.Spec.Selector.App, cr.Spec.Selector.Plane)
 
 	deployment := &v12.Deployment{ObjectMeta: metav1.ObjectMeta{
@@ -123,7 +120,6 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 		container := v1.Container{
 			Name:           deploymentName,
 			Image:          deploy.Image,
-			EnvFrom:        deploy.EnvFrom,
 			Env:            deploy.Env,
 			VolumeMounts:   deploy.VolumeMounts,
 			LivenessProbe:  deploy.HealthCheck,
@@ -141,11 +137,6 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 				lifecycle.PreStop = prestop
 			}
 			container.Lifecycle = &lifecycle
-		}
-
-		imagePullSecrets, ok := configMapData["imagePullSecrets"]
-		if !ok {
-			imagePullSecrets = "reg-wosai"
 		}
 
 		if len(deployment.Labels) == 0 {
@@ -173,10 +164,15 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 					Containers: []v1.Container{
 						container,
 					},
-					ImagePullSecrets: []v1.LocalObjectReference{{Name: imagePullSecrets}},
 				},
 			},
 		}
+
+		imagePullSecrets, ok := configMapData["imagePullSecrets"]
+		if ok {
+			deployment.Spec.Template.Spec.ImagePullSecrets = []v1.LocalObjectReference{{Name: imagePullSecrets}}
+		}
+
 		if anno, ok := cr.Annotations[PodAnnotationKey]; ok {
 			err = json.Unmarshal([]byte(anno), &deployment.Spec.Template.Annotations)
 			if err != nil {
@@ -193,7 +189,7 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 				return err
 			}
 		}
-
+		// sqbapplication controller要用到publicEntry
 		if publicEntry, ok := cr.Annotations[PublicEntryAnnotationKey]; ok {
 			deployment.Annotations[PublicEntryAnnotationKey] = publicEntry
 		}
@@ -206,7 +202,6 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 				Image:   "busybox",
 				Command: init.Exec.Command,
 				Env:     deploy.Env,
-				EnvFrom: deploy.EnvFrom,
 			}
 			deployment.Spec.Template.Spec.InitContainers = []v1.Container{initContainer}
 		}
@@ -216,7 +211,7 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 			var nodeAffinity []v1.PreferredSchedulingTerm
 			for _, item := range deploy.NodeAffinity {
 				nodeAffinity = append(nodeAffinity, v1.PreferredSchedulingTerm{
-					Weight: *item.Weight,
+					Weight: item.Weight,
 					Preference: v1.NodeSelectorTerm{
 						MatchExpressions: []v1.NodeSelectorRequirement{
 							{
@@ -251,10 +246,10 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 	if err != nil {
 		return err
 	}
-
-	if cr.Annotations[PublicEntryAnnotationKey] == "true" && isIstioEnable(r.Client, ctx, configMapData, application) {
+	publicEntry, ok := cr.Annotations[PublicEntryAnnotationKey]
+	if ok && isIstioEnable(r.Client, ctx, configMapData, application) {
 		// 如果打开特殊入口，创建或更新单独的virtualservice
-		virtualservice := r.generateSpecialVirtualService(deployment, configMapData)
+		virtualservice := r.generateSpecialVirtualService(deployment, configMapData, publicEntry)
 		// 如果已经存在同名的virtualservice，就不再做变化，因为有可能手动修改过
 		_, err := controllerutil.CreateOrUpdate(ctx, r.Client, virtualservice, func() error { return nil })
 		if err != nil {
@@ -315,8 +310,7 @@ func (r *SQBDeploymentReconciler) RemoveFinalizer(ctx context.Context, cr *qav1a
 }
 
 func (r *SQBDeploymentReconciler) generateSpecialVirtualService(cr *v12.Deployment,
-	configMapData map[string]string) *v1beta1.VirtualService {
-	host := getSpecialVirtualServiceHost(configMapData, cr)
+	configMapData map[string]string, host string) *v1beta1.VirtualService {
 	virtualservice := &v1beta1.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{Namespace: cr.Namespace, Name: cr.Name},
 		Spec: v1beta14.VirtualService{
@@ -374,18 +368,6 @@ func deleteDeploymentByLabel(c client.Client, ctx context.Context, namespace str
 }
 
 func getSpecialVirtualServiceHost(configMapData map[string]string, cr *v12.Deployment) string {
-	domainPostfix, ok := configMapData["domainPostfix"]
-	if !ok {
-		domainPostfix = "*.beta.iwosai.com,*.iwosai.com"
-	}
-	// 选最短的后缀,因为只要开一个外网的
-	host := domainPostfix
-	hosts := strings.Split(domainPostfix, ",")
-	for _, h := range hosts {
-		if len(h) < len(host) {
-			host = h
-		}
-	}
-	host = strings.ReplaceAll(host, "*", cr.Name)
-	return host
+	publicEntry := cr.Annotations[PublicEntryAnnotationKey]
+	return publicEntry
 }
