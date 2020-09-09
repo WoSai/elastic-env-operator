@@ -184,9 +184,7 @@ func (r *SQBApplicationReconciler) Operate(ctx context.Context, obj runtime.Obje
 				}
 				return nil
 			})
-			if err != nil {
-				return err
-			}
+			return err
 		} else {
 			return nil
 		}
