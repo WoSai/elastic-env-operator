@@ -1,0 +1,24 @@
+# permissions for end users to edit sqbplanes.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: sqbplane-editor-role
+rules:
+- apiGroups:
+  - qa.shouqianba.com
+  resources:
+  - sqbplanes
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - qa.shouqianba.com
+  resources:
+  - sqbplanes/status
+  verbs:
+  - get

@@ -1,7 +1,0 @@
-apiVersion: qa.shouqianba.com/v1alpha1
-kind: ElasticEnvPlane
-metadata:
-  name: example-elasticenvplane
-spec:
-  # Add fields here
-  size: 3

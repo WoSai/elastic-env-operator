@@ -3,15 +3,16 @@ module github.com/wosai/elastic-env-operator
 go 1.13
 
 require (
-	github.com/operator-framework/operator-sdk v0.17.1
-	github.com/spf13/pflag v1.0.5
-	k8s.io/api v0.17.4
-	k8s.io/apimachinery v0.17.4
-	k8s.io/client-go v12.0.0+incompatible
-	sigs.k8s.io/controller-runtime v0.5.2
-)
-
-replace (
-	github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible // Required by OLM
-	k8s.io/client-go => k8s.io/client-go v0.17.4 // Required by prometheus-operator
+	github.com/evanphx/json-patch v4.5.0+incompatible
+	github.com/go-logr/logr v0.1.0
+	github.com/gogo/protobuf v1.3.1
+	github.com/onsi/ginkgo v1.12.1
+	github.com/onsi/gomega v1.10.1
+	istio.io/api v0.0.0-20200812202721-24be265d41c3
+	istio.io/client-go v0.0.0-20200814134724-bcbf0ed82b30
+	k8s.io/api v0.18.6
+	k8s.io/apiextensions-apiserver v0.18.6
+	k8s.io/apimachinery v0.18.6
+	k8s.io/client-go v0.18.6
+	sigs.k8s.io/controller-runtime v0.6.2
 )

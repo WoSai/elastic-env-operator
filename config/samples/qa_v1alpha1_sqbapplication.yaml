@@ -1,0 +1,10 @@
+apiVersion: qa.shouqianba.com/v1alpha1
+kind: SQBApplication
+metadata:
+  name: merchant-enrolment
+  namespace: ln
+spec:
+  ports:
+    - port: 80
+      targetPort: 8080
+      protocol: TCP

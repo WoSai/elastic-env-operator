@@ -1,0 +1,25 @@
+
+---
+apiVersion: admissionregistration.k8s.io/v1beta1
+kind: ValidatingWebhookConfiguration
+metadata:
+  creationTimestamp: null
+  name: validating-webhook-configuration
+webhooks:
+- clientConfig:
+    caBundle: Cg==
+    service:
+      name: webhook-service
+      namespace: system
+      path: /validate-qa-shouqianba-com-v1alpha1-sqbdeployment
+  failurePolicy: Fail
+  name: vsqbdeployment.kb.io
+  rules:
+  - apiGroups:
+    - qa.shouqianba.com
+    apiVersions:
+    - v1alpha1
+    operations:
+    - UPDATE
+    resources:
+    - sqbdeployments
