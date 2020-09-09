@@ -9,6 +9,8 @@ type (
 	ElasticEnvOperatorV1alpha1Interface interface {
 		RESTClient() rest.Interface
 		SQBApplicationGetter
+		SQBDeploymentGetter
+		SQBPlaneGetter
 	}
 
 	// ElasticEnvOperatorV1alpha1Client is used to interact with features provided by the qa.shouqianba.com group.
@@ -25,6 +27,14 @@ const (
 
 func (ec *ElasticEnvOperatorV1alpha1Client) SQBApplication(ns string) SQBApplicationInterface {
 	return newSQBApplication(ec, ns)
+}
+
+func (ec *ElasticEnvOperatorV1alpha1Client) SQBDeployment(ns string) SQBDeploymentInterface {
+	return newSQBDeployment(ec, ns)
+}
+
+func (ec *ElasticEnvOperatorV1alpha1Client) SQBPlane(ns string) SQBPlaneInterface {
+	return newSQBPlane(ec, ns)
 }
 
 func (ec *ElasticEnvOperatorV1alpha1Client) RESTClient() rest.Interface {

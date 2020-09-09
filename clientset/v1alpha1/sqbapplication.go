@@ -24,10 +24,10 @@ type (
 		//UpdateStatus(ctx context.Context, application *v1alpha1.SQBApplication, opts v1.UpdateOptions) (*v1alpha1.SQBApplication, error)
 		Delete(context.Context, string, v1.DeleteOptions) error
 		DeleteCollection(context.Context, v1.DeleteOptions, v1.ListOptions) error
-		Get(ctx context.Context, name string, opt v1.GetOptions) (*v1alpha1.SQBApplication, error)
+		Get(context.Context, string, v1.GetOptions) (*v1alpha1.SQBApplication, error)
 		List(context.Context, v1.ListOptions) (*v1alpha1.SQBApplicationList, error)
 		Watch(context.Context, v1.ListOptions) (watch.Interface, error)
-		Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opt v1.PatchOptions, subresources ...string) (*v1alpha1.SQBApplication, error)
+		Patch(context.Context, string, types.PatchType, []byte, v1.PatchOptions, ...string) (*v1alpha1.SQBApplication, error)
 	}
 
 	// sqbApplication implements SQBApplicationInterface
@@ -113,9 +113,10 @@ func (c *sqbApplication) DeleteCollection(ctx context.Context, opts v1.DeleteOpt
 		VersionedParams(&listOpts, ParameterCodec).Body(&opts).Do(ctx).Error()
 }
 
+// Patch applies the patch and returns the patched SQBApplication
 func (c *sqbApplication) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (*v1alpha1.SQBApplication, error) {
 	result := &v1alpha1.SQBApplication{}
-	err := c.client.Patch(pt).Namespace(c.namespace).SubResource(subresources...).
+	err := c.client.Patch(pt).Namespace(c.namespace).Resource(applicationResource).SubResource(subresources...).Name(name).
 		VersionedParams(&opts, ParameterCodec).Body(data).Do(ctx).Into(result)
 	return result, err
 }
