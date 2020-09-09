@@ -2,8 +2,11 @@ package controllers
 
 import (
 	"context"
+	"crypto/md5"
+	"fmt"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"os"
@@ -23,7 +26,6 @@ var (
 	SqbdeploymentFinalizer       = "SQBDEPLOYMENT"
 	SqbapplicationFinalizer      = "SQBAPPLICATION"
 	ExplicitDeleteAnnotationKey  = "qa.shouqianba.com/delete"
-	DeletePasswordAnnotationKey  = "qa.shouqianba.com/delete-password"
 	IstioInjectAnnotationKey     = "qa.shouqianba.com/istio-inject"
 	IngressOpenAnnotationKey     = "qa.shouqianba.com/ingress-open"
 	PublicEntryAnnotationKey     = "qa.shouqianba.com/public-entry"
@@ -121,6 +123,16 @@ func ignoreNoMatchError(err error) error {
 		return err
 	}
 	return nil
+}
+
+//
+func getDeleteCheckSum(cr v12.Object) string {
+	salt := os.Getenv("MD5_SALT")
+	if salt == "" {
+		salt = "0e80b3a3-ad6b-4bc5-a41e-57ea49266417"
+	}
+	checksum := md5.Sum([]byte(cr.GetName() + salt))
+	return fmt.Sprintf("%x", checksum)
 }
 
 type ISQBReconciler interface {

@@ -36,6 +36,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"strings"
 )
 
 // SQBDeploymentReconciler reconciles a SQBDeployment object
@@ -100,7 +101,7 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 	deploymentName := getSubsetName(cr.Spec.Selector.App, cr.Spec.Selector.Plane)
 
 	deployment := &v12.Deployment{ObjectMeta: metav1.ObjectMeta{
-		Name: deploymentName,
+		Name:      deploymentName,
 		Namespace: cr.Namespace},
 	}
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
@@ -246,10 +247,10 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 	if err != nil {
 		return err
 	}
-	publicEntry, ok := cr.Annotations[PublicEntryAnnotationKey]
+	_, ok := deployment.Annotations[PublicEntryAnnotationKey]
 	if ok && isIstioEnable(r.Client, ctx, configMapData, application) {
 		// 如果打开特殊入口，创建或更新单独的virtualservice
-		virtualservice := r.generateSpecialVirtualService(deployment, configMapData, publicEntry)
+		virtualservice := r.generateSpecialVirtualService(deployment, configMapData)
 		// 如果已经存在同名的virtualservice，就不再做变化，因为有可能手动修改过
 		_, err := controllerutil.CreateOrUpdate(ctx, r.Client, virtualservice, func() error { return nil })
 		if err != nil {
@@ -277,17 +278,9 @@ func (r *SQBDeploymentReconciler) IsDeleting(ctx context.Context, obj runtime.Ob
 	}
 	var err error
 
-	configMapData := getDefaultConfigMapData(r.Client, ctx)
-
-	// 如果configmap没有配置密码，直接删除资源
-	password, ok := configMapData["deletePassword"]
-	if !ok {
-		return true, r.RemoveFinalizer(ctx, cr)
-	}
-	if cr.Annotations[ExplicitDeleteAnnotationKey] == "true" && cr.Annotations[DeletePasswordAnnotationKey] == password {
-		// 删除对应Deployment
+	if deleteCheckSum, ok := cr.Annotations[ExplicitDeleteAnnotationKey]; ok && deleteCheckSum == getDeleteCheckSum(cr) {
 		deployment := &v12.Deployment{ObjectMeta: metav1.ObjectMeta{
-			Name: getSubsetName(cr.Spec.Selector.App, cr.Spec.Selector.Plane),
+			Name:      getSubsetName(cr.Spec.Selector.App, cr.Spec.Selector.Plane),
 			Namespace: cr.Namespace},
 		}
 		err = r.Delete(ctx, deployment)
@@ -309,31 +302,31 @@ func (r *SQBDeploymentReconciler) RemoveFinalizer(ctx context.Context, cr *qav1a
 	return r.Update(ctx, cr)
 }
 
-func (r *SQBDeploymentReconciler) generateSpecialVirtualService(cr *v12.Deployment,
-	configMapData map[string]string, host string) *v1beta1.VirtualService {
+func (r *SQBDeploymentReconciler) generateSpecialVirtualService(deployment *v12.Deployment,
+	configMapData map[string]string) *v1beta1.VirtualService {
 	virtualservice := &v1beta1.VirtualService{
-		ObjectMeta: metav1.ObjectMeta{Namespace: cr.Namespace, Name: cr.Name},
+		ObjectMeta: metav1.ObjectMeta{Namespace: deployment.Namespace, Name: deployment.Name},
 		Spec: v1beta14.VirtualService{
-			Hosts:    []string{host},
+			Hosts:    getSpecialVirtualServiceHost(deployment),
 			Gateways: getIstioGateways(configMapData),
 			Http: []*v1beta14.HTTPRoute{
 				{
 					Route: []*v1beta14.HTTPRouteDestination{
 						{Destination: &v1beta14.Destination{
-							Host:   cr.Labels[AppKey],
-							Subset: cr.Name,
+							Host:   deployment.Labels[AppKey],
+							Subset: deployment.Name,
 						}},
 					},
 					Timeout: &types2.Duration{Seconds: getIstioTimeout(configMapData)},
 					Headers: &v1beta14.Headers{
-						Request: &v1beta14.Headers_HeaderOperations{Set: map[string]string{XEnvFlag: cr.Labels[PlaneKey]}},
+						Request: &v1beta14.Headers_HeaderOperations{Set: map[string]string{XEnvFlag: deployment.Labels[PlaneKey]}},
 					},
 				},
 			},
 		},
 	}
-	// 设置controller owner ref,删除Deployment自动删除
-	_ = controllerutil.SetControllerReference(cr, virtualservice, r.Scheme)
+	// 为了删除Deployment能自动删除SpecialVirtualservice
+	_ = controllerutil.SetControllerReference(deployment, virtualservice, r.Scheme)
 	return virtualservice
 }
 
@@ -365,4 +358,9 @@ func deleteDeploymentByLabel(c client.Client, ctx context.Context, namespace str
 		}
 	}
 	return nil
+}
+
+func getSpecialVirtualServiceHost(deployment *v12.Deployment) []string {
+	publicEntry := deployment.Annotations[PublicEntryAnnotationKey]
+	return strings.Split(publicEntry, ",")
 }

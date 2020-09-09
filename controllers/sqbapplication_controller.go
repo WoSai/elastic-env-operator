@@ -98,14 +98,7 @@ func (r *SQBApplicationReconciler) IsDeleting(ctx context.Context, obj runtime.O
 
 	var err error
 
-	configMapData := getDefaultConfigMapData(r.Client, ctx)
-
-	// 如果configmap没有配置密码，直接删除资源
-	password, ok := configMapData["deletePassword"]
-	if !ok {
-		return true, r.RemoveFinalizer(ctx, cr)
-	}
-	if cr.Annotations[ExplicitDeleteAnnotationKey] == "true" && cr.Annotations[DeletePasswordAnnotationKey] == password {
+	if deleteCheckSum, ok := cr.Annotations[ExplicitDeleteAnnotationKey]; ok && deleteCheckSum == getDeleteCheckSum(cr) {
 		// 删除ingress,service
 		ingress := &v1beta12.Ingress{ObjectMeta: v1.ObjectMeta{Namespace: cr.Namespace, Name: cr.Name}}
 		err = r.Delete(ctx, ingress)
@@ -117,6 +110,7 @@ func (r *SQBApplicationReconciler) IsDeleting(ctx context.Context, obj runtime.O
 		if err != nil && !apierrors.IsNotFound(err) {
 			return true, err
 		}
+		configMapData := getDefaultConfigMapData(r.Client, ctx)
 		if isIstioEnable(r.Client, ctx, configMapData, cr) {
 			// 如果有istio,删除virtualservice,destinationrule
 			destinationrule := &v1beta13.DestinationRule{ObjectMeta: v1.ObjectMeta{Namespace: cr.Namespace, Name: cr.Name}}
@@ -179,16 +173,21 @@ func (r *SQBApplicationReconciler) Operate(ctx context.Context, obj runtime.Obje
 					Namespace: cr.Namespace,
 					Name:      getSubsetName(cr.Name, "base"),
 				},
-				Spec: qav1alpha1.SQBDeploymentSpec{
+			}
+			_, err = controllerutil.CreateOrUpdate(ctx, r.Client, sqbDeployment, func() error {
+				sqbDeployment.Spec = qav1alpha1.SQBDeploymentSpec{
 					Selector: qav1alpha1.Selector{
 						App:   cr.Name,
 						Plane: "base",
 					},
 					DeploySpec: cr.Spec.DeploySpec,
-				},
+				}
+				return nil
+			})
+			if err != nil {
+				return err
 			}
-			return r.Create(ctx, sqbDeployment)
-		}else{
+		} else {
 			return nil
 		}
 	}
@@ -277,18 +276,20 @@ func (r *SQBApplicationReconciler) handleIstio(ctx context.Context, cr *qav1alph
 			}
 			for _, host := range hosts {
 				rule := v1beta12.IngressRule{
-					Host: host,
+					Host:             host,
 					IngressRuleValue: ingressRule,
 				}
 				rules = append(rules, rule)
 			}
-			for _,deployment := range deploymentList.Items {
-				if publicEntry,ok := deployment.Annotations[PublicEntryAnnotationKey]; ok {
-					rule := v1beta12.IngressRule{
-						Host: publicEntry,
-						IngressRuleValue: ingressRule,
+			for _, deployment := range deploymentList.Items {
+				if _, ok := deployment.Annotations[PublicEntryAnnotationKey]; ok {
+					for _, publicEntry := range getSpecialVirtualServiceHost(&deployment) {
+						rule := v1beta12.IngressRule{
+							Host:             publicEntry,
+							IngressRuleValue: ingressRule,
+						}
+						rules = append(rules, rule)
 					}
-					rules = append(rules, rule)
 				}
 			}
 			ingress.Spec = v1beta12.IngressSpec{Rules: rules}

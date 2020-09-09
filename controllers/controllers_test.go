@@ -70,18 +70,6 @@ func enableIstio() {
 	time.Sleep(time.Second)
 }
 
-func enableConfigmap() {
-	ctx := context.Background()
-	configmap := &v12.ConfigMap{ObjectMeta: v1.ObjectMeta{Namespace: "default", Name: "operator-configmap"}}
-	_, err := controllerutil.CreateOrUpdate(ctx, k8sClient, configmap, func() error {
-		configmap.Data = map[string]string{
-			"deletePassword": "wosai1234",
-		}
-		return nil
-	})
-	Expect(err).NotTo(HaveOccurred())
-}
-
 var _ = Describe("Controller", func() {
 	namespace := "default"
 	applicationName := "default-app"
@@ -181,7 +169,6 @@ var _ = Describe("Controller", func() {
 
 	Describe("istio disabled", func() {
 		BeforeEach(func() {
-			enableConfigmap()
 			// 创建默认的application
 			sqbapplication = &qav1alpha1.SQBApplication{
 				ObjectMeta: v1.ObjectMeta{
@@ -462,8 +449,7 @@ var _ = Describe("Controller", func() {
 		It("delete sqbapplication with password", func() {
 			_, err := controllerutil.CreateOrUpdate(ctx, k8sClient, sqbapplication, func() error {
 				sqbapplication.Annotations = map[string]string{
-					DeletePasswordAnnotationKey: "wosai1234",
-					ExplicitDeleteAnnotationKey: "true",
+					ExplicitDeleteAnnotationKey: getDeleteCheckSum(sqbapplication),
 					IngressOpenAnnotationKey:    "true",
 				}
 				return nil
@@ -598,7 +584,7 @@ var _ = Describe("Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			_, err = controllerutil.CreateOrUpdate(ctx, k8sClient, sqbdeployment, func() error {
 				sqbdeployment.Annotations = map[string]string{
-					PublicEntryAnnotationKey: "true",
+					PublicEntryAnnotationKey: deploymentName + ".iwosai.com",
 				}
 				return nil
 			})
@@ -713,8 +699,7 @@ var _ = Describe("Controller", func() {
 		It("delete sqbapplication with password", func() {
 			_, err := controllerutil.CreateOrUpdate(ctx, k8sClient, sqbapplication, func() error {
 				sqbapplication.Annotations = map[string]string{
-					DeletePasswordAnnotationKey: "wosai1234",
-					ExplicitDeleteAnnotationKey: "true",
+					ExplicitDeleteAnnotationKey: getDeleteCheckSum(sqbapplication),
 					IstioInjectAnnotationKey:    "true",
 				}
 				return nil
