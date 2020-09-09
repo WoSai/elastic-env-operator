@@ -79,13 +79,13 @@ func (r *SQBApplicationReconciler) IsInitialized(ctx context.Context, obj runtim
 	if cr.Status.Initialized == true {
 		return true, nil
 	}
-	// 设置finalizer
 	controllerutil.AddFinalizer(cr, SqbapplicationFinalizer)
+	configMapData := getDefaultConfigMapData(r.Client, ctx)
+	cr.Spec.Hosts = getIngressHosts(configMapData, cr)
 	err := r.Update(ctx, cr)
 	if err != nil {
 		return false, err
 	}
-	// 更新status
 	cr.Status.Initialized = true
 	return false, r.Status().Update(ctx, cr)
 }
@@ -255,8 +255,6 @@ func (r *SQBApplicationReconciler) RemoveFinalizer(ctx context.Context, cr *qav1
 func (r *SQBApplicationReconciler) handleIstio(ctx context.Context, cr *qav1alpha1.SQBApplication,
 	configMapData map[string]string, deploymentList *v12.DeploymentList) error {
 	isIngressOpen := isIngressOpen(configMapData, cr)
-	hosts := getIngressHosts(configMapData, cr)
-	subpaths := cr.Spec.Subpaths
 	// Ingress
 	ingress := &v1beta12.Ingress{ObjectMeta: v1.ObjectMeta{Namespace: cr.Namespace, Name: cr.Name}}
 	if isIngressOpen {
@@ -274,7 +272,7 @@ func (r *SQBApplicationReconciler) handleIstio(ctx context.Context, cr *qav1alph
 					},
 				},
 			}
-			for _, host := range hosts {
+			for _, host := range cr.Spec.Hosts {
 				rule := v1beta12.IngressRule{
 					Host:             host,
 					IngressRuleValue: ingressRule,
@@ -330,11 +328,11 @@ func (r *SQBApplicationReconciler) handleIstio(ctx context.Context, cr *qav1alph
 	// VirtualService
 	virtualservice := &v1beta13.VirtualService{ObjectMeta: v1.ObjectMeta{Namespace: cr.Namespace, Name: cr.Name}}
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, virtualservice, func() error {
-		virtualserviceHosts := append(hosts, cr.Name)
+		virtualserviceHosts := append(cr.Spec.Hosts, cr.Name)
 		gateways := getIstioGateways(configMapData)
 		virtualservice.Spec.Hosts = virtualserviceHosts
 		virtualservice.Spec.Gateways = gateways
-		virtualservice.Spec.Http = getOrGenerateHttpRoutes(virtualservice.Spec.Http, subpaths, planes, configMapData)
+		virtualservice.Spec.Http = getOrGenerateHttpRoutes(virtualservice.Spec.Http, cr.Spec.Subpaths, planes, configMapData)
 		// 处理tcp route
 		for _, port := range cr.Spec.Ports {
 			if containString([]string{"tcp", "mongo", "mysql", "redis"}, strings.ToLower(string(port.Protocol))) {
@@ -362,16 +360,14 @@ func (r *SQBApplicationReconciler) handleIstio(ctx context.Context, cr *qav1alph
 func (r *SQBApplicationReconciler) handleNoIstio(ctx context.Context, cr *qav1alpha1.SQBApplication,
 	configMapData map[string]string) error {
 	isIngressOpen := isIngressOpen(configMapData, cr)
-	hosts := getIngressHosts(configMapData, cr)
-	subpaths := cr.Spec.Subpaths
 	// Ingress
 	ingress := &v1beta12.Ingress{ObjectMeta: v1.ObjectMeta{Namespace: cr.Namespace, Name: cr.Name}}
 	if isIngressOpen {
 		_, err := controllerutil.CreateOrUpdate(ctx, r.Client, ingress, func() error {
 			rules := make([]v1beta12.IngressRule, 0)
-			for _, host := range hosts {
+			for _, host := range cr.Spec.Hosts {
 				paths := make([]v1beta12.HTTPIngressPath, 0)
-				for _, subpath := range subpaths {
+				for _, subpath := range cr.Spec.Subpaths {
 					path := v1beta12.HTTPIngressPath{
 						Path: subpath.Path,
 						Backend: v1beta12.IngressBackend{
@@ -689,17 +685,16 @@ func isIstioEnable(client client.Client, ctx context.Context,
 	return enable
 }
 
-// 如果配置了host使用配置的host，没有配置使用configmap中默认配置，如果configmap没有配置，使用默认值"*.beta.iwosai.com,*.iwosai.com"
+// 没有配置使用configmap中默认配置，如果configmap没有配置，使用默认值"*.beta.iwosai.com,*.iwosai.com"
+// 如果配置了host使用配置的host，加上默认的host
 func getIngressHosts(configMapData map[string]string, cr *qav1alpha1.SQBApplication) []string {
-	var hosts []string
-	if len(cr.Spec.Hosts) == 0 {
-		domainPostfix, ok := configMapData["domainPostfix"]
-		if !ok {
-			domainPostfix = "*.beta.iwosai.com,*.iwosai.com"
-		}
-		hosts = strings.Split(strings.ReplaceAll(domainPostfix, "*", cr.Name), ",")
-	} else {
-		hosts = cr.Spec.Hosts
+	domainPostfix, ok := configMapData["domainPostfix"]
+	if !ok {
+		domainPostfix = "*.beta.iwosai.com,*.iwosai.com"
+	}
+	hosts := strings.Split(strings.ReplaceAll(domainPostfix, "*", cr.Name), ",")
+	for _, host := range cr.Spec.Hosts {
+		hosts = append(hosts, host)
 	}
 	return hosts
 }
