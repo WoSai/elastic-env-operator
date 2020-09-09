@@ -33,7 +33,7 @@ metadata:
   annotations:
     qa.shouqianba.com/istio-inject: "false" # 是否开启istio注入
     qa.shouqianba.com/ingress-open: "false" # 是否打开ingress
-    qa.shouqianba.com/delete: "xxx"  # 公钥加密metadata.name得到，表示明确删除
+    qa.shouqianba.com/delete: "xxx"  # md5(metadata.name+salt)得到,salt保存在secret,表示明确删除
     qa.shouqianba.com/passthrough-service: # 透传到Service的annotation,下同
     qa.shouqianba.com/passthrough-ingress:
     qa.shouqianba.com/passthrough-destinationrule:
@@ -169,8 +169,8 @@ metadata:
   name: merchant-enrolment-base # 部署名
   namespace: sqb
   annotations:
-    qa.shouqianba.com/delete: "true"  # 明确删除
-    qa.shouqianba.com/public-entry: "merchant-enrolment-test1.iwosai.com" #外网入口
+    qa.shouqianba.com/delete: "xxx"  # 明确删除
+    qa.shouqianba.com/public-entry: "merchant-enrolment-test1.iwosai.com" #外网入口,多个使用逗号隔开
     qa.shouqianba.com/passthrough-deployment: # 透传到下游deployment的annotation
     qa.shouqianba.com/passthrough-pod:
 spec:
@@ -205,7 +205,8 @@ SQBDeployment controller处理逻辑
 ![](http://sqb-qa.oss-cn-hangzhou.aliyuncs.com/crm%2Fsqbdeployment.jpg)
 
 
-## operator的全局configmap
+## operator的全局配置
+### configmap
 configmap的namespace与manager保持一致，默认的配置在config/manager/manager.yaml,configmap的name需要为operator-configmap
 ```yaml
 apiVersion: v1
@@ -222,6 +223,19 @@ data:
   istioInject: "false" # 集群服务默认是否开启istio注入，被SQBApplication的annotations.qa.shouqianba.com/istio-inject覆盖
   istioTimeout: "30" # istio超时时间，单位秒
   istioGateways: "istio-system/ingressgateway,mesh" # istio的virtualservice的gateways配置
+  
+```
+
+### secret
+存放operator使用到的秘钥信息
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: operator-secret
+  namespace: qa
+data:
+  salt: "xxx" # md5的salt
   
 ```
 
