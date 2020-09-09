@@ -80,8 +80,6 @@ func (r *SQBApplicationReconciler) IsInitialized(ctx context.Context, obj runtim
 		return true, nil
 	}
 	controllerutil.AddFinalizer(cr, SqbapplicationFinalizer)
-	configMapData := getDefaultConfigMapData(r.Client, ctx)
-	cr.Spec.Hosts = getIngressHosts(configMapData, cr)
 	err := r.Update(ctx, cr)
 	if err != nil {
 		return false, err
@@ -141,7 +139,7 @@ func (r *SQBApplicationReconciler) IsDeleting(ctx context.Context, obj runtime.O
 func (r *SQBApplicationReconciler) Operate(ctx context.Context, obj runtime.Object) error {
 	cr := obj.(*qav1alpha1.SQBApplication)
 	var err error
-	// 判断是否有对应deployment，如果没有就返回不操作
+	// 判断是否有对应deployment
 	deploymentList := &v12.DeploymentList{}
 	err = r.List(ctx, deploymentList, &client.ListOptions{Namespace: cr.Namespace, LabelSelector: labels.SelectorFromSet(map[string]string{AppKey: cr.Name})})
 	if err != nil {
@@ -190,6 +188,8 @@ func (r *SQBApplicationReconciler) Operate(ctx context.Context, obj runtime.Obje
 		}
 	}
 	configMapData := getDefaultConfigMapData(r.Client, ctx)
+	// 生成ingress和virtualservice的时候需要用到这里的hosts
+	cr.Spec.Hosts = getIngressHosts(configMapData, cr)
 	//　处理service
 	service := &v13.Service{ObjectMeta: v1.ObjectMeta{Namespace: cr.Namespace, Name: cr.Name}}
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, service, func() error {
