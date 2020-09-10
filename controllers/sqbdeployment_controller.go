@@ -73,8 +73,8 @@ func (r *SQBDeploymentReconciler) IsInitialized(ctx context.Context, obj runtime
 	}
 	// 设置finalizer、labels
 	controllerutil.AddFinalizer(cr, SqbdeploymentFinalizer)
-	cr.Labels = addLabel(cr.Labels, AppKey, cr.Spec.Selector.App)
-	cr.Labels = addLabel(cr.Labels, PlaneKey, cr.Spec.Selector.Plane)
+	cr.Labels = AddLabel(cr.Labels, AppKey, cr.Spec.Selector.App)
+	cr.Labels = AddLabel(cr.Labels, PlaneKey, cr.Spec.Selector.Plane)
 
 	err = r.Update(ctx, cr)
 	if err != nil {
@@ -87,7 +87,7 @@ func (r *SQBDeploymentReconciler) IsInitialized(ctx context.Context, obj runtime
 
 func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Object) error {
 	cr := obj.(*qav1alpha1.SQBDeployment)
-	configMapData := getDefaultConfigMapData(r.Client, ctx)
+	configMapData := GetDefaultConfigMapData(r.Client, ctx)
 	application := &qav1alpha1.SQBApplication{}
 	err := r.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: cr.Spec.Selector.App}, application)
 	if err != nil {
@@ -248,7 +248,7 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 		return err
 	}
 	_, ok := deployment.Annotations[PublicEntryAnnotationKey]
-	if ok && isIstioEnable(r.Client, ctx, configMapData, application) {
+	if ok && IsIstioEnable(r.Client, ctx, configMapData, application) {
 		// 如果打开特殊入口，创建或更新单独的virtualservice
 		virtualservice := r.generateSpecialVirtualService(deployment, configMapData)
 		// 如果已经存在同名的virtualservice，就不再做变化，因为有可能手动修改过
@@ -278,7 +278,7 @@ func (r *SQBDeploymentReconciler) IsDeleting(ctx context.Context, obj runtime.Ob
 	}
 	var err error
 
-	if deleteCheckSum, ok := cr.Annotations[ExplicitDeleteAnnotationKey]; ok && deleteCheckSum == getDeleteCheckSum(cr) {
+	if deleteCheckSum, ok := cr.Annotations[ExplicitDeleteAnnotationKey]; ok && deleteCheckSum == GetDeleteCheckSum(cr) {
 		deployment := &v12.Deployment{ObjectMeta: metav1.ObjectMeta{
 			Name:      getSubsetName(cr.Spec.Selector.App, cr.Spec.Selector.Plane),
 			Namespace: cr.Namespace},
@@ -330,7 +330,7 @@ func (r *SQBDeploymentReconciler) generateSpecialVirtualService(deployment *v12.
 	return virtualservice
 }
 
-func deleteSqbdeploymentByLabel(c client.Client, ctx context.Context, namespace string, labelSets map[string]string) error {
+func DeleteSqbdeploymentByLabel(c client.Client, ctx context.Context, namespace string, labelSets map[string]string) error {
 	sqbDeploymentList := &qav1alpha1.SQBDeploymentList{}
 	err := c.List(ctx, sqbDeploymentList, &client.ListOptions{Namespace: namespace, LabelSelector: labels.SelectorFromSet(labelSets)})
 	if err != nil && !apierrors.IsNotFound(err) {
@@ -345,7 +345,7 @@ func deleteSqbdeploymentByLabel(c client.Client, ctx context.Context, namespace 
 	return nil
 }
 
-func deleteDeploymentByLabel(c client.Client, ctx context.Context, namespace string, labelSets map[string]string) error {
+func DeleteDeploymentByLabel(c client.Client, ctx context.Context, namespace string, labelSets map[string]string) error {
 	deploymentList := &v12.DeploymentList{}
 	err := c.List(ctx, deploymentList, &client.ListOptions{Namespace: namespace, LabelSelector: labels.SelectorFromSet(labelSets)})
 	if err != nil && !apierrors.IsNotFound(err) {

@@ -80,7 +80,7 @@ var (
 )
 
 // return label
-func addLabel(originLabels map[string]string, key string, value string) map[string]string {
+func AddLabel(originLabels map[string]string, key string, value string) map[string]string {
 	if len(originLabels) == 0 {
 		originLabels = map[string]string{}
 	}
@@ -89,7 +89,7 @@ func addLabel(originLabels map[string]string, key string, value string) map[stri
 }
 
 //
-func getConfigMapData(client client.Client, ctx context.Context, key client.ObjectKey) map[string]string {
+func GetConfigMapData(client client.Client, ctx context.Context, key client.ObjectKey) map[string]string {
 	configmap := &v1.ConfigMap{}
 	err := client.Get(ctx, key, configmap)
 	if err != nil {
@@ -98,17 +98,17 @@ func getConfigMapData(client client.Client, ctx context.Context, key client.Obje
 	return configmap.Data
 }
 
-func getDefaultConfigMapData(client client.Client, ctx context.Context) map[string]string {
+func GetDefaultConfigMapData(client client.Client, ctx context.Context) map[string]string {
 	namespace := os.Getenv("CONFIGMAP_NAMESPACE")
 	if namespace == "" {
 		namespace = "default"
 	}
 	name := "operator-configmap"
-	return getConfigMapData(client, ctx, types.NamespacedName{Namespace: namespace, Name: name})
+	return GetConfigMapData(client, ctx, types.NamespacedName{Namespace: namespace, Name: name})
 }
 
 //
-func containString(list []string, item string) bool {
+func ContainString(list []string, item string) bool {
 	for _, i := range list {
 		if i == item {
 			return true
@@ -118,7 +118,7 @@ func containString(list []string, item string) bool {
 }
 
 // 忽略没有匹配资源的错误
-func ignoreNoMatchError(err error) error {
+func IgnoreNoMatchError(err error) error {
 	if err != nil && !apierrors.IsNotFound(err) && !strings.HasPrefix(err.Error(), "no matches for kind") {
 		return err
 	}
@@ -126,7 +126,7 @@ func ignoreNoMatchError(err error) error {
 }
 
 //
-func getDeleteCheckSum(cr v12.Object) string {
+func GetDeleteCheckSum(cr v12.Object) string {
 	salt := os.Getenv("MD5_SALT")
 	if salt == "" {
 		salt = "0e80b3a3-ad6b-4bc5-a41e-57ea49266417"

@@ -96,7 +96,7 @@ func (r *SQBApplicationReconciler) IsDeleting(ctx context.Context, obj runtime.O
 
 	var err error
 
-	if deleteCheckSum, ok := cr.Annotations[ExplicitDeleteAnnotationKey]; ok && deleteCheckSum == getDeleteCheckSum(cr) {
+	if deleteCheckSum, ok := cr.Annotations[ExplicitDeleteAnnotationKey]; ok && deleteCheckSum == GetDeleteCheckSum(cr) {
 		// 删除ingress,service
 		ingress := &v1beta12.Ingress{ObjectMeta: v1.ObjectMeta{Namespace: cr.Namespace, Name: cr.Name}}
 		err = r.Delete(ctx, ingress)
@@ -108,27 +108,27 @@ func (r *SQBApplicationReconciler) IsDeleting(ctx context.Context, obj runtime.O
 		if err != nil && !apierrors.IsNotFound(err) {
 			return true, err
 		}
-		configMapData := getDefaultConfigMapData(r.Client, ctx)
-		if isIstioEnable(r.Client, ctx, configMapData, cr) {
+		configMapData := GetDefaultConfigMapData(r.Client, ctx)
+		if IsIstioEnable(r.Client, ctx, configMapData, cr) {
 			// 如果有istio,删除virtualservice,destinationrule
 			destinationrule := &v1beta13.DestinationRule{ObjectMeta: v1.ObjectMeta{Namespace: cr.Namespace, Name: cr.Name}}
 			err = r.Delete(ctx, destinationrule)
-			if ignoreNoMatchError(err) != nil {
+			if IgnoreNoMatchError(err) != nil {
 				return true, err
 			}
 			virtualservice := &v1beta13.VirtualService{ObjectMeta: v1.ObjectMeta{Namespace: cr.Namespace, Name: cr.Name}}
 			err = r.Delete(ctx, virtualservice)
-			if ignoreNoMatchError(err) != nil {
+			if IgnoreNoMatchError(err) != nil {
 				return true, err
 			}
 		}
 		// 删除SQBDeployment和Deployment
-		err = deleteSqbdeploymentByLabel(r.Client, ctx, cr.Namespace, map[string]string{AppKey: cr.Name})
+		err = DeleteSqbdeploymentByLabel(r.Client, ctx, cr.Namespace, map[string]string{AppKey: cr.Name})
 		if err != nil {
 			return true, err
 		}
 		// deployment会触发事件，所以最后删除
-		err = deleteDeploymentByLabel(r.Client, ctx, cr.Namespace, map[string]string{AppKey: cr.Name})
+		err = DeleteDeploymentByLabel(r.Client, ctx, cr.Namespace, map[string]string{AppKey: cr.Name})
 		if err != nil {
 			return true, err
 		}
@@ -187,7 +187,7 @@ func (r *SQBApplicationReconciler) Operate(ctx context.Context, obj runtime.Obje
 			return nil
 		}
 	}
-	configMapData := getDefaultConfigMapData(r.Client, ctx)
+	configMapData := GetDefaultConfigMapData(r.Client, ctx)
 	// 生成ingress和virtualservice的时候需要用到这里的hosts
 	cr.Spec.Hosts = getIngressHosts(configMapData, cr)
 	//　处理service
@@ -217,7 +217,7 @@ func (r *SQBApplicationReconciler) Operate(ctx context.Context, obj runtime.Obje
 		return err
 	}
 	// 判断是否启用istio
-	isIstioEnable := isIstioEnable(r.Client, ctx, configMapData, cr)
+	isIstioEnable := IsIstioEnable(r.Client, ctx, configMapData, cr)
 	// 添加一条默认的subpath /在最后
 	cr.Spec.Subpaths = append(cr.Spec.Subpaths, qav1alpha1.Subpath{
 		Path: "/", ServiceName: cr.Name, ServicePort: int(cr.Spec.Ports[0].Port)})
@@ -252,7 +252,7 @@ func (r *SQBApplicationReconciler) RemoveFinalizer(ctx context.Context, cr *qav1
 // 处理启用istio的逻辑
 func (r *SQBApplicationReconciler) handleIstio(ctx context.Context, cr *qav1alpha1.SQBApplication,
 	configMapData map[string]string, deploymentList *v12.DeploymentList) error {
-	isIngressOpen := isIngressOpen(configMapData, cr)
+	isIngressOpen := IsIngressOpen(configMapData, cr)
 	// Ingress
 	ingress := &v1beta12.Ingress{ObjectMeta: v1.ObjectMeta{Namespace: cr.Namespace, Name: cr.Name}}
 	if isIngressOpen {
@@ -333,7 +333,7 @@ func (r *SQBApplicationReconciler) handleIstio(ctx context.Context, cr *qav1alph
 		virtualservice.Spec.Http = getOrGenerateHttpRoutes(virtualservice.Spec.Http, cr.Spec.Subpaths, planes, configMapData)
 		// 处理tcp route
 		for _, port := range cr.Spec.Ports {
-			if containString([]string{"tcp", "mongo", "mysql", "redis"}, strings.ToLower(string(port.Protocol))) {
+			if ContainString([]string{"tcp", "mongo", "mysql", "redis"}, strings.ToLower(string(port.Protocol))) {
 				virtualservice.Spec.Tcp = getOrGenerateTcpRoutes(virtualservice.Spec.Tcp, cr, planes)
 				break
 			} else {
@@ -357,7 +357,7 @@ func (r *SQBApplicationReconciler) handleIstio(ctx context.Context, cr *qav1alph
 // 处理没有istio的逻辑
 func (r *SQBApplicationReconciler) handleNoIstio(ctx context.Context, cr *qav1alpha1.SQBApplication,
 	configMapData map[string]string) error {
-	isIngressOpen := isIngressOpen(configMapData, cr)
+	isIngressOpen := IsIngressOpen(configMapData, cr)
 	// Ingress
 	ingress := &v1beta12.Ingress{ObjectMeta: v1.ObjectMeta{Namespace: cr.Namespace, Name: cr.Name}}
 	if isIngressOpen {
@@ -407,13 +407,13 @@ func (r *SQBApplicationReconciler) handleNoIstio(ctx context.Context, cr *qav1al
 	// 删除virtualservice和destinationrule
 	virtualservice := &v1beta13.VirtualService{ObjectMeta: v1.ObjectMeta{Namespace: cr.Namespace, Name: cr.Name}}
 	err := r.Delete(ctx, virtualservice)
-	if ignoreNoMatchError(err) != nil {
+	if IgnoreNoMatchError(err) != nil {
 		return err
 	}
 
 	destinationrule := &v1beta13.DestinationRule{ObjectMeta: v1.ObjectMeta{Namespace: cr.Namespace, Name: cr.Name}}
 	err = r.Delete(ctx, destinationrule)
-	if ignoreNoMatchError(err) != nil {
+	if IgnoreNoMatchError(err) != nil {
 		return err
 	}
 	return nil
@@ -658,7 +658,7 @@ func getIstioGateways(configMapData map[string]string) []string {
 	return []string{"mesh"}
 }
 
-func isIstioEnable(client client.Client, ctx context.Context,
+func IsIstioEnable(client client.Client, ctx context.Context,
 	configMapData map[string]string, cr *qav1alpha1.SQBApplication) bool {
 	enable := false
 	var err error
@@ -698,7 +698,7 @@ func getIngressHosts(configMapData map[string]string, cr *qav1alpha1.SQBApplicat
 }
 
 // 是否开启ingress
-func isIngressOpen(configMapData map[string]string, cr *qav1alpha1.SQBApplication) bool {
+func IsIngressOpen(configMapData map[string]string, cr *qav1alpha1.SQBApplication) bool {
 	enable := false
 	if ingressOpen, ok := cr.Annotations[IngressOpenAnnotationKey]; ok {
 		if ingressOpen == "true" {

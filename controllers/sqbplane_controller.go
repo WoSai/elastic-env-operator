@@ -82,12 +82,12 @@ func (r *SQBPlaneReconciler) IsDeleting(ctx context.Context, obj runtime.Object)
 
 	var err error
 
-	if deleteCheckSum, ok := cr.Annotations[ExplicitDeleteAnnotationKey]; ok && deleteCheckSum == getDeleteCheckSum(cr) {
-		err = deleteSqbdeploymentByLabel(r.Client, ctx, cr.Namespace, map[string]string{PlaneKey: cr.Name})
+	if deleteCheckSum, ok := cr.Annotations[ExplicitDeleteAnnotationKey]; ok && deleteCheckSum == GetDeleteCheckSum(cr) {
+		err = DeleteSqbdeploymentByLabel(r.Client, ctx, cr.Namespace, map[string]string{PlaneKey: cr.Name})
 		if err != nil {
 			return true, err
 		}
-		err = deleteDeploymentByLabel(r.Client, ctx, cr.Namespace, map[string]string{PlaneKey: cr.Name})
+		err = DeleteDeploymentByLabel(r.Client, ctx, cr.Namespace, map[string]string{PlaneKey: cr.Name})
 		if err != nil {
 			return true, err
 		}
