@@ -70,18 +70,6 @@ func enableIstio() {
 	time.Sleep(time.Second)
 }
 
-func enableConfigmap() {
-	ctx := context.Background()
-	configmap := &v12.ConfigMap{ObjectMeta: v1.ObjectMeta{Namespace: "default", Name: "operator-configmap"}}
-	_, err := controllerutil.CreateOrUpdate(ctx, k8sClient, configmap, func() error {
-		configmap.Data = map[string]string{
-			"deletePassword": "wosai1234",
-		}
-		return nil
-	})
-	Expect(err).NotTo(HaveOccurred())
-}
-
 var _ = Describe("Controller", func() {
 	namespace := "default"
 	applicationName := "default-app"
@@ -111,7 +99,7 @@ var _ = Describe("Controller", func() {
 		err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: planeName}, instance)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(instance.Status.Initialized).To(BeTrue())
-		Expect(containString(instance.Finalizers, SqbplaneFinalizer)).To(BeTrue())
+		Expect(ContainString(instance.Finalizers, SqbplaneFinalizer)).To(BeTrue())
 		err = k8sClient.Delete(ctx, sqbplane)
 		Expect(err).NotTo(HaveOccurred())
 		time.Sleep(time.Second)
@@ -145,7 +133,7 @@ var _ = Describe("Controller", func() {
 		instance := &qav1alpha1.SQBApplication{}
 		err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, instance)
 		Expect(instance.Status.Initialized).To(BeTrue())
-		Expect(containString(instance.Finalizers, SqbapplicationFinalizer)).To(BeTrue())
+		Expect(ContainString(instance.Finalizers, SqbapplicationFinalizer)).To(BeTrue())
 		// 会创建base plane和sqbdeployment
 		basePlane := &qav1alpha1.SQBPlane{}
 		err := k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: planeName}, basePlane)
@@ -154,7 +142,7 @@ var _ = Describe("Controller", func() {
 		err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: deploymentName}, sqbdeployment)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(sqbdeployment.Status.Initialized).To(BeTrue())
-		Expect(containString(sqbdeployment.Finalizers, SqbdeploymentFinalizer)).To(BeTrue())
+		Expect(ContainString(sqbdeployment.Finalizers, SqbdeploymentFinalizer)).To(BeTrue())
 		deployment := &v13.Deployment{}
 		err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: deploymentName}, deployment)
 		Expect(err).NotTo(HaveOccurred())
@@ -181,7 +169,6 @@ var _ = Describe("Controller", func() {
 
 	Describe("istio disabled", func() {
 		BeforeEach(func() {
-			enableConfigmap()
 			// 创建默认的application
 			sqbapplication = &qav1alpha1.SQBApplication{
 				ObjectMeta: v1.ObjectMeta{
@@ -462,8 +449,7 @@ var _ = Describe("Controller", func() {
 		It("delete sqbapplication with password", func() {
 			_, err := controllerutil.CreateOrUpdate(ctx, k8sClient, sqbapplication, func() error {
 				sqbapplication.Annotations = map[string]string{
-					DeletePasswordAnnotationKey: "wosai1234",
-					ExplicitDeleteAnnotationKey: "true",
+					ExplicitDeleteAnnotationKey: GetDeleteCheckSum(sqbapplication),
 					IngressOpenAnnotationKey:    "true",
 				}
 				return nil
@@ -529,7 +515,7 @@ var _ = Describe("Controller", func() {
 			_ = k8sClient.Delete(ctx, sqbapplication)
 			_ = k8sClient.Delete(ctx, sqbplane)
 			// 删除service,ingress,deployment,virtualservice,destinationrule
-			_ = deleteDeploymentByLabel(k8sClient, ctx, namespace, map[string]string{AppKey: applicationName})
+			_ = DeleteDeploymentByLabel(k8sClient, ctx, namespace, map[string]string{AppKey: applicationName})
 			service := &v12.Service{ObjectMeta: v1.ObjectMeta{Namespace: namespace, Name: applicationName}}
 			_ = k8sClient.Delete(ctx, service)
 			ingress := &v1beta1.Ingress{ObjectMeta: v1.ObjectMeta{Namespace: namespace, Name: applicationName}}
@@ -598,7 +584,7 @@ var _ = Describe("Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			_, err = controllerutil.CreateOrUpdate(ctx, k8sClient, sqbdeployment, func() error {
 				sqbdeployment.Annotations = map[string]string{
-					PublicEntryAnnotationKey: "true",
+					PublicEntryAnnotationKey: deploymentName + ".iwosai.com",
 				}
 				return nil
 			})
@@ -713,8 +699,7 @@ var _ = Describe("Controller", func() {
 		It("delete sqbapplication with password", func() {
 			_, err := controllerutil.CreateOrUpdate(ctx, k8sClient, sqbapplication, func() error {
 				sqbapplication.Annotations = map[string]string{
-					DeletePasswordAnnotationKey: "wosai1234",
-					ExplicitDeleteAnnotationKey: "true",
+					ExplicitDeleteAnnotationKey: GetDeleteCheckSum(sqbapplication),
 					IstioInjectAnnotationKey:    "true",
 				}
 				return nil

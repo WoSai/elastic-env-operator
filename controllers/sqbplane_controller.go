@@ -18,8 +18,8 @@ package controllers
 
 import (
 	"context"
-	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/go-logr/logr"
+	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	v12 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -65,13 +65,11 @@ func (r *SQBPlaneReconciler) IsInitialized(ctx context.Context, obj runtime.Obje
 	if cr.Status.Initialized == true {
 		return true, nil
 	}
-	// 设置finalizer
 	controllerutil.AddFinalizer(cr, SqbplaneFinalizer)
 	err := r.Update(ctx, cr)
 	if err != nil {
 		return false, err
 	}
-	// 更新status
 	cr.Status.Initialized = true
 	return false, r.Status().Update(ctx, cr)
 }
@@ -84,20 +82,12 @@ func (r *SQBPlaneReconciler) IsDeleting(ctx context.Context, obj runtime.Object)
 
 	var err error
 
-	configMapData := getDefaultConfigMapData(r.Client, ctx)
-
-	// 如果configmap没有配置密码，直接删除资源
-	password, ok := configMapData["deletePassword"]
-	if !ok {
-		return true, r.RemoveFinalizer(ctx, cr)
-	}
-	if cr.Annotations[ExplicitDeleteAnnotationKey] == "true" && cr.Annotations[DeletePasswordAnnotationKey] == password {
-		// 删除SQBDeployment和Deployment
-		err = deleteSqbdeploymentByLabel(r.Client, ctx, cr.Namespace, map[string]string{PlaneKey: cr.Name})
+	if deleteCheckSum, ok := cr.Annotations[ExplicitDeleteAnnotationKey]; ok && deleteCheckSum == GetDeleteCheckSum(cr) {
+		err = DeleteSqbdeploymentByLabel(r.Client, ctx, cr.Namespace, map[string]string{PlaneKey: cr.Name})
 		if err != nil {
 			return true, err
 		}
-		err = deleteDeploymentByLabel(r.Client, ctx, cr.Namespace, map[string]string{PlaneKey: cr.Name})
+		err = DeleteDeploymentByLabel(r.Client, ctx, cr.Namespace, map[string]string{PlaneKey: cr.Name})
 		if err != nil {
 			return true, err
 		}

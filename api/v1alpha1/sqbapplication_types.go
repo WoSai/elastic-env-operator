@@ -43,11 +43,11 @@ type Subpath struct {
 	Path        string `json:"path"`
 	ServiceName string `json:"serviceName"`
 	// +kubebuilder:default:=80
-	ServicePort int    `json:"servicePort"`
+	ServicePort int `json:"servicePort"`
 }
 
 type ServiceSpec struct {
-	Ports       []v1.ServicePort `json:"ports"`
+	Ports []v1.ServicePort `json:"ports"`
 }
 
 type DeploySpec struct {
@@ -64,7 +64,7 @@ type DeploySpec struct {
 
 type NodeAffinity struct {
 	// +kubebuilder:default:=100
-	Weight int32   `json:"weight"`
+	Weight int32    `json:"weight"`
 	Key    string   `json:"key"`
 	Values []string `json:"values"`
 }
@@ -85,8 +85,8 @@ type SQBApplicationStatus struct {
 
 	Planes      map[string]int `json:"planes,omitempty"`
 	Mirrors     map[string]int `json:"mirrors,omitempty"`
-	Initialized bool              `json:"initialized,omitempty"`
-	ErrorInfo   string            `json:"errorInfo,omitempty"`
+	Initialized bool           `json:"initialized,omitempty"`
+	ErrorInfo   string         `json:"errorInfo,omitempty"`
 }
 
 // +kubebuilder:object:root=true
