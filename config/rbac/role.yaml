@@ -18,6 +18,7 @@ rules:
   - sqbapplications
   - sqbdeployments
   - sqbplanes
+  - persistentvolumeclaims
   - customresourcedefinitions
   - sqbapplications/status
   - sqbdeployments/status

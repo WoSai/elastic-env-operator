@@ -53,6 +53,8 @@ type ServiceSpec struct {
 type DeploySpec struct {
 	Replicas     *int32                   `json:"replicas,omitempty"`
 	Image        string                   `json:"image,omitempty"`
+	Command []string `json:"command,omitempty"`
+	Args []string `json:"args,omitempty"`
 	Resources    *v1.ResourceRequirements `json:"resources,omitempty"`
 	Env          []v1.EnvVar              `json:"env,omitempty"`
 	HealthCheck  *v1.Probe                `json:"healthCheck,omitempty"`

@@ -125,6 +125,8 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 			VolumeMounts:   deploy.VolumeMounts,
 			LivenessProbe:  deploy.HealthCheck,
 			ReadinessProbe: deploy.HealthCheck,
+			Command: deploy.Command,
+			Args: deploy.Args,
 		}
 		if deploy.Resources != nil {
 			container.Resources = *deploy.Resources
@@ -203,6 +205,7 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 				Image:   "busybox",
 				Command: init.Exec.Command,
 				Env:     deploy.Env,
+				VolumeMounts: deploy.VolumeMounts,
 			}
 			deployment.Spec.Template.Spec.InitContainers = []v1.Container{initContainer}
 		}
@@ -243,7 +246,10 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 		}
 		return nil
 	})
-
+	if err != nil {
+		return err
+	}
+	err = r.setPvcOwnerRef(ctx, deployment)
 	if err != nil {
 		return err
 	}
@@ -363,4 +369,27 @@ func DeleteDeploymentByLabel(c client.Client, ctx context.Context, namespace str
 func getSpecialVirtualServiceHost(deployment *v12.Deployment) []string {
 	publicEntry := deployment.Annotations[PublicEntryAnnotationKey]
 	return strings.Split(publicEntry, ",")
+}
+
+// 设置与deployment中与deployment同名的pvc的owner为deployment,deployment删除,pvc自动删除
+func (r *SQBDeploymentReconciler) setPvcOwnerRef(ctx context.Context, deployment *v12.Deployment) error {
+	for _, v := range deployment.Spec.Template.Spec.Volumes {
+		if v.PersistentVolumeClaim != nil && v.PersistentVolumeClaim.ClaimName == deployment.Name {
+			pvc := &v1.PersistentVolumeClaim{}
+			err := r.Get(ctx, client.ObjectKey{Namespace:deployment.Namespace, Name:deployment.Name}, pvc)
+			if err != nil {
+				return err
+			}
+			err = controllerutil.SetControllerReference(deployment, pvc, r.Scheme)
+			if err != nil {
+				return err
+			}
+			err = r.Update(ctx, pvc)
+			if err != nil {
+				return err
+			}
+			break
+		}
+	}
+	return nil
 }
