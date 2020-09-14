@@ -125,6 +125,8 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 			VolumeMounts:   deploy.VolumeMounts,
 			LivenessProbe:  deploy.HealthCheck,
 			ReadinessProbe: deploy.HealthCheck,
+			Command: deploy.Command,
+			Args: deploy.Args,
 		}
 		if deploy.Resources != nil {
 			container.Resources = *deploy.Resources

@@ -54,6 +54,8 @@ spec:
   # deployment相关配置
   replicas: 1  # 可选，副本数，默认1
   image: # 镜像，必选
+  command: # 同k8s container的command
+  args:    # 同k8s container的args
   resources: # 资源限制
     limits: # 可选
       cpu: ""
