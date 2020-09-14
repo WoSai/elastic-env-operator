@@ -203,6 +203,7 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 				Image:   "busybox",
 				Command: init.Exec.Command,
 				Env:     deploy.Env,
+				VolumeMounts: deploy.VolumeMounts,
 			}
 			deployment.Spec.Template.Spec.InitContainers = []v1.Container{initContainer}
 		}
