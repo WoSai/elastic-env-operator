@@ -182,10 +182,12 @@ func (r *SQBApplicationReconciler) Operate(ctx context.Context, obj runtime.Obje
 				}
 				return nil
 			})
-			return err
-		} else {
-			return nil
+			if err != nil {
+				return err
+			}
 		}
+		cr.Status.ErrorInfo = ""
+		return r.Status().Update(ctx, cr)
 	}
 	configMapData := GetDefaultConfigMapData(r.Client, ctx)
 	// 生成ingress和virtualservice的时候需要用到这里的hosts
@@ -233,7 +235,6 @@ func (r *SQBApplicationReconciler) Operate(ctx context.Context, obj runtime.Obje
 			return err
 		}
 	}
-	// 更新状态
 	cr.Status.ErrorInfo = ""
 	return r.Status().Update(ctx, cr)
 }

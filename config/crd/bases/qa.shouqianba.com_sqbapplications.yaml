@@ -36,6 +36,14 @@ spec:
           spec:
             description: SQBApplicationSpec defines the desired state of SQBApplication
             properties:
+              args:
+                items:
+                  type: string
+                type: array
+              command:
+                items:
+                  type: string
+                type: array
               env:
                 items:
                   description: EnvVar represents an environment variable present in
