@@ -127,8 +127,8 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 			VolumeMounts:   deploy.VolumeMounts,
 			LivenessProbe:  deploy.HealthCheck,
 			ReadinessProbe: deploy.HealthCheck,
-			Command: deploy.Command,
-			Args: deploy.Args,
+			Command:        deploy.Command,
+			Args:           deploy.Args,
 		}
 		if deploy.Resources != nil {
 			container.Resources = *deploy.Resources
@@ -158,6 +158,7 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 				},
 				Spec: v1.PodSpec{
 					Volumes: deploy.Volumes,
+					HostAliases: deploy.HostAlias,
 					Containers: []v1.Container{
 						container,
 					},

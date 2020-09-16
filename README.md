@@ -55,7 +55,13 @@ spec:
   replicas: 1  # 可选，副本数，默认1
   image: # 镜像，必选
   command: # 同k8s container的command
+  - sh
   args:    # 同k8s container的args
+  - ""
+  hostAliases: # 同k8s pod的hostalias
+  - hostnames:
+    - "apollo.shouqianba.com"
+    ip: "172.16.16.235"
   resources: # 资源限制
     limits: # 可选
       cpu: ""
@@ -118,7 +124,7 @@ spec:
     - "qa"
     - "crm"
   lifecycle:  # lifecycle hook
-    init:  # 使用busybox作为init-container执行一条命令，只支持exec，支持env和envFrom
+    init:  # 使用busybox作为init-container执行一条命令，只支持exec，支持env和volumeMounts
       exec:
         command:
         - ""
