@@ -22,6 +22,7 @@ var (
 	XEnvFlag                     = "x-env-flag"
 	AppKey                       = "app"
 	PlaneKey                     = "plane"
+	TeamKey                      = "team"
 	SqbplaneFinalizer            = "SQBPLANE"
 	SqbdeploymentFinalizer       = "SQBDEPLOYMENT"
 	SqbapplicationFinalizer      = "SQBAPPLICATION"
@@ -80,11 +81,23 @@ var (
 )
 
 // return label
+// deprecated
 func AddLabel(originLabels map[string]string, key string, value string) map[string]string {
 	if len(originLabels) == 0 {
 		originLabels = map[string]string{}
 	}
 	originLabels[key] = value
+	return originLabels
+}
+
+// return label
+func AddLabels(originLabels map[string]string, labels map[string]string) map[string]string {
+	if len(originLabels) == 0 {
+		originLabels = make(map[string]string)
+	}
+	for k,v := range labels {
+		originLabels[k] = v
+	}
 	return originLabels
 }
 

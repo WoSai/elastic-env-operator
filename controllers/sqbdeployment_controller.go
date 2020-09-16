@@ -73,8 +73,10 @@ func (r *SQBDeploymentReconciler) IsInitialized(ctx context.Context, obj runtime
 	}
 	// 设置finalizer、labels
 	controllerutil.AddFinalizer(cr, SqbdeploymentFinalizer)
-	cr.Labels = AddLabel(cr.Labels, AppKey, cr.Spec.Selector.App)
-	cr.Labels = AddLabel(cr.Labels, PlaneKey, cr.Spec.Selector.Plane)
+	cr.Labels = AddLabels(cr.Labels, map[string]string{
+		AppKey: cr.Spec.Selector.App,
+		PlaneKey: cr.Spec.Selector.Plane,
+	})
 
 	err = r.Update(ctx, cr)
 	if err != nil {
@@ -142,12 +144,7 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 			container.Lifecycle = &lifecycle
 		}
 
-		if len(deployment.Labels) == 0 {
-			deployment.Labels = map[string]string{}
-		}
-		deployment.Labels[AppKey] = cr.Spec.Selector.App
-		deployment.Labels[PlaneKey] = cr.Spec.Selector.Plane
-
+		deployment.Labels = AddLabels(deployment.Labels, cr.Labels)
 		deployment.Spec = v12.DeploymentSpec{
 			Replicas: deploy.Replicas,
 			Selector: &metav1.LabelSelector{
@@ -157,10 +154,7 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 			},
 			Template: v1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						AppKey:   cr.Spec.Selector.App,
-						PlaneKey: cr.Spec.Selector.Plane,
-					},
+					Labels: cr.Labels,
 				},
 				Spec: v1.PodSpec{
 					Volumes: deploy.Volumes,
