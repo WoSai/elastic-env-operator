@@ -73,11 +73,40 @@ func (r *SQBDeploymentReconciler) IsInitialized(ctx context.Context, obj runtime
 	}
 	// 设置finalizer、labels
 	controllerutil.AddFinalizer(cr, SqbdeploymentFinalizer)
-	cr.Labels = AddLabels(cr.Labels, map[string]string{
+	cr.Labels = MergeStringMap(cr.Labels, map[string]string{
 		AppKey: cr.Spec.Selector.App,
 		PlaneKey: cr.Spec.Selector.Plane,
 	})
+	configMapData := GetDefaultConfigMapData(r.Client, ctx)
+	application := &qav1alpha1.SQBApplication{}
+	err = r.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: cr.Spec.Selector.App}, application)
+	if err != nil {
+		return false, err
+	}
 
+	applicationDeploy, _ := json.Marshal(application.Spec.DeploySpec)
+	if globalDefaultDeploy, ok := configMapData["globalDefaultDeploy"]; ok {
+		applicationDeploy, _ = jsonpatch.MergePatch([]byte(globalDefaultDeploy), applicationDeploy)
+	}
+	deploymentDeploy, _ := json.Marshal(cr.Spec.DeploySpec)
+	mergeDeploy, _ := jsonpatch.MergePatch(applicationDeploy, deploymentDeploy)
+	deploy := qav1alpha1.DeploySpec{}
+	err = json.Unmarshal(mergeDeploy, &deploy)
+	if err != nil {
+		return false, err
+	}
+	cr.Spec.DeploySpec = deploy
+	cr.Labels = MergeStringMap(cr.Labels, application.Labels)
+	if isIngressOpen, ok := application.Annotations[IngressOpenAnnotationKey]; ok {
+		cr.Annotations = MergeStringMap(cr.Annotations, map[string]string{
+			IngressOpenAnnotationKey: isIngressOpen,
+		})
+	}
+	if isIstioEnable, ok := application.Annotations[IstioInjectAnnotationKey]; ok {
+		cr.Annotations = MergeStringMap(cr.Annotations, map[string]string{
+			IstioInjectAnnotationKey: isIstioEnable,
+		})
+	}
 	err = r.Update(ctx, cr)
 	if err != nil {
 		return false, err
@@ -90,36 +119,16 @@ func (r *SQBDeploymentReconciler) IsInitialized(ctx context.Context, obj runtime
 func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Object) error {
 	cr := obj.(*qav1alpha1.SQBDeployment)
 	configMapData := GetDefaultConfigMapData(r.Client, ctx)
-	application := &qav1alpha1.SQBApplication{}
-	err := r.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: cr.Spec.Selector.App}, application)
-	if err != nil {
-		return err
-	}
-	plane := &qav1alpha1.SQBPlane{}
-	err = r.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: cr.Spec.Selector.Plane}, plane)
-	if err != nil {
-		return err
-	}
+
 	deploymentName := getSubsetName(cr.Spec.Selector.App, cr.Spec.Selector.Plane)
 
 	deployment := &v12.Deployment{ObjectMeta: metav1.ObjectMeta{
 		Name:      deploymentName,
 		Namespace: cr.Namespace},
 	}
-	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
-		var err error
-		applicationDeploy, _ := json.Marshal(application.Spec.DeploySpec)
-		if globalDefaultDeploy, ok := configMapData["globalDefaultDeploy"]; ok {
-			applicationDeploy, _ = jsonpatch.MergePatch([]byte(globalDefaultDeploy), applicationDeploy)
-		}
-		deploymentDeploy, _ := json.Marshal(cr.Spec.DeploySpec)
-		mergeDeploy, _ := jsonpatch.MergePatch(applicationDeploy, deploymentDeploy)
-		deploy := &qav1alpha1.DeploySpec{}
-		err = json.Unmarshal(mergeDeploy, deploy)
-		if err != nil {
-			return err
-		}
+	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, deployment, func() error {
 		// 组装deployment
+		deploy := cr.Spec.DeploySpec
 		container := v1.Container{
 			Name:           deploymentName,
 			Image:          deploy.Image,
@@ -144,7 +153,7 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 			container.Lifecycle = &lifecycle
 		}
 
-		deployment.Labels = AddLabels(deployment.Labels, cr.Labels)
+		deployment.Labels = MergeStringMap(deployment.Labels, cr.Labels)
 		deployment.Spec = v12.DeploymentSpec{
 			Replicas: deploy.Replicas,
 			Selector: &metav1.LabelSelector{
@@ -154,7 +163,7 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 			},
 			Template: v1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: cr.Labels,
+					Labels: deployment.Labels,
 				},
 				Spec: v1.PodSpec{
 					Volumes: deploy.Volumes,
@@ -172,7 +181,7 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 		}
 
 		if anno, ok := cr.Annotations[PodAnnotationKey]; ok {
-			err = json.Unmarshal([]byte(anno), &deployment.Spec.Template.Annotations)
+			err := json.Unmarshal([]byte(anno), &deployment.Spec.Template.Annotations)
 			if err != nil {
 				return err
 			}
@@ -182,7 +191,7 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 		}
 
 		if anno, ok := cr.Annotations[DeploymentAnnotationKey]; ok {
-			err = json.Unmarshal([]byte(anno), &deployment.Annotations)
+			err := json.Unmarshal([]byte(anno), &deployment.Annotations)
 			if err != nil {
 				return err
 			}
@@ -191,7 +200,6 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 		if publicEntry, ok := cr.Annotations[PublicEntryAnnotationKey]; ok {
 			deployment.Annotations[PublicEntryAnnotationKey] = publicEntry
 		}
-
 		// init lifecycle
 		if deploy.Lifecycle != nil && deploy.Lifecycle.Init != nil {
 			init := deploy.Lifecycle.Init
@@ -204,7 +212,6 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 			}
 			deployment.Spec.Template.Spec.InitContainers = []v1.Container{initContainer}
 		}
-
 		// NodeAffinity
 		if deploy.NodeAffinity != nil {
 			var nodeAffinity []v1.PreferredSchedulingTerm
@@ -229,16 +236,6 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 			}
 			deployment.Spec.Template.Spec.Affinity = affinity
 		}
-
-		// 设置deployment的owner ref
-		err = controllerutil.SetOwnerReference(application, deployment, r.Scheme)
-		if err != nil {
-			return err
-		}
-		err = controllerutil.SetOwnerReference(plane, deployment, r.Scheme)
-		if err != nil {
-			return err
-		}
 		return nil
 	})
 	if err != nil {
@@ -249,7 +246,7 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 		return err
 	}
 	_, ok := deployment.Annotations[PublicEntryAnnotationKey]
-	if ok && IsIstioEnable(r.Client, ctx, configMapData, application) {
+	if ok && IsIstioEnable(r.Client, ctx, configMapData, cr) {
 		// 如果打开特殊入口，创建或更新单独的virtualservice
 		virtualservice := r.generateSpecialVirtualService(deployment, configMapData)
 		// 如果已经存在同名的virtualservice，就不再做变化，因为有可能手动修改过
