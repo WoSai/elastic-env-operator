@@ -96,7 +96,7 @@ func (r *SQBDeploymentReconciler) IsInitialized(ctx context.Context, obj runtime
 		return false, err
 	}
 	cr.Spec.DeploySpec = deploy
-	cr.Labels = MergeStringMap(cr.Labels, application.Labels)
+	cr.Labels = MergeStringMap(application.Labels, cr.Labels)
 	if isIngressOpen, ok := application.Annotations[IngressOpenAnnotationKey]; ok {
 		cr.Annotations = MergeStringMap(cr.Annotations, map[string]string{
 			IngressOpenAnnotationKey: isIngressOpen,
@@ -153,7 +153,7 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 			container.Lifecycle = &lifecycle
 		}
 
-		deployment.Labels = MergeStringMap(deployment.Labels, cr.Labels)
+		deployment.Labels = cr.Labels
 		deployment.Spec = v12.DeploymentSpec{
 			Replicas: deploy.Replicas,
 			Selector: &metav1.LabelSelector{
