@@ -222,7 +222,7 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 						MatchExpressions: []v1.NodeSelectorRequirement{
 							{
 								Key:      item.Key,
-								Operator: "In",
+								Operator: item.Operator,
 								Values:   item.Values,
 							},
 						},
