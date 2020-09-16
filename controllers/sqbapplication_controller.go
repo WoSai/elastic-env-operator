@@ -38,6 +38,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"strconv"
 	"strings"
@@ -69,7 +70,14 @@ func (r *SQBApplicationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&qav1alpha1.SQBApplication{}, builder.WithPredicates(GenerationAnnotationPredicate)).
 		Watches(&source.Kind{Type: &v12.Deployment{}},
-			&handler.EnqueueRequestForOwner{OwnerType: &qav1alpha1.SQBApplication{}, IsController: false},
+			&handler.EnqueueRequestsFromMapFunc{ToRequests: handler.ToRequestsFunc(func(a handler.MapObject) []reconcile.Request {
+				return []reconcile.Request{
+					{NamespacedName: types.NamespacedName{
+						Name:      a.Meta.GetLabels()[AppKey],
+						Namespace: a.Meta.GetNamespace(),
+					}},
+				}
+			})},
 			builder.WithPredicates(CreateDeleteAnnotationPredicate)).
 		Complete(r)
 }
@@ -182,10 +190,12 @@ func (r *SQBApplicationReconciler) Operate(ctx context.Context, obj runtime.Obje
 				}
 				return nil
 			})
-			return err
-		} else {
-			return nil
+			if err != nil {
+				return err
+			}
 		}
+		cr.Status.ErrorInfo = ""
+		return r.Status().Update(ctx, cr)
 	}
 	configMapData := GetDefaultConfigMapData(r.Client, ctx)
 	// 生成ingress和virtualservice的时候需要用到这里的hosts
@@ -233,7 +243,6 @@ func (r *SQBApplicationReconciler) Operate(ctx context.Context, obj runtime.Obje
 			return err
 		}
 	}
-	// 更新状态
 	cr.Status.ErrorInfo = ""
 	return r.Status().Update(ctx, cr)
 }
@@ -659,7 +668,8 @@ func getIstioGateways(configMapData map[string]string) []string {
 }
 
 func IsIstioEnable(client client.Client, ctx context.Context,
-	configMapData map[string]string, cr *qav1alpha1.SQBApplication) bool {
+	configMapData map[string]string, cr v1.Object) bool {
+	annotations := cr.GetAnnotations()
 	enable := false
 	var err error
 	istio := &v14.CustomResourceDefinition{}
@@ -667,7 +677,7 @@ func IsIstioEnable(client client.Client, ctx context.Context,
 	// err==nil 表示集群安装了istio
 	if err == nil {
 		// 判断application注解
-		if istioInject, ok := cr.Annotations[IstioInjectAnnotationKey]; ok {
+		if istioInject, ok := annotations[IstioInjectAnnotationKey]; ok {
 			if istioInject == "true" {
 				enable = true
 			}
@@ -698,9 +708,10 @@ func getIngressHosts(configMapData map[string]string, cr *qav1alpha1.SQBApplicat
 }
 
 // 是否开启ingress
-func IsIngressOpen(configMapData map[string]string, cr *qav1alpha1.SQBApplication) bool {
+func IsIngressOpen(configMapData map[string]string, cr v1.Object) bool {
+	annotations := cr.GetAnnotations()
 	enable := false
-	if ingressOpen, ok := cr.Annotations[IngressOpenAnnotationKey]; ok {
+	if ingressOpen, ok := annotations[IngressOpenAnnotationKey]; ok {
 		if ingressOpen == "true" {
 			enable = true
 		}

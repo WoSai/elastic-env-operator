@@ -22,6 +22,7 @@ var (
 	XEnvFlag                     = "x-env-flag"
 	AppKey                       = "app"
 	PlaneKey                     = "plane"
+	TeamKey                      = "team"
 	SqbplaneFinalizer            = "SQBPLANE"
 	SqbdeploymentFinalizer       = "SQBDEPLOYMENT"
 	SqbapplicationFinalizer      = "SQBAPPLICATION"
@@ -79,13 +80,15 @@ var (
 	}
 )
 
-// return label
-func AddLabel(originLabels map[string]string, key string, value string) map[string]string {
-	if len(originLabels) == 0 {
-		originLabels = map[string]string{}
+//
+func MergeStringMap(origin map[string]string, merge map[string]string) map[string]string {
+	if len(origin) == 0 {
+		origin = make(map[string]string)
 	}
-	originLabels[key] = value
-	return originLabels
+	for k, v := range merge {
+		origin[k] = v
+	}
+	return origin
 }
 
 //

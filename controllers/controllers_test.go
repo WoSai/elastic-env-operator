@@ -223,6 +223,7 @@ var _ = Describe("Controller", func() {
 				},
 				DeploySpec: qav1alpha1.DeploySpec{
 					Replicas: proto.Int32(2),
+					Image: "busybox",
 					Resources: &v12.ResourceRequirements{
 						Limits: v12.ResourceList{
 							v12.ResourceCPU: *resource.NewQuantity(2, resource.DecimalSI),
@@ -574,17 +575,10 @@ var _ = Describe("Controller", func() {
 		})
 
 		It("public entry", func() {
-			//开启特性入口
-			_, err := controllerutil.CreateOrUpdate(ctx, k8sClient, sqbapplication, func() error {
-				sqbapplication.Annotations = map[string]string{
-					IstioInjectAnnotationKey: "true",
-				}
-				return nil
-			})
-			Expect(err).NotTo(HaveOccurred())
 			_, err = controllerutil.CreateOrUpdate(ctx, k8sClient, sqbdeployment, func() error {
 				sqbdeployment.Annotations = map[string]string{
 					PublicEntryAnnotationKey: deploymentName + ".iwosai.com",
+					IstioInjectAnnotationKey: "true",
 				}
 				return nil
 			})
