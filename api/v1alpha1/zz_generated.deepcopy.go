@@ -43,6 +43,13 @@ func (in *DeploySpec) DeepCopyInto(out *DeploySpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.HostAlias != nil {
+		in, out := &in.HostAlias, &out.HostAlias
+		*out = make([]v1.HostAlias, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.Resources != nil {
 		in, out := &in.Resources, &out.Resources
 		*out = new(v1.ResourceRequirements)
