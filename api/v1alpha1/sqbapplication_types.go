@@ -68,8 +68,7 @@ type DeploySpec struct {
 type NodeAffinity struct {
 	// +kubebuilder:default:=100
 	Weight int32    `json:"weight"`
-	Key    string   `json:"key"`
-	Values []string `json:"values"`
+	v1.NodeSelectorRequirement  `json:",inline"`
 }
 
 type Lifecycle struct {
