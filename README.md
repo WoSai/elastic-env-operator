@@ -216,7 +216,9 @@ SQBDeployment controller处理逻辑
 
 ## operator的全局配置
 ### configmap
-configmap的namespace与manager保持一致，默认的配置在config/manager/manager.yaml,configmap的name需要为operator-configmap
+configmap的data不能为空，否则operator不会生效。  
+configmap的namespace与manager保持一致，manager的namespace配置在config/manager/manager.yaml,configmap的name需要为operator-configmap  
+配置修改后只对之后创建的服务生效。
 ```yaml
 apiVersion: v1
 kind: ConfigMap
@@ -225,11 +227,11 @@ metadata:
   namespace: qa
 data:
   ingressOpen: "false" # 集群服务默认是否创建ingress
+  istioInject: "false" # 集群服务默认是否开启istio注入
   domainPostfix: "*.beta.iwosai.com,*.iwosai.com" # ingressOpen=true时SQBApplication的ingress host默认会配置SQBApplication name + domainPostfix 域名
-  imagePullSecrets: "reg-wosai"
   globalDefaultDeploy: |   # 存放默认的SQBApplication的deploy的值
     {"key": "value"}
-  istioInject: "false" # 集群服务默认是否开启istio注入，被SQBApplication的annotations.qa.shouqianba.com/istio-inject覆盖
+  imagePullSecrets: "reg-wosai"
   istioTimeout: "30" # istio超时时间，单位秒
   istioGateways: "istio-system/ingressgateway,mesh" # istio的virtualservice的gateways配置
   

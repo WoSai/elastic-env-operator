@@ -17,7 +17,10 @@ limitations under the License.
 package controllers
 
 import (
+	"context"
 	istio "istio.io/client-go/pkg/apis/networking/v1beta1"
+	v12 "k8s.io/api/core/v1"
+	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"testing"
@@ -105,12 +108,31 @@ var _ = BeforeSuite(func(done Done) {
 	}).SetupWithManager(mgr)
 	Expect(err).ToNot(HaveOccurred())
 
+	err = (&ConfigMapReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("ConfigMap"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr)
+	Expect(err).ToNot(HaveOccurred())
+
 	go func() {
 		err = mgr.Start(ctrl.SetupSignalHandler())
 		Expect(err).ToNot(HaveOccurred())
 	}()
 	k8sClient = mgr.GetClient()
 	Expect(k8sClient).ToNot(BeNil())
+
+	err = k8sClient.Create(context.Background(), &v12.ConfigMap{
+		ObjectMeta: v13.ObjectMeta{
+			Namespace: "default",
+			Name: "operator-configmap",
+		},
+		Data: map[string]string{
+			"ingressOpen": "true",
+			"istioInject": "true",
+		},
+	})
+	Expect(err).NotTo(HaveOccurred())
 	time.Sleep(time.Second * 5)
 
 	close(done)

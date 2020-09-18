@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: registry.wosai-inc.com/qa/elastic-env-operator
-  newTag: v0.0.33
+  newTag: v0.0.34

@@ -4,18 +4,17 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
-	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"os"
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"strconv"
 	"strings"
+	"time"
 )
 
 var (
@@ -78,36 +77,18 @@ var (
 			return false
 		},
 	}
+	configMapData map[string]string
 )
 
 //
-func MergeStringMap(origin map[string]string, merge map[string]string) map[string]string {
-	if len(origin) == 0 {
-		origin = make(map[string]string)
+func MergeStringMap(base map[string]string, toMerge map[string]string) map[string]string {
+	if len(base) == 0 {
+		base = make(map[string]string)
 	}
-	for k, v := range merge {
-		origin[k] = v
+	for k, v := range toMerge {
+		base[k] = v
 	}
-	return origin
-}
-
-//
-func GetConfigMapData(client client.Client, ctx context.Context, key client.ObjectKey) map[string]string {
-	configmap := &v1.ConfigMap{}
-	err := client.Get(ctx, key, configmap)
-	if err != nil {
-		return map[string]string{}
-	}
-	return configmap.Data
-}
-
-func GetDefaultConfigMapData(client client.Client, ctx context.Context) map[string]string {
-	namespace := os.Getenv("CONFIGMAP_NAMESPACE")
-	if namespace == "" {
-		namespace = "default"
-	}
-	name := "operator-configmap"
-	return GetConfigMapData(client, ctx, types.NamespacedName{Namespace: namespace, Name: name})
+	return base
 }
 
 //
@@ -138,7 +119,38 @@ func GetDeleteCheckSum(cr v12.Object) string {
 	return fmt.Sprintf("%x", checksum)
 }
 
+func getIstioTimeout() int64 {
+	timeout, ok := configMapData["istioTimeout"]
+	if !ok {
+		timeout = "90"
+	}
+	routeTimeout, err := strconv.Atoi(timeout)
+	if err != nil {
+		routeTimeout = 90
+	}
+	return int64(routeTimeout)
+}
+
+func getIstioGateways() []string {
+	if gateways, ok := configMapData["istioGateways"]; ok {
+		return strings.Split(gateways, ",")
+	}
+	return []string{"mesh"}
+}
+
+func getDefaultDomainName(sqbapplicationName string) []string {
+	domainPostfix, ok := configMapData["domainPostfix"]
+	if !ok {
+		domainPostfix = "*.beta.iwosai.com,*.iwosai.com"
+	}
+	hosts := strings.Split(strings.ReplaceAll(domainPostfix, "*", sqbapplicationName), ",")
+	return hosts
+}
+
+
 type ISQBReconciler interface {
+	//
+	GetInstance(ctx context.Context, req ctrl.Request) (runtime.Object, error)
 	// 初始化逻辑
 	IsInitialized(ctx context.Context, obj runtime.Object) (bool, error)
 	// 正常处理逻辑
@@ -150,7 +162,16 @@ type ISQBReconciler interface {
 }
 
 // reconcile公共逻辑流程
-func HandleReconcile(r ISQBReconciler, ctx context.Context, obj runtime.Object) (ctrl.Result, error) {
+func HandleReconcile(r ISQBReconciler, ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	if len(configMapData) == 0 {
+		return ctrl.Result{RequeueAfter: time.Second}, nil
+	}
+
+	obj, err := r.GetInstance(ctx, req)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
+
 	if yes, err := r.IsInitialized(ctx, obj); !yes {
 		if err != nil {
 			r.ReconcileFail(ctx, obj, err)
@@ -165,10 +186,28 @@ func HandleReconcile(r ISQBReconciler, ctx context.Context, obj runtime.Object) 
 		return ctrl.Result{}, err
 	}
 
-	err := r.Operate(ctx, obj)
+	err = r.Operate(ctx, obj)
 	if err != nil {
 		r.ReconcileFail(ctx, obj, err)
 	}
 
 	return ctrl.Result{}, err
+}
+
+func init() {
+	go func() {
+		timer := time.NewTimer(60*time.Second)
+		for {
+			if len(configMapData) == 0 {
+				select {
+				case <- timer.C:
+					panic("operator configmap is not valid")
+				case <- time.After(time.Second):
+				}
+			} else {
+				timer.Stop()
+				break
+			}
+		}
+	}()
 }
