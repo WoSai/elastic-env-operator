@@ -38,17 +38,14 @@ type SQBPlaneReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+var _ ISQBReconciler = &SQBPlaneReconciler{}
+
 // +kubebuilder:rbac:groups=qa.shouqianba.com,resources=sqbplanes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=qa.shouqianba.com,resources=sqbplanes/status,verbs=get;update;patch
 
 func (r *SQBPlaneReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	instance := &qav1alpha1.SQBPlane{}
-	err := r.Get(ctx, req.NamespacedName, instance)
-	if err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
-	}
-	return HandleReconcile(r, ctx, instance)
+	return HandleReconcile(r, ctx, req)
 }
 
 func (r *SQBPlaneReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -58,6 +55,12 @@ func (r *SQBPlaneReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&handler.EnqueueRequestForOwner{OwnerType: &qav1alpha1.SQBPlane{}, IsController: false},
 			builder.WithPredicates(CreateDeletePredicate)).
 		Complete(r)
+}
+
+func (r *SQBPlaneReconciler) GetInstance(ctx context.Context, req ctrl.Request) (runtime.Object, error) {
+	instance := &qav1alpha1.SQBPlane{}
+	err := r.Get(ctx, req.NamespacedName, instance)
+	return instance, client.IgnoreNotFound(err)
 }
 
 func (r *SQBPlaneReconciler) IsInitialized(ctx context.Context, obj runtime.Object) (bool, error) {

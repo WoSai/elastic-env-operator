@@ -3,6 +3,8 @@ package controllers
 import (
 	"context"
 	"github.com/gogo/protobuf/proto"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	v1beta12 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	v13 "k8s.io/api/apps/v1"
@@ -10,15 +12,10 @@ import (
 	"k8s.io/api/extensions/v1beta1"
 	v1beta13 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-
-	//"github.com/gogo/protobuf/proto"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	//"k8s.io/apimachinery/pkg/api/resource"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"time"
 )
 
@@ -34,7 +31,7 @@ func enableIstio() {
 				Plural: "virtualservices",
 				Kind:   "VirtualService",
 			},
-			Scope:                 v1beta13.ResourceScope("Namespaced"),
+			Scope:                 "Namespaced",
 			PreserveUnknownFields: proto.Bool(true),
 			Versions: []v1beta13.CustomResourceDefinitionVersion{
 				{
@@ -56,7 +53,7 @@ func enableIstio() {
 				Plural: "destinationrules",
 				Kind:   "DestinationRule",
 			},
-			Scope: v1beta13.ResourceScope("Namespaced"),
+			Scope: "Namespaced",
 			Versions: []v1beta13.CustomResourceDefinitionVersion{
 				{
 					Name:    "v1beta1",
@@ -254,8 +251,11 @@ var _ = Describe("Controller", func() {
 					NodeAffinity: []qav1alpha1.NodeAffinity{
 						{
 							Weight: 100,
-							Key:    "node",
-							Values: []string{"qa"},
+							NodeSelectorRequirement: v12.NodeSelectorRequirement{
+								Key:    "node",
+								Operator: v12.NodeSelectorOpIn,
+								Values: []string{"qa"},
+							},
 						},
 					},
 					Lifecycle: &qav1alpha1.Lifecycle{
@@ -350,13 +350,18 @@ var _ = Describe("Controller", func() {
 			_ = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, sqbapplication)
 			sqbapplication.Annotations = map[string]string{}
 			sqbapplication.Annotations[IngressOpenAnnotationKey] = "true"
-			sqbapplication.Spec.Subpaths = []qav1alpha1.Subpath{
+			sqbapplication.Spec.Subpaths = append([]qav1alpha1.Subpath{
 				{
 					Path:        "/v1",
 					ServiceName: "version1",
 					ServicePort: 8080,
 				},
-			}
+				{
+					Path: "/",
+					ServiceName: sqbapplication.Name,
+					ServicePort: 80,
+				},
+			})
 			err = k8sClient.Update(ctx, sqbapplication)
 			Expect(err).NotTo(HaveOccurred())
 			time.Sleep(time.Second)
@@ -621,6 +626,11 @@ var _ = Describe("Controller", func() {
 						Path:        "/v2",
 						ServiceName: "version2",
 						ServicePort: 82,
+					},
+					{
+						Path: "/",
+						ServiceName: sqbapplication.Name,
+						ServicePort: 80,
 					},
 				}
 				sqbapplication.Annotations = map[string]string{

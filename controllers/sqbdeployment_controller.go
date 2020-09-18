@@ -46,23 +46,26 @@ type SQBDeploymentReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+var _ ISQBReconciler = &SQBDeploymentReconciler{}
+
 // +kubebuilder:rbac:groups=qa.shouqianba.com,resources=sqbdeployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=qa.shouqianba.com,resources=sqbdeployments/status,verbs=get;update;patch
 
 func (r *SQBDeploymentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	instance := &qav1alpha1.SQBDeployment{}
-	err := r.Get(ctx, req.NamespacedName, instance)
-	if err != nil {
-		return ctrl.Result{}, client.IgnoreNotFound(err)
-	}
-	return HandleReconcile(r, ctx, instance)
+	return HandleReconcile(r, ctx, req)
 }
 
 func (r *SQBDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&qav1alpha1.SQBDeployment{}, builder.WithPredicates(GenerationAnnotationPredicate)).
 		Complete(r)
+}
+
+func (r *SQBDeploymentReconciler) GetInstance(ctx context.Context, req ctrl.Request) (runtime.Object, error) {
+	instance := &qav1alpha1.SQBDeployment{}
+	err := r.Get(ctx, req.NamespacedName, instance)
+	return instance, client.IgnoreNotFound(err)
 }
 
 func (r *SQBDeploymentReconciler) IsInitialized(ctx context.Context, obj runtime.Object) (bool, error) {
@@ -77,7 +80,6 @@ func (r *SQBDeploymentReconciler) IsInitialized(ctx context.Context, obj runtime
 		AppKey: cr.Spec.Selector.App,
 		PlaneKey: cr.Spec.Selector.Plane,
 	})
-	configMapData := GetDefaultConfigMapData(r.Client, ctx)
 	application := &qav1alpha1.SQBApplication{}
 	err = r.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: cr.Spec.Selector.App}, application)
 	if err != nil {
@@ -85,9 +87,6 @@ func (r *SQBDeploymentReconciler) IsInitialized(ctx context.Context, obj runtime
 	}
 
 	applicationDeploy, _ := json.Marshal(application.Spec.DeploySpec)
-	if globalDefaultDeploy, ok := configMapData["globalDefaultDeploy"]; ok {
-		applicationDeploy, _ = jsonpatch.MergePatch([]byte(globalDefaultDeploy), applicationDeploy)
-	}
 	deploymentDeploy, _ := json.Marshal(cr.Spec.DeploySpec)
 	mergeDeploy, _ := jsonpatch.MergePatch(applicationDeploy, deploymentDeploy)
 	deploy := qav1alpha1.DeploySpec{}
@@ -97,16 +96,11 @@ func (r *SQBDeploymentReconciler) IsInitialized(ctx context.Context, obj runtime
 	}
 	cr.Spec.DeploySpec = deploy
 	cr.Labels = MergeStringMap(application.Labels, cr.Labels)
-	if isIngressOpen, ok := application.Annotations[IngressOpenAnnotationKey]; ok {
-		cr.Annotations = MergeStringMap(cr.Annotations, map[string]string{
-			IngressOpenAnnotationKey: isIngressOpen,
-		})
-	}
-	if isIstioEnable, ok := application.Annotations[IstioInjectAnnotationKey]; ok {
-		cr.Annotations = MergeStringMap(cr.Annotations, map[string]string{
-			IstioInjectAnnotationKey: isIstioEnable,
-		})
-	}
+	cr.Annotations = MergeStringMap(cr.Annotations, map[string]string{
+		IngressOpenAnnotationKey: application.Annotations[IngressOpenAnnotationKey],
+		IstioInjectAnnotationKey: application.Annotations[IstioInjectAnnotationKey],
+	})
+
 	err = r.Update(ctx, cr)
 	if err != nil {
 		return false, err
@@ -118,8 +112,6 @@ func (r *SQBDeploymentReconciler) IsInitialized(ctx context.Context, obj runtime
 
 func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Object) error {
 	cr := obj.(*qav1alpha1.SQBDeployment)
-	configMapData := GetDefaultConfigMapData(r.Client, ctx)
-
 	deploymentName := getSubsetName(cr.Spec.Selector.App, cr.Spec.Selector.Plane)
 
 	deployment := &v12.Deployment{ObjectMeta: metav1.ObjectMeta{
@@ -246,9 +238,9 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 		return err
 	}
 	_, ok := deployment.Annotations[PublicEntryAnnotationKey]
-	if ok && IsIstioEnable(r.Client, ctx, configMapData, cr) {
+	if ok && cr.Annotations[IstioInjectAnnotationKey] == "true" {
 		// 如果打开特殊入口，创建或更新单独的virtualservice
-		virtualservice := r.generateSpecialVirtualService(deployment, configMapData)
+		virtualservice := r.generateSpecialVirtualService(deployment)
 		// 如果已经存在同名的virtualservice，就不再做变化，因为有可能手动修改过
 		_, err := controllerutil.CreateOrUpdate(ctx, r.Client, virtualservice, func() error { return nil })
 		if err != nil {
@@ -300,13 +292,12 @@ func (r *SQBDeploymentReconciler) RemoveFinalizer(ctx context.Context, cr *qav1a
 	return r.Update(ctx, cr)
 }
 
-func (r *SQBDeploymentReconciler) generateSpecialVirtualService(deployment *v12.Deployment,
-	configMapData map[string]string) *v1beta1.VirtualService {
+func (r *SQBDeploymentReconciler) generateSpecialVirtualService(deployment *v12.Deployment) *v1beta1.VirtualService {
 	virtualservice := &v1beta1.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{Namespace: deployment.Namespace, Name: deployment.Name},
 		Spec: v1beta14.VirtualService{
 			Hosts:    getSpecialVirtualServiceHost(deployment),
-			Gateways: getIstioGateways(configMapData),
+			Gateways: getIstioGateways(),
 			Http: []*v1beta14.HTTPRoute{
 				{
 					Route: []*v1beta14.HTTPRouteDestination{
@@ -315,7 +306,7 @@ func (r *SQBDeploymentReconciler) generateSpecialVirtualService(deployment *v12.
 							Subset: deployment.Name,
 						}},
 					},
-					Timeout: &types2.Duration{Seconds: getIstioTimeout(configMapData)},
+					Timeout: &types2.Duration{Seconds: getIstioTimeout()},
 					Headers: &v1beta14.Headers{
 						Request: &v1beta14.Headers_HeaderOperations{Set: map[string]string{XEnvFlag: deployment.Labels[PlaneKey]}},
 					},
