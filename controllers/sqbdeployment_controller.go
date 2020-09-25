@@ -77,7 +77,7 @@ func (r *SQBDeploymentReconciler) IsInitialized(ctx context.Context, obj runtime
 	// 设置finalizer、labels
 	controllerutil.AddFinalizer(cr, SqbdeploymentFinalizer)
 	cr.Labels = MergeStringMap(cr.Labels, map[string]string{
-		AppKey: cr.Spec.Selector.App,
+		AppKey:   cr.Spec.Selector.App,
 		PlaneKey: cr.Spec.Selector.Plane,
 	})
 	application := &qav1alpha1.SQBApplication{}
@@ -158,7 +158,7 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 					Labels: deployment.Labels,
 				},
 				Spec: v1.PodSpec{
-					Volumes: deploy.Volumes,
+					Volumes:     deploy.Volumes,
 					HostAliases: deploy.HostAlias,
 					Containers: []v1.Container{
 						container,
@@ -196,10 +196,10 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 		if deploy.Lifecycle != nil && deploy.Lifecycle.Init != nil {
 			init := deploy.Lifecycle.Init
 			initContainer := v1.Container{
-				Name:    "busybox",
-				Image:   "busybox",
-				Command: init.Exec.Command,
-				Env:     deploy.Env,
+				Name:         "busybox",
+				Image:        "busybox",
+				Command:      init.Exec.Command,
+				Env:          deploy.Env,
 				VolumeMounts: deploy.VolumeMounts,
 			}
 			deployment.Spec.Template.Spec.InitContainers = []v1.Container{initContainer}
@@ -359,7 +359,7 @@ func (r *SQBDeploymentReconciler) setPvcOwnerRef(ctx context.Context, deployment
 	for _, v := range deployment.Spec.Template.Spec.Volumes {
 		if v.PersistentVolumeClaim != nil && v.PersistentVolumeClaim.ClaimName == deployment.Name {
 			pvc := &v1.PersistentVolumeClaim{}
-			err := r.Get(ctx, client.ObjectKey{Namespace:deployment.Namespace, Name:deployment.Name}, pvc)
+			err := r.Get(ctx, client.ObjectKey{Namespace: deployment.Namespace, Name: deployment.Name}, pvc)
 			if err != nil {
 				return err
 			}

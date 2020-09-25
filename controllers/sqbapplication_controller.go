@@ -446,7 +446,6 @@ func (r *SQBApplicationReconciler) handleNoIstio(ctx context.Context, cr *qav1al
 	return nil
 }
 
-
 func (r *SQBApplicationReconciler) getIstioInjectionResult(ctx context.Context, cr *qav1alpha1.SQBApplication) string {
 	enable := "false"
 	istio := &v14.CustomResourceDefinition{}
@@ -477,6 +476,7 @@ func (r *SQBApplicationReconciler) getIngressOpenResult(cr *qav1alpha1.SQBApplic
 	}
 	return enable
 }
+
 // 根据plane生成DestinationRule的subsets
 func generateSubsets(cr *qav1alpha1.SQBApplication, planes map[string]int) []*v1beta14.Subset {
 	subsets := make([]*v1beta14.Subset, 0)
@@ -697,7 +697,6 @@ func getSubsetName(host, plane string) string {
 	return host + "-" + plane
 }
 
-
 func getIngressHosts(cr *qav1alpha1.SQBApplication) []string {
 	hosts := getDefaultDomainName(cr.Name)
 	for _, host := range cr.Spec.Hosts {
@@ -707,4 +706,3 @@ func getIngressHosts(cr *qav1alpha1.SQBApplication) []string {
 	}
 	return hosts
 }
-

@@ -65,4 +65,3 @@ func (r *ConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			}))).
 		Complete(r)
 }
-

@@ -4,17 +4,18 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"os"
 	"reflect"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"strconv"
 	"strings"
 	"time"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 var (
@@ -147,7 +148,6 @@ func getDefaultDomainName(sqbapplicationName string) []string {
 	return hosts
 }
 
-
 type ISQBReconciler interface {
 	//
 	GetInstance(ctx context.Context, req ctrl.Request) (runtime.Object, error)
@@ -176,6 +176,7 @@ func HandleReconcile(r ISQBReconciler, ctx context.Context, req ctrl.Request) (c
 		if err != nil {
 			r.ReconcileFail(ctx, obj, err)
 		}
+
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -196,13 +197,13 @@ func HandleReconcile(r ISQBReconciler, ctx context.Context, req ctrl.Request) (c
 
 func init() {
 	go func() {
-		timer := time.NewTimer(60*time.Second)
+		timer := time.NewTimer(60 * time.Second)
 		for {
 			if len(configMapData) == 0 {
 				select {
-				case <- timer.C:
+				case <-timer.C:
 					panic("operator configmap is not valid")
-				case <- time.After(time.Second):
+				case <-time.After(time.Second):
 				}
 			} else {
 				timer.Stop()
