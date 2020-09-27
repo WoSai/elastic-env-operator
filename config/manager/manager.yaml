@@ -46,6 +46,7 @@ spec:
               secretKeyRef:
                 name: "operator-secret"
                 key: "salt"
+        imagePullPolicy: Always
       terminationGracePeriodSeconds: 10
       imagePullSecrets:
         - name: "reg-wosai"

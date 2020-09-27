@@ -4,17 +4,18 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	"os"
 	"reflect"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"strconv"
 	"strings"
 	"time"
+
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 var (
@@ -77,7 +78,7 @@ var (
 			return false
 		},
 	}
-	configMapData map[string]string
+	ConfigMapData map[string]string
 )
 
 //
@@ -120,7 +121,7 @@ func GetDeleteCheckSum(cr v12.Object) string {
 }
 
 func getIstioTimeout() int64 {
-	timeout, ok := configMapData["istioTimeout"]
+	timeout, ok := ConfigMapData["istioTimeout"]
 	if !ok {
 		timeout = "90"
 	}
@@ -132,21 +133,20 @@ func getIstioTimeout() int64 {
 }
 
 func getIstioGateways() []string {
-	if gateways, ok := configMapData["istioGateways"]; ok {
+	if gateways, ok := ConfigMapData["istioGateways"]; ok {
 		return strings.Split(gateways, ",")
 	}
 	return []string{"mesh"}
 }
 
 func getDefaultDomainName(sqbapplicationName string) []string {
-	domainPostfix, ok := configMapData["domainPostfix"]
+	domainPostfix, ok := ConfigMapData["domainPostfix"]
 	if !ok {
 		domainPostfix = "*.beta.iwosai.com,*.iwosai.com"
 	}
 	hosts := strings.Split(strings.ReplaceAll(domainPostfix, "*", sqbapplicationName), ",")
 	return hosts
 }
-
 
 type ISQBReconciler interface {
 	//
@@ -163,7 +163,7 @@ type ISQBReconciler interface {
 
 // reconcile公共逻辑流程
 func HandleReconcile(r ISQBReconciler, ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	if len(configMapData) == 0 {
+	if len(ConfigMapData) == 0 {
 		return ctrl.Result{RequeueAfter: time.Second}, nil
 	}
 
@@ -176,6 +176,7 @@ func HandleReconcile(r ISQBReconciler, ctx context.Context, req ctrl.Request) (c
 		if err != nil {
 			r.ReconcileFail(ctx, obj, err)
 		}
+
 		return ctrl.Result{Requeue: true}, nil
 	}
 
@@ -192,22 +193,4 @@ func HandleReconcile(r ISQBReconciler, ctx context.Context, req ctrl.Request) (c
 	}
 
 	return ctrl.Result{}, err
-}
-
-func init() {
-	go func() {
-		timer := time.NewTimer(60*time.Second)
-		for {
-			if len(configMapData) == 0 {
-				select {
-				case <- timer.C:
-					panic("operator configmap is not valid")
-				case <- time.After(time.Second):
-				}
-			} else {
-				timer.Stop()
-				break
-			}
-		}
-	}()
 }

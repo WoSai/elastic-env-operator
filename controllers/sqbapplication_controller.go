@@ -94,7 +94,7 @@ func (r *SQBApplicationReconciler) IsInitialized(ctx context.Context, obj runtim
 	if len(cr.Annotations) == 0 {
 		cr.Annotations = make(map[string]string)
 	}
-	if globalDefaultDeploy, ok := configMapData["globalDefaultDeploy"]; ok {
+	if globalDefaultDeploy, ok := ConfigMapData["globalDefaultDeploy"]; ok {
 		applicationDeploy, _ := json.Marshal(cr.Spec.DeploySpec)
 		applicationDeploy, _ = jsonpatch.MergePatch([]byte(globalDefaultDeploy), applicationDeploy)
 		deploy := qav1alpha1.DeploySpec{}
@@ -110,7 +110,7 @@ func (r *SQBApplicationReconciler) IsInitialized(ctx context.Context, obj runtim
 	cr.Spec.Subpaths = append(cr.Spec.Subpaths, qav1alpha1.Subpath{
 		Path: "/", ServiceName: cr.Name, ServicePort: 80})
 	cr.Annotations[IstioInjectAnnotationKey] = r.getIstioInjectionResult(ctx, cr)
-	cr.Annotations[IngressAnnotationKey] = r.getIngressOpenResult(cr)
+	cr.Annotations[IngressOpenAnnotationKey] = r.getIngressOpenResult(cr)
 	err := r.Update(ctx, cr)
 	if err != nil {
 		return false, err
@@ -271,6 +271,8 @@ func (r *SQBApplicationReconciler) createOrUpdateService(ctx context.Context, cr
 			if err != nil {
 				return err
 			}
+		} else {
+			service.Annotations = nil
 		}
 		service.Labels = cr.Labels
 		return nil
@@ -306,22 +308,45 @@ func (r *SQBApplicationReconciler) handleIstio(ctx context.Context, cr *qav1alph
 				rules = append(rules, rule)
 			}
 			for _, deployment := range deploymentList.Items {
+				virtualservice := &v1beta13.VirtualService{}
+				err := r.Get(ctx, types.NamespacedName{Namespace: deployment.Namespace, Name: deployment.Name}, virtualservice)
+				if err != nil && !apierrors.IsNotFound(err) {
+					return err
+				}
+
 				if _, ok := deployment.Annotations[PublicEntryAnnotationKey]; ok {
-					for _, publicEntry := range getSpecialVirtualServiceHost(&deployment) {
+					// 处理special virtualservice
+					if err != nil {
+						virtualservice := r.generateSpecialVirtualService(&deployment)
+						err := r.Create(ctx, virtualservice)
+						if err != nil {
+							return nil
+						}
+					}
+					for _, publicEntry := range virtualservice.Spec.Hosts {
 						rule := v1beta12.IngressRule{
 							Host:             publicEntry,
 							IngressRuleValue: ingressRule,
 						}
 						rules = append(rules, rule)
 					}
+				} else {
+					if err == nil {
+						err := r.Delete(ctx, virtualservice)
+						if err != nil {
+							return err
+						}
+					}
 				}
 			}
-			ingress.Spec = v1beta12.IngressSpec{Rules: rules}
+			ingress.Spec.Rules = rules
 			if anno, ok := cr.Annotations[IngressAnnotationKey]; ok {
 				err := json.Unmarshal([]byte(anno), &ingress.Annotations)
 				if err != nil {
 					return err
 				}
+			} else {
+				ingress.Annotations = nil
 			}
 			ingress.Labels = cr.Labels
 			return nil
@@ -346,6 +371,8 @@ func (r *SQBApplicationReconciler) handleIstio(ctx context.Context, cr *qav1alph
 			if err != nil {
 				return err
 			}
+		} else {
+			destinationrule.Annotations = nil
 		}
 		return nil
 	})
@@ -374,6 +401,8 @@ func (r *SQBApplicationReconciler) handleIstio(ctx context.Context, cr *qav1alph
 			if err != nil {
 				return err
 			}
+		} else {
+			virtualservice.Annotations = nil
 		}
 		return nil
 	})
@@ -412,12 +441,14 @@ func (r *SQBApplicationReconciler) handleNoIstio(ctx context.Context, cr *qav1al
 				}
 				rules = append(rules, rule)
 			}
-			ingress.Spec = v1beta12.IngressSpec{Rules: rules}
+			ingress.Spec.Rules = rules
 			if anno, ok := cr.Annotations[IngressAnnotationKey]; ok {
 				err := json.Unmarshal([]byte(anno), &ingress.Annotations)
 				if err != nil {
 					return err
 				}
+			} else {
+				ingress.Annotations = nil
 			}
 			return nil
 		})
@@ -446,7 +477,6 @@ func (r *SQBApplicationReconciler) handleNoIstio(ctx context.Context, cr *qav1al
 	return nil
 }
 
-
 func (r *SQBApplicationReconciler) getIstioInjectionResult(ctx context.Context, cr *qav1alpha1.SQBApplication) string {
 	enable := "false"
 	istio := &v14.CustomResourceDefinition{}
@@ -458,7 +488,7 @@ func (r *SQBApplicationReconciler) getIstioInjectionResult(ctx context.Context, 
 			enable = istioInject
 		} else {
 			// 没有注解，取configmap默认值
-			if istioInject, ok := configMapData["istioInject"]; ok {
+			if istioInject, ok := ConfigMapData["istioInject"]; ok {
 				enable = istioInject
 			}
 		}
@@ -471,12 +501,40 @@ func (r *SQBApplicationReconciler) getIngressOpenResult(cr *qav1alpha1.SQBApplic
 	if ingressOpen, ok := cr.Annotations[IngressOpenAnnotationKey]; ok {
 		enable = ingressOpen
 	} else {
-		if ingressOpen, ok := configMapData["ingressOpen"]; ok {
+		if ingressOpen, ok := ConfigMapData["ingressOpen"]; ok {
 			enable = ingressOpen
 		}
 	}
 	return enable
 }
+
+func (r *SQBApplicationReconciler) generateSpecialVirtualService(deployment *v12.Deployment) *v1beta13.VirtualService {
+	virtualservice := &v1beta13.VirtualService{
+		ObjectMeta: v1.ObjectMeta{Namespace: deployment.Namespace, Name: deployment.Name},
+		Spec: v1beta14.VirtualService{
+			Hosts:    getSpecialVirtualServiceHost(deployment),
+			Gateways: getIstioGateways(),
+			Http: []*v1beta14.HTTPRoute{
+				{
+					Route: []*v1beta14.HTTPRouteDestination{
+						{Destination: &v1beta14.Destination{
+							Host:   deployment.Labels[AppKey],
+							Subset: deployment.Name,
+						}},
+					},
+					Timeout: &types2.Duration{Seconds: getIstioTimeout()},
+					Headers: &v1beta14.Headers{
+						Request: &v1beta14.Headers_HeaderOperations{Set: map[string]string{XEnvFlag: deployment.Labels[PlaneKey]}},
+					},
+				},
+			},
+		},
+	}
+	// 为了删除Deployment能自动删除SpecialVirtualservice
+	_ = controllerutil.SetControllerReference(deployment, virtualservice, r.Scheme)
+	return virtualservice
+}
+
 // 根据plane生成DestinationRule的subsets
 func generateSubsets(cr *qav1alpha1.SQBApplication, planes map[string]int) []*v1beta14.Subset {
 	subsets := make([]*v1beta14.Subset, 0)
@@ -697,7 +755,6 @@ func getSubsetName(host, plane string) string {
 	return host + "-" + plane
 }
 
-
 func getIngressHosts(cr *qav1alpha1.SQBApplication) []string {
 	hosts := getDefaultDomainName(cr.Name)
 	for _, host := range cr.Spec.Hosts {
@@ -708,3 +765,7 @@ func getIngressHosts(cr *qav1alpha1.SQBApplication) []string {
 	return hosts
 }
 
+func getSpecialVirtualServiceHost(deployment *v12.Deployment) []string {
+	publicEntry := deployment.Annotations[PublicEntryAnnotationKey]
+	return strings.Split(publicEntry, ",")
+}

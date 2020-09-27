@@ -18,17 +18,16 @@ package main
 
 import (
 	"flag"
-	"os"
-
+	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
+	"github.com/wosai/elastic-env-operator/controllers"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-
-	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
-	"github.com/wosai/elastic-env-operator/controllers"
+	"time"
 
 	// +kubebuilder:scaffold:imports
 	istio "istio.io/client-go/pkg/apis/networking/v1beta1"
@@ -108,6 +107,23 @@ func main() {
 		setupLog.Error(err, "unable to create webhook", "webhook", "SQBDeployment")
 		os.Exit(1)
 	}
+
+	go func() {
+		timer := time.NewTimer(60 * time.Second)
+		for {
+			if len(controllers.ConfigMapData) == 0 {
+				select {
+				case <-timer.C:
+					panic("operator configmap is not valid")
+				case <-time.After(time.Second):
+				}
+			} else {
+				timer.Stop()
+				break
+			}
+		}
+	}()
+
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")

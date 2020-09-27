@@ -21,10 +21,7 @@ import (
 	"encoding/json"
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
-	types2 "github.com/gogo/protobuf/types"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
-	v1beta14 "istio.io/api/networking/v1beta1"
-	"istio.io/client-go/pkg/apis/networking/v1beta1"
 	v12 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -36,7 +33,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"strings"
 )
 
 // SQBDeploymentReconciler reconciles a SQBDeployment object
@@ -77,7 +73,7 @@ func (r *SQBDeploymentReconciler) IsInitialized(ctx context.Context, obj runtime
 	// 设置finalizer、labels
 	controllerutil.AddFinalizer(cr, SqbdeploymentFinalizer)
 	cr.Labels = MergeStringMap(cr.Labels, map[string]string{
-		AppKey: cr.Spec.Selector.App,
+		AppKey:   cr.Spec.Selector.App,
 		PlaneKey: cr.Spec.Selector.Plane,
 	})
 	application := &qav1alpha1.SQBApplication{}
@@ -146,28 +142,18 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 		}
 
 		deployment.Labels = cr.Labels
-		deployment.Spec = v12.DeploymentSpec{
-			Replicas: deploy.Replicas,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: map[string]string{
-					AppKey: cr.Spec.Selector.App,
-				},
-			},
-			Template: v1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: deployment.Labels,
-				},
-				Spec: v1.PodSpec{
-					Volumes: deploy.Volumes,
-					HostAliases: deploy.HostAlias,
-					Containers: []v1.Container{
-						container,
-					},
-				},
+		deployment.Spec.Replicas = deploy.Replicas
+		deployment.Spec.Selector = &metav1.LabelSelector{
+			MatchLabels: map[string]string{
+				AppKey: cr.Spec.Selector.App,
 			},
 		}
+		deployment.Spec.Template.ObjectMeta.Labels = deployment.Labels
+		deployment.Spec.Template.Spec.Volumes = deploy.Volumes
+		deployment.Spec.Template.Spec.HostAliases = deploy.HostAlias
+		deployment.Spec.Template.Spec.Containers = []v1.Container{container}
 
-		imagePullSecrets, ok := configMapData["imagePullSecrets"]
+		imagePullSecrets, ok := ConfigMapData["imagePullSecrets"]
 		if ok {
 			deployment.Spec.Template.Spec.ImagePullSecrets = []v1.LocalObjectReference{{Name: imagePullSecrets}}
 		}
@@ -177,9 +163,8 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 			if err != nil {
 				return err
 			}
-		}
-		if len(deployment.Annotations) == 0 {
-			deployment.Annotations = map[string]string{}
+		} else {
+			deployment.Spec.Template.Annotations = nil
 		}
 
 		if anno, ok := cr.Annotations[DeploymentAnnotationKey]; ok {
@@ -187,19 +172,26 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 			if err != nil {
 				return err
 			}
+		} else {
+			deployment.Annotations = nil
+		}
+		if len(deployment.Annotations) == 0 {
+			deployment.Annotations = make(map[string]string)
 		}
 		// sqbapplication controller要用到publicEntry
 		if publicEntry, ok := cr.Annotations[PublicEntryAnnotationKey]; ok {
 			deployment.Annotations[PublicEntryAnnotationKey] = publicEntry
+		} else {
+			delete(deployment.Annotations, PublicEntryAnnotationKey)
 		}
 		// init lifecycle
 		if deploy.Lifecycle != nil && deploy.Lifecycle.Init != nil {
 			init := deploy.Lifecycle.Init
 			initContainer := v1.Container{
-				Name:    "busybox",
-				Image:   "busybox",
-				Command: init.Exec.Command,
-				Env:     deploy.Env,
+				Name:         "busybox",
+				Image:        "busybox",
+				Command:      init.Exec.Command,
+				Env:          deploy.Env,
 				VolumeMounts: deploy.VolumeMounts,
 			}
 			deployment.Spec.Template.Spec.InitContainers = []v1.Container{initContainer}
@@ -237,26 +229,6 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 	if err != nil {
 		return err
 	}
-	_, ok := deployment.Annotations[PublicEntryAnnotationKey]
-	if ok && cr.Annotations[IstioInjectAnnotationKey] == "true" {
-		// 如果打开特殊入口，创建或更新单独的virtualservice
-		virtualservice := r.generateSpecialVirtualService(deployment)
-		// 如果已经存在同名的virtualservice，就不再做变化，因为有可能手动修改过
-		_, err := controllerutil.CreateOrUpdate(ctx, r.Client, virtualservice, func() error { return nil })
-		if err != nil {
-			return err
-		}
-	} else {
-		// 如果没有打开特殊入口或没有启用istio，删除单独的virtualservice
-		virtualservice := &v1beta1.VirtualService{}
-		err = r.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: cr.Name}, virtualservice)
-		if err == nil {
-			err = r.Delete(ctx, virtualservice)
-			if err != nil {
-				return err
-			}
-		}
-	}
 	cr.Status.ErrorInfo = ""
 	return r.Status().Update(ctx, cr)
 }
@@ -292,33 +264,6 @@ func (r *SQBDeploymentReconciler) RemoveFinalizer(ctx context.Context, cr *qav1a
 	return r.Update(ctx, cr)
 }
 
-func (r *SQBDeploymentReconciler) generateSpecialVirtualService(deployment *v12.Deployment) *v1beta1.VirtualService {
-	virtualservice := &v1beta1.VirtualService{
-		ObjectMeta: metav1.ObjectMeta{Namespace: deployment.Namespace, Name: deployment.Name},
-		Spec: v1beta14.VirtualService{
-			Hosts:    getSpecialVirtualServiceHost(deployment),
-			Gateways: getIstioGateways(),
-			Http: []*v1beta14.HTTPRoute{
-				{
-					Route: []*v1beta14.HTTPRouteDestination{
-						{Destination: &v1beta14.Destination{
-							Host:   deployment.Labels[AppKey],
-							Subset: deployment.Name,
-						}},
-					},
-					Timeout: &types2.Duration{Seconds: getIstioTimeout()},
-					Headers: &v1beta14.Headers{
-						Request: &v1beta14.Headers_HeaderOperations{Set: map[string]string{XEnvFlag: deployment.Labels[PlaneKey]}},
-					},
-				},
-			},
-		},
-	}
-	// 为了删除Deployment能自动删除SpecialVirtualservice
-	_ = controllerutil.SetControllerReference(deployment, virtualservice, r.Scheme)
-	return virtualservice
-}
-
 func DeleteSqbdeploymentByLabel(c client.Client, ctx context.Context, namespace string, labelSets map[string]string) error {
 	sqbDeploymentList := &qav1alpha1.SQBDeploymentList{}
 	err := c.List(ctx, sqbDeploymentList, &client.ListOptions{Namespace: namespace, LabelSelector: labels.SelectorFromSet(labelSets)})
@@ -349,17 +294,12 @@ func DeleteDeploymentByLabel(c client.Client, ctx context.Context, namespace str
 	return nil
 }
 
-func getSpecialVirtualServiceHost(deployment *v12.Deployment) []string {
-	publicEntry := deployment.Annotations[PublicEntryAnnotationKey]
-	return strings.Split(publicEntry, ",")
-}
-
 // 设置与deployment中与deployment同名的pvc的owner为deployment,deployment删除,pvc自动删除
 func (r *SQBDeploymentReconciler) setPvcOwnerRef(ctx context.Context, deployment *v12.Deployment) error {
 	for _, v := range deployment.Spec.Template.Spec.Volumes {
 		if v.PersistentVolumeClaim != nil && v.PersistentVolumeClaim.ClaimName == deployment.Name {
 			pvc := &v1.PersistentVolumeClaim{}
-			err := r.Get(ctx, client.ObjectKey{Namespace:deployment.Namespace, Name:deployment.Name}, pvc)
+			err := r.Get(ctx, client.ObjectKey{Namespace: deployment.Namespace, Name: deployment.Name}, pvc)
 			if err != nil {
 				return err
 			}

@@ -125,7 +125,7 @@ var _ = BeforeSuite(func(done Done) {
 	err = k8sClient.Create(context.Background(), &v12.ConfigMap{
 		ObjectMeta: v13.ObjectMeta{
 			Namespace: "default",
-			Name: "operator-configmap",
+			Name:      "operator-configmap",
 		},
 		Data: map[string]string{
 			"ingressOpen": "true",

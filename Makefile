@@ -12,7 +12,7 @@ endif
 BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 
 # Image URL to use all building/pushing image targets
-IMG ?= registry.wosai-inc.com/qa/elastic-env-operator:v0.0.34
+IMG ?= registry.wosai-inc.com/qa/elastic-env-operator:v0.0.38
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -66,7 +66,7 @@ generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 # Build the docker image
-docker-build: #test
+docker-build: generate fmt vet manifests #test
 	docker build . -t ${IMG}
 
 # Push the docker image

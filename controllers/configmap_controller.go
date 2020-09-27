@@ -20,10 +20,13 @@ import (
 	"context"
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
 // SQBPlaneReconciler reconciles a SQBPlane object
@@ -38,25 +41,27 @@ type ConfigMapReconciler struct {
 
 func (r *ConfigMapReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	namespace := os.Getenv("CONFIGMAP_NAMESPACE")
-	if namespace == "" {
-		namespace = "default"
-	}
-	if req.Namespace != namespace && req.Name != "operator-configmap" {
-		return ctrl.Result{}, nil
-	}
 	instance := &v1.ConfigMap{}
 	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	configMapData = instance.Data
+	ConfigMapData = instance.Data
 	return ctrl.Result{}, nil
 }
 
 func (r *ConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
+	namespace := os.Getenv("CONFIGMAP_NAMESPACE")
+	if namespace == "" {
+		namespace = "default"
+	}
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1.ConfigMap{}).
+		For(&v1.ConfigMap{}, builder.WithPredicates(predicate.NewPredicateFuncs(
+			func(meta metav1.Object, object runtime.Object) bool {
+				if meta.GetNamespace() == namespace && meta.GetName() == "operator-configmap" {
+					return true
+				}
+				return false
+			}))).
 		Complete(r)
 }
-

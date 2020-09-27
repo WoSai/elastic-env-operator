@@ -220,7 +220,7 @@ var _ = Describe("Controller", func() {
 				},
 				DeploySpec: qav1alpha1.DeploySpec{
 					Replicas: proto.Int32(2),
-					Image: "busybox",
+					Image:    "busybox",
 					Resources: &v12.ResourceRequirements{
 						Limits: v12.ResourceList{
 							v12.ResourceCPU: *resource.NewQuantity(2, resource.DecimalSI),
@@ -252,9 +252,9 @@ var _ = Describe("Controller", func() {
 						{
 							Weight: 100,
 							NodeSelectorRequirement: v12.NodeSelectorRequirement{
-								Key:    "node",
+								Key:      "node",
 								Operator: v12.NodeSelectorOpIn,
-								Values: []string{"qa"},
+								Values:   []string{"qa"},
 							},
 						},
 					},
@@ -357,7 +357,7 @@ var _ = Describe("Controller", func() {
 					ServicePort: 8080,
 				},
 				{
-					Path: "/",
+					Path:        "/",
 					ServiceName: sqbapplication.Name,
 					ServicePort: 80,
 				},
@@ -628,7 +628,7 @@ var _ = Describe("Controller", func() {
 						ServicePort: 82,
 					},
 					{
-						Path: "/",
+						Path:        "/",
 						ServiceName: sqbapplication.Name,
 						ServicePort: 80,
 					},
