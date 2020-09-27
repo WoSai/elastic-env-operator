@@ -110,7 +110,7 @@ func (r *SQBApplicationReconciler) IsInitialized(ctx context.Context, obj runtim
 	cr.Spec.Subpaths = append(cr.Spec.Subpaths, qav1alpha1.Subpath{
 		Path: "/", ServiceName: cr.Name, ServicePort: 80})
 	cr.Annotations[IstioInjectAnnotationKey] = r.getIstioInjectionResult(ctx, cr)
-	cr.Annotations[IngressAnnotationKey] = r.getIngressOpenResult(cr)
+	cr.Annotations[IngressOpenAnnotationKey] = r.getIngressOpenResult(cr)
 	err := r.Update(ctx, cr)
 	if err != nil {
 		return false, err

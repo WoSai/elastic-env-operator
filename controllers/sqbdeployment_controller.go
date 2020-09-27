@@ -166,9 +166,6 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 		} else {
 			deployment.Spec.Template.Annotations = nil
 		}
-		if len(deployment.Annotations) == 0 {
-			deployment.Annotations = make(map[string]string)
-		}
 
 		if anno, ok := cr.Annotations[DeploymentAnnotationKey]; ok {
 			err := json.Unmarshal([]byte(anno), &deployment.Annotations)
@@ -178,10 +175,13 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 		} else {
 			deployment.Annotations = nil
 		}
+		if len(deployment.Annotations) == 0 {
+			deployment.Annotations = make(map[string]string)
+		}
 		// sqbapplication controller要用到publicEntry
 		if publicEntry, ok := cr.Annotations[PublicEntryAnnotationKey]; ok {
 			deployment.Annotations[PublicEntryAnnotationKey] = publicEntry
-		}else {
+		} else {
 			delete(deployment.Annotations, PublicEntryAnnotationKey)
 		}
 		// init lifecycle
