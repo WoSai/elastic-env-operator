@@ -94,7 +94,7 @@ func (r *SQBApplicationReconciler) IsInitialized(ctx context.Context, obj runtim
 	if len(cr.Annotations) == 0 {
 		cr.Annotations = make(map[string]string)
 	}
-	if globalDefaultDeploy, ok := configMapData["globalDefaultDeploy"]; ok {
+	if globalDefaultDeploy, ok := ConfigMapData["globalDefaultDeploy"]; ok {
 		applicationDeploy, _ := json.Marshal(cr.Spec.DeploySpec)
 		applicationDeploy, _ = jsonpatch.MergePatch([]byte(globalDefaultDeploy), applicationDeploy)
 		deploy := qav1alpha1.DeploySpec{}
@@ -488,7 +488,7 @@ func (r *SQBApplicationReconciler) getIstioInjectionResult(ctx context.Context, 
 			enable = istioInject
 		} else {
 			// 没有注解，取configmap默认值
-			if istioInject, ok := configMapData["istioInject"]; ok {
+			if istioInject, ok := ConfigMapData["istioInject"]; ok {
 				enable = istioInject
 			}
 		}
@@ -501,7 +501,7 @@ func (r *SQBApplicationReconciler) getIngressOpenResult(cr *qav1alpha1.SQBApplic
 	if ingressOpen, ok := cr.Annotations[IngressOpenAnnotationKey]; ok {
 		enable = ingressOpen
 	} else {
-		if ingressOpen, ok := configMapData["ingressOpen"]; ok {
+		if ingressOpen, ok := ConfigMapData["ingressOpen"]; ok {
 			enable = ingressOpen
 		}
 	}

@@ -46,7 +46,7 @@ func (r *ConfigMapReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	configMapData = instance.Data
+	ConfigMapData = instance.Data
 	return ctrl.Result{}, nil
 }
 

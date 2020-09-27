@@ -153,7 +153,7 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 		deployment.Spec.Template.Spec.HostAliases = deploy.HostAlias
 		deployment.Spec.Template.Spec.Containers = []v1.Container{container}
 
-		imagePullSecrets, ok := configMapData["imagePullSecrets"]
+		imagePullSecrets, ok := ConfigMapData["imagePullSecrets"]
 		if ok {
 			deployment.Spec.Template.Spec.ImagePullSecrets = []v1.LocalObjectReference{{Name: imagePullSecrets}}
 		}
