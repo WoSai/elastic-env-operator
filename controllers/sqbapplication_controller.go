@@ -271,6 +271,8 @@ func (r *SQBApplicationReconciler) createOrUpdateService(ctx context.Context, cr
 			if err != nil {
 				return err
 			}
+		} else {
+			service.Annotations = nil
 		}
 		service.Labels = cr.Labels
 		return nil
@@ -306,22 +308,45 @@ func (r *SQBApplicationReconciler) handleIstio(ctx context.Context, cr *qav1alph
 				rules = append(rules, rule)
 			}
 			for _, deployment := range deploymentList.Items {
+				virtualservice := &v1beta13.VirtualService{}
+				err := r.Get(ctx, types.NamespacedName{Namespace: deployment.Namespace, Name: deployment.Name}, virtualservice)
+				if err != nil && !apierrors.IsNotFound(err) {
+					return err
+				}
+
 				if _, ok := deployment.Annotations[PublicEntryAnnotationKey]; ok {
-					for _, publicEntry := range getSpecialVirtualServiceHost(&deployment) {
+					// 处理special virtualservice
+					if err != nil {
+						virtualservice := r.generateSpecialVirtualService(&deployment)
+						err := r.Create(ctx, virtualservice)
+						if err != nil {
+							return nil
+						}
+					}
+					for _, publicEntry := range virtualservice.Spec.Hosts {
 						rule := v1beta12.IngressRule{
 							Host:             publicEntry,
 							IngressRuleValue: ingressRule,
 						}
 						rules = append(rules, rule)
 					}
+				} else {
+					if err == nil {
+						err := r.Delete(ctx, virtualservice)
+						if err != nil {
+							return err
+						}
+					}
 				}
 			}
-			ingress.Spec = v1beta12.IngressSpec{Rules: rules}
+			ingress.Spec.Rules = rules
 			if anno, ok := cr.Annotations[IngressAnnotationKey]; ok {
 				err := json.Unmarshal([]byte(anno), &ingress.Annotations)
 				if err != nil {
 					return err
 				}
+			} else {
+				ingress.Annotations = nil
 			}
 			ingress.Labels = cr.Labels
 			return nil
@@ -346,6 +371,8 @@ func (r *SQBApplicationReconciler) handleIstio(ctx context.Context, cr *qav1alph
 			if err != nil {
 				return err
 			}
+		} else {
+			destinationrule.Annotations = nil
 		}
 		return nil
 	})
@@ -374,6 +401,8 @@ func (r *SQBApplicationReconciler) handleIstio(ctx context.Context, cr *qav1alph
 			if err != nil {
 				return err
 			}
+		} else {
+			virtualservice.Annotations = nil
 		}
 		return nil
 	})
@@ -412,12 +441,14 @@ func (r *SQBApplicationReconciler) handleNoIstio(ctx context.Context, cr *qav1al
 				}
 				rules = append(rules, rule)
 			}
-			ingress.Spec = v1beta12.IngressSpec{Rules: rules}
+			ingress.Spec.Rules = rules
 			if anno, ok := cr.Annotations[IngressAnnotationKey]; ok {
 				err := json.Unmarshal([]byte(anno), &ingress.Annotations)
 				if err != nil {
 					return err
 				}
+			} else {
+				ingress.Annotations = nil
 			}
 			return nil
 		})
@@ -475,6 +506,33 @@ func (r *SQBApplicationReconciler) getIngressOpenResult(cr *qav1alpha1.SQBApplic
 		}
 	}
 	return enable
+}
+
+func (r *SQBApplicationReconciler) generateSpecialVirtualService(deployment *v12.Deployment) *v1beta13.VirtualService {
+	virtualservice := &v1beta13.VirtualService{
+		ObjectMeta: v1.ObjectMeta{Namespace: deployment.Namespace, Name: deployment.Name},
+		Spec: v1beta14.VirtualService{
+			Hosts:    getSpecialVirtualServiceHost(deployment),
+			Gateways: getIstioGateways(),
+			Http: []*v1beta14.HTTPRoute{
+				{
+					Route: []*v1beta14.HTTPRouteDestination{
+						{Destination: &v1beta14.Destination{
+							Host:   deployment.Labels[AppKey],
+							Subset: deployment.Name,
+						}},
+					},
+					Timeout: &types2.Duration{Seconds: getIstioTimeout()},
+					Headers: &v1beta14.Headers{
+						Request: &v1beta14.Headers_HeaderOperations{Set: map[string]string{XEnvFlag: deployment.Labels[PlaneKey]}},
+					},
+				},
+			},
+		},
+	}
+	// 为了删除Deployment能自动删除SpecialVirtualservice
+	_ = controllerutil.SetControllerReference(deployment, virtualservice, r.Scheme)
+	return virtualservice
 }
 
 // 根据plane生成DestinationRule的subsets
@@ -705,4 +763,9 @@ func getIngressHosts(cr *qav1alpha1.SQBApplication) []string {
 		}
 	}
 	return hosts
+}
+
+func getSpecialVirtualServiceHost(deployment *v12.Deployment) []string {
+	publicEntry := deployment.Annotations[PublicEntryAnnotationKey]
+	return strings.Split(publicEntry, ",")
 }
