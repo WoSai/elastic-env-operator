@@ -10,7 +10,6 @@ import (
 	v13 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
-	v1beta13 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -18,54 +17,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"time"
 )
-
-func enableIstio() {
-	ctx := context.Background()
-	virtualServiceCRD := &v1beta13.CustomResourceDefinition{
-		ObjectMeta: v1.ObjectMeta{Name: "virtualservices.networking.istio.io"},
-	}
-	_, _ = controllerutil.CreateOrUpdate(ctx, k8sClient, virtualServiceCRD, func() error {
-		virtualServiceCRD.Spec = v1beta13.CustomResourceDefinitionSpec{
-			Group: "networking.istio.io",
-			Names: v1beta13.CustomResourceDefinitionNames{
-				Plural: "virtualservices",
-				Kind:   "VirtualService",
-			},
-			Scope:                 "Namespaced",
-			PreserveUnknownFields: proto.Bool(true),
-			Versions: []v1beta13.CustomResourceDefinitionVersion{
-				{
-					Name:    "v1beta1",
-					Served:  true,
-					Storage: true,
-				},
-			},
-		}
-		return nil
-	})
-	destinationRuleCRD := &v1beta13.CustomResourceDefinition{
-		ObjectMeta: v1.ObjectMeta{Name: "destinationrules.networking.istio.io"},
-	}
-	_, _ = controllerutil.CreateOrUpdate(ctx, k8sClient, destinationRuleCRD, func() error {
-		destinationRuleCRD.Spec = v1beta13.CustomResourceDefinitionSpec{
-			Group: "networking.istio.io",
-			Names: v1beta13.CustomResourceDefinitionNames{
-				Plural: "destinationrules",
-				Kind:   "DestinationRule",
-			},
-			Scope: "Namespaced",
-			Versions: []v1beta13.CustomResourceDefinitionVersion{
-				{
-					Name:    "v1beta1",
-					Served:  true,
-					Storage: true,
-				},
-			},
-		}
-		return nil
-	})
-	time.Sleep(time.Second)
-}
 
 var _ = Describe("Controller", func() {
 	namespace := "default"
@@ -171,6 +122,9 @@ var _ = Describe("Controller", func() {
 				ObjectMeta: v1.ObjectMeta{
 					Namespace: namespace,
 					Name:      applicationName,
+					Annotations: map[string]string{
+						IstioInjectAnnotationKey: "false",
+					},
 				},
 				Spec: qav1alpha1.SQBApplicationSpec{
 					ServiceSpec: qav1alpha1.ServiceSpec{
@@ -189,7 +143,7 @@ var _ = Describe("Controller", func() {
 			}
 			err = k8sClient.Create(ctx, sqbapplication)
 			Expect(err).NotTo(HaveOccurred())
-			time.Sleep(time.Second)
+			time.Sleep(2 * time.Second)
 			sqbdeployment = &qav1alpha1.SQBDeployment{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: deploymentName}, sqbdeployment)
 			Expect(err).NotTo(HaveOccurred())
@@ -348,7 +302,6 @@ var _ = Describe("Controller", func() {
 
 		It("ingress open", func() {
 			_ = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, sqbapplication)
-			sqbapplication.Annotations = map[string]string{}
 			sqbapplication.Annotations[IngressOpenAnnotationKey] = "true"
 			sqbapplication.Spec.Subpaths = append([]qav1alpha1.Subpath{
 				{
@@ -486,12 +439,14 @@ var _ = Describe("Controller", func() {
 
 	Describe("istio enabled", func() {
 		BeforeEach(func() {
-			enableIstio()
 			// 创建默认的application
 			sqbapplication = &qav1alpha1.SQBApplication{
 				ObjectMeta: v1.ObjectMeta{
 					Namespace: namespace,
 					Name:      applicationName,
+					Annotations: map[string]string{
+						IstioInjectAnnotationKey: "true",
+					},
 				},
 				Spec: qav1alpha1.SQBApplicationSpec{
 					ServiceSpec: qav1alpha1.ServiceSpec{
@@ -521,7 +476,6 @@ var _ = Describe("Controller", func() {
 			_ = k8sClient.Delete(ctx, sqbapplication)
 			_ = k8sClient.Delete(ctx, sqbplane)
 			// 删除service,ingress,deployment,virtualservice,destinationrule
-			_ = DeleteDeploymentByLabel(k8sClient, ctx, namespace, map[string]string{AppKey: applicationName})
 			service := &v12.Service{ObjectMeta: v1.ObjectMeta{Namespace: namespace, Name: applicationName}}
 			_ = k8sClient.Delete(ctx, service)
 			ingress := &v1beta1.Ingress{ObjectMeta: v1.ObjectMeta{Namespace: namespace, Name: applicationName}}
@@ -530,6 +484,7 @@ var _ = Describe("Controller", func() {
 			_ = k8sClient.Delete(ctx, virtualservice)
 			destinationrule := &v1beta12.DestinationRule{ObjectMeta: v1.ObjectMeta{Namespace: namespace, Name: applicationName}}
 			_ = k8sClient.Delete(ctx, destinationrule)
+			_ = DeleteDeploymentByLabel(k8sClient, ctx, namespace, map[string]string{AppKey: applicationName})
 			time.Sleep(time.Second)
 		})
 
@@ -582,8 +537,7 @@ var _ = Describe("Controller", func() {
 		It("public entry", func() {
 			_, err = controllerutil.CreateOrUpdate(ctx, k8sClient, sqbdeployment, func() error {
 				sqbdeployment.Annotations = map[string]string{
-					PublicEntryAnnotationKey: deploymentName + ".iwosai.com",
-					IstioInjectAnnotationKey: "true",
+					PublicEntryAnnotationKey: "true",
 				}
 				return nil
 			})

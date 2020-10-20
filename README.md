@@ -179,7 +179,7 @@ metadata:
   namespace: sqb
   annotations:
     qa.shouqianba.com/delete: "xxx"  # 明确删除
-    qa.shouqianba.com/public-entry: "merchant-enrolment-test1.iwosai.com" #外网入口,多个使用逗号隔开
+    qa.shouqianba.com/public-entry: "true" #是否开启外网入口，默认不开启
     qa.shouqianba.com/passthrough-deployment: # 透传到下游deployment的annotation
     qa.shouqianba.com/passthrough-pod:
 spec:

@@ -23,11 +23,15 @@ import (
 	v12 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
@@ -52,15 +56,29 @@ func (r *SQBPlaneReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&qav1alpha1.SQBPlane{}, builder.WithPredicates(GenerationAnnotationPredicate)).
 		Watches(&source.Kind{Type: &v12.Deployment{}},
-			&handler.EnqueueRequestForOwner{OwnerType: &qav1alpha1.SQBPlane{}, IsController: false},
-			builder.WithPredicates(CreateDeletePredicate)).
+			&handler.EnqueueRequestsFromMapFunc{ToRequests: handler.ToRequestsFunc(func(a handler.MapObject) []reconcile.Request {
+				return []reconcile.Request{
+					{NamespacedName: types.NamespacedName{
+						Name:      a.Meta.GetLabels()[PlaneKey],
+						Namespace: a.Meta.GetNamespace(),
+					}},
+				}
+			})},
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(event event.UpdateEvent) bool {
+					return false
+				},
+				GenericFunc: func(event event.GenericEvent) bool {
+					return false
+				},
+			})).
 		Complete(r)
 }
 
 func (r *SQBPlaneReconciler) GetInstance(ctx context.Context, req ctrl.Request) (runtime.Object, error) {
 	instance := &qav1alpha1.SQBPlane{}
 	err := r.Get(ctx, req.NamespacedName, instance)
-	return instance, client.IgnoreNotFound(err)
+	return instance, err
 }
 
 func (r *SQBPlaneReconciler) IsInitialized(ctx context.Context, obj runtime.Object) (bool, error) {

@@ -115,3 +115,7 @@ type SQBApplicationList struct {
 func init() {
 	SchemeBuilder.Register(&SQBApplication{}, &SQBApplicationList{})
 }
+
+//func (sa *SQBApplication) BuildService() *v1.Service {
+//
+//}

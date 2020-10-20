@@ -4,9 +4,10 @@ import (
 	"context"
 	"crypto/md5"
 	"fmt"
+	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"os"
 	"reflect"
-	"strconv"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"strings"
 	"time"
 
@@ -18,7 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-var (
+const (
 	XEnvFlag                     = "x-env-flag"
 	AppKey                       = "app"
 	PlaneKey                     = "plane"
@@ -36,15 +37,9 @@ var (
 	IngressAnnotationKey         = "qa.shouqianba.com/passthrough-ingress"
 	DestinationRuleAnnotationKey = "qa.shouqianba.com/passthrough-destinationrule"
 	VirtualServiceAnnotationKey  = "qa.shouqianba.com/passthrough-virtualservice"
-	// 只处理创建和删除
-	CreateDeletePredicate = predicate.Funcs{
-		UpdateFunc: func(event event.UpdateEvent) bool {
-			return false
-		},
-		GenericFunc: func(event event.GenericEvent) bool {
-			return false
-		},
-	}
+)
+
+var (
 	// 处理创建删除和generation、annotation的更新
 	GenerationAnnotationPredicate = predicate.Funcs{
 		UpdateFunc: func(event event.UpdateEvent) bool {
@@ -62,23 +57,7 @@ var (
 			return false
 		},
 	}
-	// 处理创建删除和annotation的更新
-	CreateDeleteAnnotationPredicate = predicate.Funcs{
-		UpdateFunc: func(event event.UpdateEvent) bool {
-			if event.MetaOld == nil || event.MetaNew == nil || event.ObjectOld == nil || event.ObjectNew == nil {
-				return false
-			}
-			//annotation不变，不处理
-			if reflect.DeepEqual(event.MetaOld.GetAnnotations(), event.MetaNew.GetAnnotations()) {
-				return false
-			}
-			return true
-		},
-		GenericFunc: func(event event.GenericEvent) bool {
-			return false
-		},
-	}
-	ConfigMapData map[string]string
+	ConfigMapData = &qav1alpha1.SQBConfigMap{}
 )
 
 //
@@ -120,34 +99,6 @@ func GetDeleteCheckSum(cr v12.Object) string {
 	return fmt.Sprintf("%x", checksum)
 }
 
-func getIstioTimeout() int64 {
-	timeout, ok := ConfigMapData["istioTimeout"]
-	if !ok {
-		timeout = "90"
-	}
-	routeTimeout, err := strconv.Atoi(timeout)
-	if err != nil {
-		routeTimeout = 90
-	}
-	return int64(routeTimeout)
-}
-
-func getIstioGateways() []string {
-	if gateways, ok := ConfigMapData["istioGateways"]; ok {
-		return strings.Split(gateways, ",")
-	}
-	return []string{"mesh"}
-}
-
-func getDefaultDomainName(sqbapplicationName string) []string {
-	domainPostfix, ok := ConfigMapData["domainPostfix"]
-	if !ok {
-		domainPostfix = "*.beta.iwosai.com,*.iwosai.com"
-	}
-	hosts := strings.Split(strings.ReplaceAll(domainPostfix, "*", sqbapplicationName), ",")
-	return hosts
-}
-
 type ISQBReconciler interface {
 	//
 	GetInstance(ctx context.Context, req ctrl.Request) (runtime.Object, error)
@@ -163,13 +114,13 @@ type ISQBReconciler interface {
 
 // reconcile公共逻辑流程
 func HandleReconcile(r ISQBReconciler, ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	if len(ConfigMapData) == 0 {
+	if !ConfigMapData.Initialized {
 		return ctrl.Result{RequeueAfter: time.Second}, nil
 	}
 
 	obj, err := r.GetInstance(ctx, req)
 	if err != nil {
-		return ctrl.Result{}, err
+		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
 	if yes, err := r.IsInitialized(ctx, obj); !yes {

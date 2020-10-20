@@ -61,7 +61,7 @@ func (r *SQBDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 func (r *SQBDeploymentReconciler) GetInstance(ctx context.Context, req ctrl.Request) (runtime.Object, error) {
 	instance := &qav1alpha1.SQBDeployment{}
 	err := r.Get(ctx, req.NamespacedName, instance)
-	return instance, client.IgnoreNotFound(err)
+	return instance, err
 }
 
 func (r *SQBDeploymentReconciler) IsInitialized(ctx context.Context, obj runtime.Object) (bool, error) {
@@ -72,10 +72,6 @@ func (r *SQBDeploymentReconciler) IsInitialized(ctx context.Context, obj runtime
 	}
 	// 设置finalizer、labels
 	controllerutil.AddFinalizer(cr, SqbdeploymentFinalizer)
-	cr.Labels = MergeStringMap(cr.Labels, map[string]string{
-		AppKey:   cr.Spec.Selector.App,
-		PlaneKey: cr.Spec.Selector.Plane,
-	})
 	application := &qav1alpha1.SQBApplication{}
 	err = r.Get(ctx, types.NamespacedName{Namespace: cr.Namespace, Name: cr.Spec.Selector.App}, application)
 	if err != nil {
@@ -92,9 +88,9 @@ func (r *SQBDeploymentReconciler) IsInitialized(ctx context.Context, obj runtime
 	}
 	cr.Spec.DeploySpec = deploy
 	cr.Labels = MergeStringMap(application.Labels, cr.Labels)
-	cr.Annotations = MergeStringMap(cr.Annotations, map[string]string{
-		IngressOpenAnnotationKey: application.Annotations[IngressOpenAnnotationKey],
-		IstioInjectAnnotationKey: application.Annotations[IstioInjectAnnotationKey],
+	cr.Labels = MergeStringMap(cr.Labels, map[string]string{
+		AppKey:   cr.Spec.Selector.App,
+		PlaneKey: cr.Spec.Selector.Plane,
 	})
 
 	err = r.Update(ctx, cr)
@@ -152,11 +148,7 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 		deployment.Spec.Template.Spec.Volumes = deploy.Volumes
 		deployment.Spec.Template.Spec.HostAliases = deploy.HostAlias
 		deployment.Spec.Template.Spec.Containers = []v1.Container{container}
-
-		imagePullSecrets, ok := ConfigMapData["imagePullSecrets"]
-		if ok {
-			deployment.Spec.Template.Spec.ImagePullSecrets = []v1.LocalObjectReference{{Name: imagePullSecrets}}
-		}
+		deployment.Spec.Template.Spec.ImagePullSecrets = ConfigMapData.GetImagePullSecrets()
 
 		if anno, ok := cr.Annotations[PodAnnotationKey]; ok {
 			err := json.Unmarshal([]byte(anno), &deployment.Spec.Template.Annotations)
@@ -225,10 +217,6 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 	if err != nil {
 		return err
 	}
-	err = r.setPvcOwnerRef(ctx, deployment)
-	if err != nil {
-		return err
-	}
 	cr.Status.ErrorInfo = ""
 	return r.Status().Update(ctx, cr)
 }
@@ -289,29 +277,6 @@ func DeleteDeploymentByLabel(c client.Client, ctx context.Context, namespace str
 		err = c.Delete(ctx, &deployment)
 		if err != nil && !apierrors.IsNotFound(err) {
 			return err
-		}
-	}
-	return nil
-}
-
-// 设置与deployment中与deployment同名的pvc的owner为deployment,deployment删除,pvc自动删除
-func (r *SQBDeploymentReconciler) setPvcOwnerRef(ctx context.Context, deployment *v12.Deployment) error {
-	for _, v := range deployment.Spec.Template.Spec.Volumes {
-		if v.PersistentVolumeClaim != nil && v.PersistentVolumeClaim.ClaimName == deployment.Name {
-			pvc := &v1.PersistentVolumeClaim{}
-			err := r.Get(ctx, client.ObjectKey{Namespace: deployment.Namespace, Name: deployment.Name}, pvc)
-			if err != nil {
-				return err
-			}
-			err = controllerutil.SetControllerReference(deployment, pvc, r.Scheme)
-			if err != nil {
-				return err
-			}
-			err = r.Update(ctx, pvc)
-			if err != nil {
-				return err
-			}
-			break
 		}
 	}
 	return nil

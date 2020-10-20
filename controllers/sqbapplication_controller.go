@@ -27,7 +27,6 @@ import (
 	v12 "k8s.io/api/apps/v1"
 	v13 "k8s.io/api/core/v1"
 	v1beta12 "k8s.io/api/extensions/v1beta1"
-	v14 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -38,7 +37,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 	"strconv"
@@ -76,14 +77,28 @@ func (r *SQBApplicationReconciler) SetupWithManager(mgr ctrl.Manager) error {
 					}},
 				}
 			})},
-			builder.WithPredicates(CreateDeleteAnnotationPredicate)).
+			builder.WithPredicates(predicate.Funcs{
+				UpdateFunc: func(event event.UpdateEvent) bool {
+					if event.MetaOld == nil || event.MetaNew == nil || event.ObjectOld == nil || event.ObjectNew == nil {
+						return false
+					}
+					// sqbapplication只关注Deployment的public-entry注解的更新
+					if event.MetaOld.GetAnnotations()[PublicEntryAnnotationKey] == event.MetaNew.GetAnnotations()[PublicEntryAnnotationKey] {
+						return false
+					}
+					return true
+				},
+				GenericFunc: func(event event.GenericEvent) bool {
+					return false
+				},
+			})).
 		Complete(r)
 }
 
 func (r *SQBApplicationReconciler) GetInstance(ctx context.Context, req ctrl.Request) (runtime.Object, error) {
 	instance := &qav1alpha1.SQBApplication{}
 	err := r.Get(ctx, req.NamespacedName, instance)
-	return instance, client.IgnoreNotFound(err)
+	return instance, err
 }
 
 func (r *SQBApplicationReconciler) IsInitialized(ctx context.Context, obj runtime.Object) (bool, error) {
@@ -91,10 +106,7 @@ func (r *SQBApplicationReconciler) IsInitialized(ctx context.Context, obj runtim
 	if cr.Status.Initialized == true {
 		return true, nil
 	}
-	if len(cr.Annotations) == 0 {
-		cr.Annotations = make(map[string]string)
-	}
-	if globalDefaultDeploy, ok := ConfigMapData["globalDefaultDeploy"]; ok {
+	if globalDefaultDeploy, ok := ConfigMapData.GlobalDeploy(); ok {
 		applicationDeploy, _ := json.Marshal(cr.Spec.DeploySpec)
 		applicationDeploy, _ = jsonpatch.MergePatch([]byte(globalDefaultDeploy), applicationDeploy)
 		deploy := qav1alpha1.DeploySpec{}
@@ -109,8 +121,6 @@ func (r *SQBApplicationReconciler) IsInitialized(ctx context.Context, obj runtim
 	// 添加一条默认的subpath /在最后
 	cr.Spec.Subpaths = append(cr.Spec.Subpaths, qav1alpha1.Subpath{
 		Path: "/", ServiceName: cr.Name, ServicePort: 80})
-	cr.Annotations[IstioInjectAnnotationKey] = r.getIstioInjectionResult(ctx, cr)
-	cr.Annotations[IngressOpenAnnotationKey] = r.getIngressOpenResult(cr)
 	err := r.Update(ctx, cr)
 	if err != nil {
 		return false, err
@@ -139,7 +149,7 @@ func (r *SQBApplicationReconciler) IsDeleting(ctx context.Context, obj runtime.O
 		if err != nil && !apierrors.IsNotFound(err) {
 			return true, err
 		}
-		if cr.Annotations[IstioInjectAnnotationKey] == "true" {
+		if isIstioInject(cr) {
 			// 如果有istio,删除virtualservice,destinationrule
 			destinationrule := &v1beta13.DestinationRule{ObjectMeta: v1.ObjectMeta{Namespace: cr.Namespace, Name: cr.Name}}
 			err = r.Delete(ctx, destinationrule)
@@ -225,7 +235,7 @@ func (r *SQBApplicationReconciler) Operate(ctx context.Context, obj runtime.Obje
 		return err
 	}
 	// 处理istio相关配置
-	if cr.Annotations[IstioInjectAnnotationKey] == "true" {
+	if isIstioInject(cr) {
 		err := r.handleIstio(ctx, cr, deploymentList)
 		if err != nil {
 			return err
@@ -257,7 +267,7 @@ func (r *SQBApplicationReconciler) createOrUpdateService(ctx context.Context, cr
 		ports := make([]v13.ServicePort, 0)
 		for _, port := range cr.Spec.Ports {
 			port.Name = strings.ToLower(string(port.Protocol)) + "-" + strconv.Itoa(int(port.Port))
-			if strings.ToUpper(string(port.Protocol)) != string(v13.ProtocolUDP) {
+			if port.Protocol != v13.ProtocolUDP {
 				port.Protocol = v13.ProtocolTCP
 			}
 			ports = append(ports, port)
@@ -285,7 +295,7 @@ func (r *SQBApplicationReconciler) handleIstio(ctx context.Context, cr *qav1alph
 	deploymentList *v12.DeploymentList) error {
 	// Ingress
 	ingress := &v1beta12.Ingress{ObjectMeta: v1.ObjectMeta{Namespace: cr.Namespace, Name: cr.Name}}
-	if cr.Annotations[IngressOpenAnnotationKey] == "true" {
+	if isIngressOpen(cr) {
 		_, err := controllerutil.CreateOrUpdate(ctx, r.Client, ingress, func() error {
 			rules := make([]v1beta12.IngressRule, 0)
 			ingressRule := v1beta12.IngressRuleValue{
@@ -308,34 +318,13 @@ func (r *SQBApplicationReconciler) handleIstio(ctx context.Context, cr *qav1alph
 				rules = append(rules, rule)
 			}
 			for _, deployment := range deploymentList.Items {
-				virtualservice := &v1beta13.VirtualService{}
-				err := r.Get(ctx, types.NamespacedName{Namespace: deployment.Namespace, Name: deployment.Name}, virtualservice)
-				if err != nil && !apierrors.IsNotFound(err) {
-					return err
-				}
-
-				if _, ok := deployment.Annotations[PublicEntryAnnotationKey]; ok {
-					// 处理special virtualservice
-					if err != nil {
-						virtualservice := r.generateSpecialVirtualService(&deployment)
-						err := r.Create(ctx, virtualservice)
-						if err != nil {
-							return nil
-						}
-					}
-					for _, publicEntry := range virtualservice.Spec.Hosts {
+				if enable, ok := deployment.Annotations[PublicEntryAnnotationKey]; ok && enable == "true" {
+					for _, publicEntry := range getSpecialVirtualServiceHost(&deployment) {
 						rule := v1beta12.IngressRule{
 							Host:             publicEntry,
 							IngressRuleValue: ingressRule,
 						}
 						rules = append(rules, rule)
-					}
-				} else {
-					if err == nil {
-						err := r.Delete(ctx, virtualservice)
-						if err != nil {
-							return err
-						}
 					}
 				}
 			}
@@ -383,7 +372,7 @@ func (r *SQBApplicationReconciler) handleIstio(ctx context.Context, cr *qav1alph
 	virtualservice := &v1beta13.VirtualService{ObjectMeta: v1.ObjectMeta{Namespace: cr.Namespace, Name: cr.Name}}
 	_, err = controllerutil.CreateOrUpdate(ctx, r.Client, virtualservice, func() error {
 		virtualserviceHosts := append(cr.Spec.Hosts, cr.Name)
-		gateways := getIstioGateways()
+		gateways := ConfigMapData.IstioGateways()
 		virtualservice.Spec.Hosts = virtualserviceHosts
 		virtualservice.Spec.Gateways = gateways
 		virtualservice.Spec.Http = getOrGenerateHttpRoutes(virtualservice.Spec.Http, cr.Spec.Subpaths, planes)
@@ -409,6 +398,32 @@ func (r *SQBApplicationReconciler) handleIstio(ctx context.Context, cr *qav1alph
 	if err != nil {
 		return err
 	}
+	// Special Virtualservice
+	for _, deployment := range deploymentList.Items {
+		virtualservice := &v1beta13.VirtualService{}
+		err := r.Get(ctx, types.NamespacedName{Namespace: deployment.Namespace, Name: deployment.Name}, virtualservice)
+		if err != nil && !apierrors.IsNotFound(err) {
+			return err
+		}
+
+		if enable, ok := deployment.Annotations[PublicEntryAnnotationKey]; ok && enable == "true" {
+			// 处理special virtualservice
+			if err != nil {
+				virtualservice := r.generateSpecialVirtualService(&deployment)
+				err := r.Create(ctx, virtualservice)
+				if err != nil {
+					return nil
+				}
+			}
+		} else {
+			if err == nil {
+				err := r.Delete(ctx, virtualservice)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
 	return nil
 }
 
@@ -416,7 +431,7 @@ func (r *SQBApplicationReconciler) handleIstio(ctx context.Context, cr *qav1alph
 func (r *SQBApplicationReconciler) handleNoIstio(ctx context.Context, cr *qav1alpha1.SQBApplication) error {
 	// Ingress
 	ingress := &v1beta12.Ingress{ObjectMeta: v1.ObjectMeta{Namespace: cr.Namespace, Name: cr.Name}}
-	if cr.Annotations[IngressOpenAnnotationKey] == "true" {
+	if isIngressOpen(cr) {
 		_, err := controllerutil.CreateOrUpdate(ctx, r.Client, ingress, func() error {
 			rules := make([]v1beta12.IngressRule, 0)
 			for _, host := range cr.Spec.Hosts {
@@ -462,50 +477,21 @@ func (r *SQBApplicationReconciler) handleNoIstio(ctx context.Context, cr *qav1al
 		}
 	}
 
-	// 删除virtualservice和destinationrule
-	virtualservice := &v1beta13.VirtualService{ObjectMeta: v1.ObjectMeta{Namespace: cr.Namespace, Name: cr.Name}}
-	err := r.Delete(ctx, virtualservice)
-	if IgnoreNoMatchError(err) != nil {
-		return err
-	}
+	if ConfigMapData.IstioEnable() {
+		// 删除virtualservice和destinationrule
+		virtualservice := &v1beta13.VirtualService{ObjectMeta: v1.ObjectMeta{Namespace: cr.Namespace, Name: cr.Name}}
+		err := r.Delete(ctx, virtualservice)
+		if IgnoreNoMatchError(err) != nil {
+			return err
+		}
 
-	destinationrule := &v1beta13.DestinationRule{ObjectMeta: v1.ObjectMeta{Namespace: cr.Namespace, Name: cr.Name}}
-	err = r.Delete(ctx, destinationrule)
-	if IgnoreNoMatchError(err) != nil {
-		return err
+		destinationrule := &v1beta13.DestinationRule{ObjectMeta: v1.ObjectMeta{Namespace: cr.Namespace, Name: cr.Name}}
+		err = r.Delete(ctx, destinationrule)
+		if IgnoreNoMatchError(err) != nil {
+			return err
+		}
 	}
 	return nil
-}
-
-func (r *SQBApplicationReconciler) getIstioInjectionResult(ctx context.Context, cr *qav1alpha1.SQBApplication) string {
-	enable := "false"
-	istio := &v14.CustomResourceDefinition{}
-	err := r.Get(ctx, types.NamespacedName{Namespace: "", Name: "virtualservices.networking.istio.io"}, istio)
-	// err==nil 表示集群安装了istio
-	if err == nil {
-		// 判断application注解
-		if istioInject, ok := cr.Annotations[IstioInjectAnnotationKey]; ok {
-			enable = istioInject
-		} else {
-			// 没有注解，取configmap默认值
-			if istioInject, ok := ConfigMapData["istioInject"]; ok {
-				enable = istioInject
-			}
-		}
-	}
-	return enable
-}
-
-func (r *SQBApplicationReconciler) getIngressOpenResult(cr *qav1alpha1.SQBApplication) string {
-	enable := "false"
-	if ingressOpen, ok := cr.Annotations[IngressOpenAnnotationKey]; ok {
-		enable = ingressOpen
-	} else {
-		if ingressOpen, ok := ConfigMapData["ingressOpen"]; ok {
-			enable = ingressOpen
-		}
-	}
-	return enable
 }
 
 func (r *SQBApplicationReconciler) generateSpecialVirtualService(deployment *v12.Deployment) *v1beta13.VirtualService {
@@ -513,7 +499,7 @@ func (r *SQBApplicationReconciler) generateSpecialVirtualService(deployment *v12
 		ObjectMeta: v1.ObjectMeta{Namespace: deployment.Namespace, Name: deployment.Name},
 		Spec: v1beta14.VirtualService{
 			Hosts:    getSpecialVirtualServiceHost(deployment),
-			Gateways: getIstioGateways(),
+			Gateways: ConfigMapData.IstioGateways(),
 			Http: []*v1beta14.HTTPRoute{
 				{
 					Route: []*v1beta14.HTTPRouteDestination{
@@ -522,7 +508,7 @@ func (r *SQBApplicationReconciler) generateSpecialVirtualService(deployment *v12
 							Subset: deployment.Name,
 						}},
 					},
-					Timeout: &types2.Duration{Seconds: getIstioTimeout()},
+					Timeout: &types2.Duration{Seconds: ConfigMapData.IstioTimeout()},
 					Headers: &v1beta14.Headers{
 						Request: &v1beta14.Headers_HeaderOperations{Set: map[string]string{XEnvFlag: deployment.Labels[PlaneKey]}},
 					},
@@ -577,7 +563,7 @@ func getOrGenerateHttpRoutes(httpRoutes []*v1beta14.HTTPRoute, subpaths []qav1al
 						Subset: getSubsetName(subpath.ServiceName, plane),
 					}},
 				},
-				Timeout: &types2.Duration{Seconds: getIstioTimeout()},
+				Timeout: &types2.Duration{Seconds: ConfigMapData.IstioTimeout()},
 			}
 			headerMatchRequest := &v1beta14.HTTPMatchRequest{}
 			queryparamsMatchRequest := &v1beta14.HTTPMatchRequest{}
@@ -620,7 +606,7 @@ func getOrGenerateHttpRoutes(httpRoutes []*v1beta14.HTTPRoute, subpaths []qav1al
 						Subset: getSubsetName(subpath.ServiceName, "base"),
 					}},
 				},
-				Timeout: &types2.Duration{Seconds: getIstioTimeout()},
+				Timeout: &types2.Duration{Seconds: ConfigMapData.IstioTimeout()},
 			}
 			if subpath.Path != "/" {
 				httpRoute.Match = []*v1beta14.HTTPMatchRequest{
@@ -756,7 +742,7 @@ func getSubsetName(host, plane string) string {
 }
 
 func getIngressHosts(cr *qav1alpha1.SQBApplication) []string {
-	hosts := getDefaultDomainName(cr.Name)
+	hosts := ConfigMapData.GetDomainNames(cr.Name)
 	for _, host := range cr.Spec.Hosts {
 		if !ContainString(hosts, host) {
 			hosts = append(hosts, host)
@@ -766,6 +752,30 @@ func getIngressHosts(cr *qav1alpha1.SQBApplication) []string {
 }
 
 func getSpecialVirtualServiceHost(deployment *v12.Deployment) []string {
-	publicEntry := deployment.Annotations[PublicEntryAnnotationKey]
-	return strings.Split(publicEntry, ",")
+	hosts := ConfigMapData.GetDomainNames(deployment.Name)
+	result := hosts[0]
+	for _, host := range hosts[1:] {
+		if len(host) < len(result) {
+			result = host
+		}
+	}
+	return []string{result}
+}
+
+func isIngressOpen(cr *qav1alpha1.SQBApplication) bool {
+	if is, ok := cr.Annotations[IngressOpenAnnotationKey]; ok {
+		return is == "true"
+	}
+	return ConfigMapData.IngressOpen()
+}
+
+func isIstioInject(cr *qav1alpha1.SQBApplication) bool {
+	if ConfigMapData.IstioEnable() {
+		if is, ok := cr.Annotations[IstioInjectAnnotationKey]; ok {
+			return is == "true"
+		}
+		return true
+	} else {
+		return false
+	}
 }
