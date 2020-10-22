@@ -16,8 +16,8 @@ import (
 
 type SQBDeployment struct {
 	qav1alpha1.SQBDeployment
-	SqbApplication *SQBApplication
-	Deployment *appv1.Deployment
+	SqbApplication        *SQBApplication
+	Deployment            *appv1.Deployment
 	SpecialVirtualService *istio.VirtualService
 }
 

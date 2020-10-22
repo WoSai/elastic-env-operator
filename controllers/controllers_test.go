@@ -6,6 +6,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
+	"github.com/wosai/elastic-env-operator/domain/entity"
 	"github.com/wosai/elastic-env-operator/domain/util"
 	v1beta12 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	v13 "k8s.io/api/apps/v1"
@@ -13,8 +14,10 @@ import (
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"time"
 )
@@ -485,7 +488,11 @@ var _ = Describe("Controller", func() {
 			_ = k8sClient.Delete(ctx, virtualservice)
 			destinationrule := &v1beta12.DestinationRule{ObjectMeta: v1.ObjectMeta{Namespace: namespace, Name: applicationName}}
 			_ = k8sClient.Delete(ctx, destinationrule)
-			_ = DeleteDeploymentByLabel(k8sClient, ctx, namespace, map[string]string{AppKey: applicationName})
+			_ = k8sClient.DeleteAllOf(ctx, &v13.Deployment{}, &client.DeleteAllOfOptions{
+				ListOptions: client.ListOptions{
+					LabelSelector: labels.SelectorFromSet(map[string]string{entity.AppKey: applicationName}),
+				},
+			})
 			time.Sleep(time.Second)
 		})
 

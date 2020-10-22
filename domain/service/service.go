@@ -80,7 +80,7 @@ func CreateOrUpdate(ctx context.Context, obj runtimeObj) error {
 	if obj == nil {
 		return nil
 	}
-	if obj.GetCreationTimestamp().Time.IsZero(){
+	if obj.GetCreationTimestamp().Time.IsZero() {
 		if err := k8sclient.Create(ctx, obj); err != nil {
 			return err
 		}

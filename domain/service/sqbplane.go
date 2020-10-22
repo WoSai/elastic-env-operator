@@ -61,6 +61,7 @@ func (h *sqbPlaneHandler) IsInitialized(obj runtimeObj) (bool, error) {
 	}
 	return false, k8sclient.Status().Update(h.ctx, in)
 }
+
 // 正常处理逻辑
 func (h *sqbPlaneHandler) Operate(obj runtimeObj) error {
 	in := obj.(*entity.SQBPlane)
@@ -72,12 +73,14 @@ func (h *sqbPlaneHandler) Operate(obj runtimeObj) error {
 	in.Status.ErrorInfo = ""
 	return k8sclient.Status().Update(h.ctx, in)
 }
+
 // 处理失败后逻辑
 func (h *sqbPlaneHandler) ReconcileFail(obj runtimeObj, err error) {
 	in := obj.(*entity.SQBPlane)
 	in.Status.ErrorInfo = err.Error()
 	_ = k8sclient.Status().Update(h.ctx, in)
 }
+
 // 删除逻辑
 func (h *sqbPlaneHandler) IsDeleting(obj runtimeObj) (bool, error) {
 	in := obj.(*entity.SQBPlane)

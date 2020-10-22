@@ -191,4 +191,3 @@ func (h *sqbApplicationHandler) IsDeleting(obj runtimeObj) (bool, error) {
 	}
 	return true, RemoveFinalizer(h.ctx, in, entity.SqbapplicationFinalizer)
 }
-

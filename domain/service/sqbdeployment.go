@@ -32,7 +32,7 @@ func (h *sqbDeploymentHandler) GetInstance() (runtimeObj, error) {
 	sqbapplication := &entity.SQBApplication{}
 	if err := k8sclient.Get(h.ctx, client.ObjectKey{
 		Namespace: in.Namespace,
-		Name: in.Spec.Selector.App,
+		Name:      in.Spec.Selector.App,
 	}, sqbapplication); err != nil {
 		if apierrors.IsNotFound(err) {
 			return in, errors.New("SQBApplication Not Found")
@@ -57,7 +57,7 @@ func (h *sqbDeploymentHandler) GetInstance() (runtimeObj, error) {
 		specialVirtualService := &istio.VirtualService{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: in.Namespace,
-				Name: in.Name,
+				Name:      in.Name,
 			},
 		}
 		if err := k8sclient.Get(h.ctx, h.req.NamespacedName, specialVirtualService); err != nil && apierrors.IsNotFound(err) {
@@ -81,6 +81,7 @@ func (h *sqbDeploymentHandler) IsInitialized(obj runtimeObj) (bool, error) {
 	}
 	return false, k8sclient.Status().Update(h.ctx, in)
 }
+
 // 正常处理逻辑
 func (h *sqbDeploymentHandler) Operate(obj runtimeObj) error {
 	in := obj.(*entity.SQBDeployment)
@@ -90,7 +91,7 @@ func (h *sqbDeploymentHandler) Operate(obj runtimeObj) error {
 	specialVirtualService := &istio.VirtualService{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: in.Namespace,
-			Name: in.Name,
+			Name:      in.Name,
 		},
 	}
 	err := k8sclient.Get(h.ctx, h.req.NamespacedName, specialVirtualService)
@@ -114,14 +115,16 @@ func (h *sqbDeploymentHandler) Operate(obj runtimeObj) error {
 			}
 		}
 	}
-    return nil
+	return nil
 }
+
 // 处理失败后逻辑
 func (h *sqbDeploymentHandler) ReconcileFail(obj runtimeObj, err error) {
 	in := obj.(*entity.SQBDeployment)
 	in.Status.ErrorInfo = err.Error()
 	_ = k8sclient.Status().Update(h.ctx, in)
 }
+
 // 删除逻辑
 func (h *sqbDeploymentHandler) IsDeleting(obj runtimeObj) (bool, error) {
 	in := obj.(*entity.SQBDeployment)

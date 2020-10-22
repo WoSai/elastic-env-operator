@@ -18,4 +18,3 @@ func (in *SQBPlane) BuildSelf() {
 	controllerutil.AddFinalizer(in, SqbplaneFinalizer)
 	in.Status.Initialized = true
 }
-
