@@ -9,6 +9,7 @@ const (
 	AppKey                       = "app"
 	PlaneKey                     = "plane"
 	TeamKey                      = "team"
+	GroupKey                     = "group"
 	SqbplaneFinalizer            = "SQBPLANE"
 	SqbdeploymentFinalizer       = "SQBDEPLOYMENT"
 	SqbapplicationFinalizer      = "SQBAPPLICATION"

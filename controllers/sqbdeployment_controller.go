@@ -39,7 +39,7 @@ type SQBDeploymentReconciler struct {
 
 func (r *SQBDeploymentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	return service.HandleReconcile(service.NewSqbPlaneHanlder(req, ctx))
+	return service.HandleReconcile(service.NewSqbDeploymentHanlder(req, ctx))
 }
 
 func (r *SQBDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {

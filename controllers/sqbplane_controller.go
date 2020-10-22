@@ -20,6 +20,7 @@ import (
 	"context"
 	"github.com/go-logr/logr"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
+	"github.com/wosai/elastic-env-operator/domain/entity"
 	"github.com/wosai/elastic-env-operator/domain/service"
 	v12 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -56,7 +57,7 @@ func (r *SQBPlaneReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			&handler.EnqueueRequestsFromMapFunc{ToRequests: handler.ToRequestsFunc(func(a handler.MapObject) []reconcile.Request {
 				return []reconcile.Request{
 					{NamespacedName: types.NamespacedName{
-						Name:      a.Meta.GetLabels()[PlaneKey],
+						Name:      a.Meta.GetLabels()[entity.PlaneKey],
 						Namespace: a.Meta.GetNamespace(),
 					}},
 				}
