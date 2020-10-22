@@ -22,6 +22,8 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/go-logr/logr"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
+	"github.com/wosai/elastic-env-operator/domain/entity"
+	"github.com/wosai/elastic-env-operator/domain/util"
 	v12 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -87,8 +89,8 @@ func (r *SQBDeploymentReconciler) IsInitialized(ctx context.Context, obj runtime
 		return false, err
 	}
 	cr.Spec.DeploySpec = deploy
-	cr.Labels = MergeStringMap(application.Labels, cr.Labels)
-	cr.Labels = MergeStringMap(cr.Labels, map[string]string{
+	cr.Labels = util.MergeStringMap(application.Labels, cr.Labels)
+	cr.Labels = util.MergeStringMap(cr.Labels, map[string]string{
 		AppKey:   cr.Spec.Selector.App,
 		PlaneKey: cr.Spec.Selector.Plane,
 	})
@@ -104,7 +106,7 @@ func (r *SQBDeploymentReconciler) IsInitialized(ctx context.Context, obj runtime
 
 func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Object) error {
 	cr := obj.(*qav1alpha1.SQBDeployment)
-	deploymentName := getSubsetName(cr.Spec.Selector.App, cr.Spec.Selector.Plane)
+	deploymentName := util.GetSubsetName(cr.Spec.Selector.App, cr.Spec.Selector.Plane)
 
 	deployment := &v12.Deployment{ObjectMeta: metav1.ObjectMeta{
 		Name:      deploymentName,
@@ -148,7 +150,7 @@ func (r *SQBDeploymentReconciler) Operate(ctx context.Context, obj runtime.Objec
 		deployment.Spec.Template.Spec.Volumes = deploy.Volumes
 		deployment.Spec.Template.Spec.HostAliases = deploy.HostAlias
 		deployment.Spec.Template.Spec.Containers = []v1.Container{container}
-		deployment.Spec.Template.Spec.ImagePullSecrets = ConfigMapData.GetImagePullSecrets()
+		deployment.Spec.Template.Spec.ImagePullSecrets = entity.ConfigMapData.GetImagePullSecrets()
 
 		if anno, ok := cr.Annotations[PodAnnotationKey]; ok {
 			err := json.Unmarshal([]byte(anno), &deployment.Spec.Template.Annotations)
@@ -228,9 +230,9 @@ func (r *SQBDeploymentReconciler) IsDeleting(ctx context.Context, obj runtime.Ob
 	}
 	var err error
 
-	if deleteCheckSum, ok := cr.Annotations[ExplicitDeleteAnnotationKey]; ok && deleteCheckSum == GetDeleteCheckSum(cr) {
+	if deleteCheckSum, ok := cr.Annotations[ExplicitDeleteAnnotationKey]; ok && deleteCheckSum == util.GetDeleteCheckSum(cr.Name) {
 		deployment := &v12.Deployment{ObjectMeta: metav1.ObjectMeta{
-			Name:      getSubsetName(cr.Spec.Selector.App, cr.Spec.Selector.Plane),
+			Name:      util.GetSubsetName(cr.Spec.Selector.App, cr.Spec.Selector.Plane),
 			Namespace: cr.Namespace},
 		}
 		err = r.Delete(ctx, deployment)

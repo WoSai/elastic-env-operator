@@ -6,6 +6,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
+	"github.com/wosai/elastic-env-operator/domain/util"
 	v1beta12 "istio.io/client-go/pkg/apis/networking/v1beta1"
 	v13 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/core/v1"
@@ -22,7 +23,7 @@ var _ = Describe("Controller", func() {
 	namespace := "default"
 	applicationName := "default-app"
 	planeName := "base"
-	var deploymentName = getSubsetName(applicationName, planeName)
+	var deploymentName = util.GetSubsetName(applicationName, planeName)
 	image := "busybox"
 	ctx := context.Background()
 	var err error
@@ -47,7 +48,7 @@ var _ = Describe("Controller", func() {
 		err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: planeName}, instance)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(instance.Status.Initialized).To(BeTrue())
-		Expect(ContainString(instance.Finalizers, SqbplaneFinalizer)).To(BeTrue())
+		Expect(util.ContainString(instance.Finalizers, SqbplaneFinalizer)).To(BeTrue())
 		err = k8sClient.Delete(ctx, sqbplane)
 		Expect(err).NotTo(HaveOccurred())
 		time.Sleep(time.Second)
@@ -81,7 +82,7 @@ var _ = Describe("Controller", func() {
 		instance := &qav1alpha1.SQBApplication{}
 		err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, instance)
 		Expect(instance.Status.Initialized).To(BeTrue())
-		Expect(ContainString(instance.Finalizers, SqbapplicationFinalizer)).To(BeTrue())
+		Expect(util.ContainString(instance.Finalizers, SqbapplicationFinalizer)).To(BeTrue())
 		// 会创建base plane和sqbdeployment
 		basePlane := &qav1alpha1.SQBPlane{}
 		err := k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: planeName}, basePlane)
@@ -90,7 +91,7 @@ var _ = Describe("Controller", func() {
 		err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: deploymentName}, sqbdeployment)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(sqbdeployment.Status.Initialized).To(BeTrue())
-		Expect(ContainString(sqbdeployment.Finalizers, SqbdeploymentFinalizer)).To(BeTrue())
+		Expect(util.ContainString(sqbdeployment.Finalizers, SqbdeploymentFinalizer)).To(BeTrue())
 		deployment := &v13.Deployment{}
 		err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: deploymentName}, deployment)
 		Expect(err).NotTo(HaveOccurred())
@@ -408,7 +409,7 @@ var _ = Describe("Controller", func() {
 		It("delete sqbapplication with password", func() {
 			_, err := controllerutil.CreateOrUpdate(ctx, k8sClient, sqbapplication, func() error {
 				sqbapplication.Annotations = map[string]string{
-					ExplicitDeleteAnnotationKey: GetDeleteCheckSum(sqbapplication),
+					ExplicitDeleteAnnotationKey: util.GetDeleteCheckSum(sqbapplication.Name),
 					IngressOpenAnnotationKey:    "true",
 				}
 				return nil
@@ -601,7 +602,7 @@ var _ = Describe("Controller", func() {
 			err = k8sClient.Create(ctx, plane2)
 			Expect(err).NotTo(HaveOccurred())
 			sqbdeployment2 := &qav1alpha1.SQBDeployment{
-				ObjectMeta: v1.ObjectMeta{Namespace: namespace, Name: getSubsetName(applicationName, "test")},
+				ObjectMeta: v1.ObjectMeta{Namespace: namespace, Name: util.GetSubsetName(applicationName, "test")},
 				Spec: qav1alpha1.SQBDeploymentSpec{
 					Selector: qav1alpha1.Selector{
 						App:   applicationName,
@@ -626,7 +627,7 @@ var _ = Describe("Controller", func() {
 			Expect(httproute0.Match[2].SourceLabels[PlaneKey]).To(Equal("test"))
 			Expect(httproute0.Match[2].Uri.GetPrefix()).To(Equal("/v2"))
 			Expect(httproute0.Route[0].Destination.Host).To(Equal("version2"))
-			Expect(httproute0.Route[0].Destination.Subset).To(Equal(getSubsetName("version2", "test")))
+			Expect(httproute0.Route[0].Destination.Subset).To(Equal(util.GetSubsetName("version2", "test")))
 
 			httproute1 := virtualservice.Spec.Http[1]
 			Expect(len(httproute1.Match)).To(Equal(3))
@@ -634,13 +635,13 @@ var _ = Describe("Controller", func() {
 			Expect(httproute1.Match[1].QueryParams[XEnvFlag].GetExact()).To(Equal("test"))
 			Expect(httproute1.Match[2].SourceLabels[PlaneKey]).To(Equal("test"))
 			Expect(httproute1.Route[0].Destination.Host).To(Equal(applicationName))
-			Expect(httproute1.Route[0].Destination.Subset).To(Equal(getSubsetName(applicationName, "test")))
+			Expect(httproute1.Route[0].Destination.Subset).To(Equal(util.GetSubsetName(applicationName, "test")))
 
 			httproute2 := virtualservice.Spec.Http[2]
 			Expect(len(httproute2.Match)).To(Equal(1))
 			Expect(httproute2.Match[0].Uri.GetPrefix()).To(Equal("/v2"))
 			Expect(httproute2.Route[0].Destination.Host).To(Equal("version2"))
-			Expect(httproute2.Route[0].Destination.Subset).To(Equal(getSubsetName("version2", planeName)))
+			Expect(httproute2.Route[0].Destination.Subset).To(Equal(util.GetSubsetName("version2", planeName)))
 
 			httproute3 := virtualservice.Spec.Http[3]
 			Expect(len(httproute3.Match)).To(Equal(0))
@@ -657,7 +658,7 @@ var _ = Describe("Controller", func() {
 		It("delete sqbapplication with password", func() {
 			_, err := controllerutil.CreateOrUpdate(ctx, k8sClient, sqbapplication, func() error {
 				sqbapplication.Annotations = map[string]string{
-					ExplicitDeleteAnnotationKey: GetDeleteCheckSum(sqbapplication),
+					ExplicitDeleteAnnotationKey: util.GetDeleteCheckSum(sqbapplication.Name),
 					IstioInjectAnnotationKey:    "true",
 				}
 				return nil

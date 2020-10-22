@@ -20,6 +20,7 @@ import (
 	"flag"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/controllers"
+	"github.com/wosai/elastic-env-operator/domain/entity"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -30,6 +31,7 @@ import (
 	"time"
 
 	// +kubebuilder:scaffold:imports
+	"github.com/wosai/elastic-env-operator/domain/service"
 	istio "istio.io/client-go/pkg/apis/networking/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
@@ -108,10 +110,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	service.SetK8sClient(mgr.GetClient())
+	entity.SetK8sScheme(mgr.GetScheme())
+
 	go func() {
 		timer := time.NewTimer(60 * time.Second)
 		for {
-			if len(controllers.ConfigMapData) == 0 {
+			if !entity.ConfigMapData.Initialized {
 				select {
 				case <-timer.C:
 					panic("operator configmap is not valid")

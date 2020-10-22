@@ -19,6 +19,7 @@ package controllers
 import (
 	"context"
 	"github.com/go-logr/logr"
+	"github.com/wosai/elastic-env-operator/domain/entity"
 	v1 "k8s.io/api/core/v1"
 	v14 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -56,7 +57,7 @@ func (r *ConfigMapReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	} else {
 		data["istioEnable"] = "false"
 	}
-	ConfigMapData.FromMap(data)
+	entity.ConfigMapData.FromMap(data)
 	return ctrl.Result{}, r.Update(ctx, instance)
 }
 

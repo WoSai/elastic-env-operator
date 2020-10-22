@@ -20,14 +20,13 @@ import (
 	"context"
 	"github.com/go-logr/logr"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
+	"github.com/wosai/elastic-env-operator/domain/service"
 	v12 "k8s.io/api/apps/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
@@ -42,14 +41,12 @@ type SQBPlaneReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-var _ ISQBReconciler = &SQBPlaneReconciler{}
-
 // +kubebuilder:rbac:groups=qa.shouqianba.com,resources=sqbplanes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=qa.shouqianba.com,resources=sqbplanes/status,verbs=get;update;patch
 
 func (r *SQBPlaneReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	return HandleReconcile(r, ctx, req)
+	return service.HandleReconcile(service.NewSqbPlaneHanlder(req, ctx))
 }
 
 func (r *SQBPlaneReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -73,73 +70,4 @@ func (r *SQBPlaneReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				},
 			})).
 		Complete(r)
-}
-
-func (r *SQBPlaneReconciler) GetInstance(ctx context.Context, req ctrl.Request) (runtime.Object, error) {
-	instance := &qav1alpha1.SQBPlane{}
-	err := r.Get(ctx, req.NamespacedName, instance)
-	return instance, err
-}
-
-func (r *SQBPlaneReconciler) IsInitialized(ctx context.Context, obj runtime.Object) (bool, error) {
-	cr := obj.(*qav1alpha1.SQBPlane)
-	if cr.Status.Initialized == true {
-		return true, nil
-	}
-	controllerutil.AddFinalizer(cr, SqbplaneFinalizer)
-	err := r.Update(ctx, cr)
-	if err != nil {
-		return false, err
-	}
-	cr.Status.Initialized = true
-	return false, r.Status().Update(ctx, cr)
-}
-
-func (r *SQBPlaneReconciler) IsDeleting(ctx context.Context, obj runtime.Object) (bool, error) {
-	cr := obj.(*qav1alpha1.SQBPlane)
-	if cr.DeletionTimestamp.IsZero() || !controllerutil.ContainsFinalizer(cr, SqbplaneFinalizer) {
-		return false, nil
-	}
-
-	var err error
-
-	if deleteCheckSum, ok := cr.Annotations[ExplicitDeleteAnnotationKey]; ok && deleteCheckSum == GetDeleteCheckSum(cr) {
-		err = DeleteSqbdeploymentByLabel(r.Client, ctx, cr.Namespace, map[string]string{PlaneKey: cr.Name})
-		if err != nil {
-			return true, err
-		}
-		err = DeleteDeploymentByLabel(r.Client, ctx, cr.Namespace, map[string]string{PlaneKey: cr.Name})
-		if err != nil {
-			return true, err
-		}
-	}
-	return true, r.RemoveFinalizer(ctx, cr)
-}
-
-func (r *SQBPlaneReconciler) Operate(ctx context.Context, obj runtime.Object) error {
-	cr := obj.(*qav1alpha1.SQBPlane)
-	var err error
-	deploymentList := &v12.DeploymentList{}
-	err = r.List(ctx, deploymentList, &client.ListOptions{Namespace: cr.Namespace, LabelSelector: labels.SelectorFromSet(map[string]string{PlaneKey: cr.Name})})
-	if err != nil {
-		return err
-	}
-	mirrors := map[string]int{}
-	for _, deployment := range deploymentList.Items {
-		mirrors[deployment.Name] = 1
-	}
-	cr.Status.Mirrors = mirrors
-	cr.Status.ErrorInfo = ""
-	return r.Status().Update(ctx, cr)
-}
-
-func (r *SQBPlaneReconciler) ReconcileFail(ctx context.Context, obj runtime.Object, err error) {
-	cr := obj.(*qav1alpha1.SQBPlane)
-	cr.Status.ErrorInfo = err.Error()
-	_ = r.Status().Update(ctx, obj)
-}
-
-func (r *SQBPlaneReconciler) RemoveFinalizer(ctx context.Context, cr *qav1alpha1.SQBPlane) error {
-	controllerutil.RemoveFinalizer(cr, SqbplaneFinalizer)
-	return r.Update(ctx, cr)
 }

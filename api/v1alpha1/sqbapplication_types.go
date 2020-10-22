@@ -17,7 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -47,37 +47,37 @@ type Subpath struct {
 }
 
 type ServiceSpec struct {
-	Ports []v1.ServicePort `json:"ports"`
+	Ports []corev1.ServicePort `json:"ports"`
 }
 
 type DeploySpec struct {
-	Replicas     *int32                   `json:"replicas,omitempty"`
-	Image        string                   `json:"image,omitempty"`
-	Command      []string                 `json:"command,omitempty"`
-	Args         []string                 `json:"args,omitempty"`
-	HostAlias    []v1.HostAlias           `json:"hostAliases,omitempty"`
-	Resources    *v1.ResourceRequirements `json:"resources,omitempty"`
-	Env          []v1.EnvVar              `json:"env,omitempty"`
-	HealthCheck  *v1.Probe                `json:"healthCheck,omitempty"`
-	Volumes      []v1.Volume              `json:"volumes,omitempty"`
-	VolumeMounts []v1.VolumeMount         `json:"volumeMounts,omitempty"`
-	NodeAffinity []NodeAffinity           `json:"nodeAffinity,omitempty"`
-	Lifecycle    *Lifecycle               `json:"lifecycle,omitempty"`
+	Replicas     *int32                       `json:"replicas,omitempty"`
+	Image        string                       `json:"image,omitempty"`
+	Command      []string                     `json:"command,omitempty"`
+	Args         []string                     `json:"args,omitempty"`
+	HostAlias    []corev1.HostAlias           `json:"hostAliases,omitempty"`
+	Resources    *corev1.ResourceRequirements `json:"resources,omitempty"`
+	Env          []corev1.EnvVar              `json:"env,omitempty"`
+	HealthCheck  *corev1.Probe                `json:"healthCheck,omitempty"`
+	Volumes      []corev1.Volume              `json:"volumes,omitempty"`
+	VolumeMounts []corev1.VolumeMount         `json:"volumeMounts,omitempty"`
+	NodeAffinity []NodeAffinity               `json:"nodeAffinity,omitempty"`
+	Lifecycle    *Lifecycle                   `json:"lifecycle,omitempty"`
 }
 
 type NodeAffinity struct {
 	// +kubebuilder:default:=100
-	Weight                     int32 `json:"weight"`
-	v1.NodeSelectorRequirement `json:",inline"`
+	Weight                         int32 `json:"weight"`
+	corev1.NodeSelectorRequirement `json:",inline"`
 }
 
 type Lifecycle struct {
-	Init         *InitHandler `json:"init,omitempty"`
-	v1.Lifecycle `json:",inline"`
+	Init             *InitHandler `json:"init,omitempty"`
+	corev1.Lifecycle `json:",inline"`
 }
 
 type InitHandler struct {
-	Exec *v1.ExecAction `json:"exec"`
+	Exec *corev1.ExecAction `json:"exec"`
 }
 
 // SQBApplicationStatus defines the observed state of SQBApplication
@@ -115,7 +115,3 @@ type SQBApplicationList struct {
 func init() {
 	SchemeBuilder.Register(&SQBApplication{}, &SQBApplicationList{})
 }
-
-//func (sa *SQBApplication) BuildService() *v1.Service {
-//
-//}
