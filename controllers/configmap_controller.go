@@ -64,7 +64,7 @@ func (r *ConfigMapReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 func (r *ConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	namespace := os.Getenv("CONFIGMAP_NAMESPACE")
 	if namespace == "" {
-		namespace = "default"
+		namespace = "elastic-env-operator-system"
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1.ConfigMap{}, builder.WithPredicates(predicate.NewPredicateFuncs(

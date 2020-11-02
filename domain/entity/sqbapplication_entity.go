@@ -8,31 +8,24 @@ import (
 	"github.com/wosai/elastic-env-operator/domain/util"
 	istioapi "istio.io/api/networking/v1beta1"
 	istio "istio.io/client-go/pkg/apis/networking/v1beta1"
-	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"strconv"
 	"strings"
 )
 
-type SQBApplication struct {
+type SQBApplicationEntity struct {
 	qav1alpha1.SQBApplication
-	Sqbdeployment   *SQBDeployment
-	Sqbplane        *SQBPlane
 	Service         *corev1.Service
-	Deployments     *appv1.DeploymentList
 	Ingress         *v1beta1.Ingress
 	Destinationrule *istio.DestinationRule
 	Virtualservice  *istio.VirtualService
 }
 
-func (in *SQBApplication) BuildSelf() {
-	if in.Status.Initialized {
-		return
-	}
+// 初始化
+func (in *SQBApplicationEntity) Initialize() {
 	if globalDefaultDeploy, ok := ConfigMapData.GlobalDeploy(); ok {
 		applicationDeploy, _ := json.Marshal(in.Spec.DeploySpec)
 		applicationDeploy, _ = jsonpatch.MergePatch([]byte(globalDefaultDeploy), applicationDeploy)
@@ -46,41 +39,13 @@ func (in *SQBApplication) BuildSelf() {
 	// 添加一条默认的subpath /在最后
 	in.Spec.Subpaths = append(in.Spec.Subpaths, qav1alpha1.Subpath{
 		Path: "/", ServiceName: in.Name, ServicePort: 80})
-	in.Status.Initialized = true
-}
-
-func (in *SQBApplication) BuildRef() {
-	in.buildService()
-	in.buildIngress()
-	in.buildVirtualService()
-	in.buildDestinationRule()
-	in.buildSQBDeploymentAndSQBPlane()
-}
-
-func (in *SQBApplication) buildSQBDeploymentAndSQBPlane() {
-	if in.Deployments == nil {
-		return
+	if len(in.Annotations) == 0 {
+		in.Annotations = make(map[string]string)
 	}
-	if len(in.Deployments.Items) == 0 {
-		in.Sqbdeployment = &SQBDeployment{}
-		in.Sqbdeployment.ObjectMeta = metav1.ObjectMeta{
-			Namespace: in.Namespace,
-			Name:      util.GetSubsetName(in.Name, "base"),
-		}
-		in.Sqbdeployment.Spec = qav1alpha1.SQBDeploymentSpec{
-			Selector: qav1alpha1.Selector{
-				App:   in.Name,
-				Plane: "base",
-			},
-			DeploySpec: in.Spec.DeploySpec,
-		}
-		in.Sqbplane = &SQBPlane{}
-		in.Sqbplane.ObjectMeta = metav1.ObjectMeta{Namespace: in.Namespace, Name: "base"}
-		in.Sqbplane.Spec = qav1alpha1.SQBPlaneSpec{Description: "base environment"}
-	}
+	in.Annotations[InitializeAnnotationKey] = "true"
 }
 
-func (in *SQBApplication) buildService() {
+func (in *SQBApplicationEntity) UpdateService() {
 	if in.Service == nil {
 		return
 	}
@@ -104,7 +69,7 @@ func (in *SQBApplication) buildService() {
 	in.Service.Labels = in.Labels
 }
 
-func (in *SQBApplication) buildIngress() {
+func (in *SQBApplicationEntity) UpdateIngress() {
 	if in.Ingress == nil {
 		return
 	}
@@ -149,7 +114,7 @@ func (in *SQBApplication) buildIngress() {
 	}
 }
 
-func (in *SQBApplication) buildVirtualService() {
+func (in *SQBApplicationEntity) UpdateVirtualService() {
 	if in.Virtualservice == nil {
 		return
 	}
@@ -174,7 +139,7 @@ func (in *SQBApplication) buildVirtualService() {
 	}
 }
 
-func (in *SQBApplication) buildDestinationRule() {
+func (in *SQBApplicationEntity) UpdateDestinationRule() {
 	if in.Destinationrule == nil {
 		return
 	}
@@ -187,31 +152,31 @@ func (in *SQBApplication) buildDestinationRule() {
 	}
 }
 
-func (in *SQBApplication) IsIstioInject() bool {
+func (in *SQBApplicationEntity) IsIstioInject() bool {
 	if ConfigMapData.IstioEnable() {
 		if istioInject, ok := in.Annotations[IstioInjectAnnotationKey]; ok {
 			return istioInject == "true"
 		}
-		return true
+		return ConfigMapData.istioInject
 	}
 	return false
 }
 
-func (in *SQBApplication) IsIngressOpen() bool {
+func (in *SQBApplicationEntity) IsIngressOpen() bool {
 	if is, ok := in.Annotations[IngressOpenAnnotationKey]; ok {
 		return is == "true"
 	}
 	return ConfigMapData.IngressOpen()
 }
 
-func (in *SQBApplication) IsExplicitDelete() bool {
+func (in *SQBApplicationEntity) IsExplicitDelete() bool {
 	if deleteCheckSum, ok := in.Annotations[ExplicitDeleteAnnotationKey]; ok && deleteCheckSum == util.GetDeleteCheckSum(in.Name) {
 		return true
 	}
 	return false
 }
 
-func (in *SQBApplication) getOrGenerateHttpRoutes(httpRoutes []*istioapi.HTTPRoute) []*istioapi.HTTPRoute {
+func (in *SQBApplicationEntity) getOrGenerateHttpRoutes(httpRoutes []*istioapi.HTTPRoute) []*istioapi.HTTPRoute {
 	resultHttpRoutes := make([]*istioapi.HTTPRoute, 0)
 	subpaths := in.Spec.Subpaths
 	planes := in.Status.Planes
@@ -300,7 +265,7 @@ func (in *SQBApplication) getOrGenerateHttpRoutes(httpRoutes []*istioapi.HTTPRou
 }
 
 // 根据plane生成DestinationRule的subsets
-func (in *SQBApplication) generateSubsets() []*istioapi.Subset {
+func (in *SQBApplicationEntity) generateSubsets() []*istioapi.Subset {
 	subsets := make([]*istioapi.Subset, 0)
 	for plane := range in.Status.Planes {
 		subsets = append(subsets, &istioapi.Subset{
@@ -314,7 +279,7 @@ func (in *SQBApplication) generateSubsets() []*istioapi.Subset {
 }
 
 // 根据plane生成tcp route
-func (in *SQBApplication) getOrGenerateTcpRoutes(tcpRoutes []*istioapi.TCPRoute) []*istioapi.TCPRoute {
+func (in *SQBApplicationEntity) getOrGenerateTcpRoutes(tcpRoutes []*istioapi.TCPRoute) []*istioapi.TCPRoute {
 	resultTcpRoutes := make([]*istioapi.TCPRoute, 0)
 	planes := in.Status.Planes
 	_, ok := planes["base"]
@@ -368,7 +333,7 @@ func (in *SQBApplication) getOrGenerateTcpRoutes(tcpRoutes []*istioapi.TCPRoute)
 	return resultTcpRoutes
 }
 
-func (in *SQBApplication) getIngressHosts() []string {
+func (in *SQBApplicationEntity) getIngressHosts() []string {
 	hosts := ConfigMapData.GetDomainNames(in.Name)
 	for _, host := range in.Spec.Hosts {
 		if !util.ContainString(hosts, host) {
@@ -378,7 +343,7 @@ func (in *SQBApplication) getIngressHosts() []string {
 	return hosts
 }
 
-func (in *SQBApplication) getSpecialVirtualServiceHost(plane string) []string {
+func (in *SQBApplicationEntity) getSpecialVirtualServiceHost(plane string) []string {
 	hosts := ConfigMapData.GetDomainNames(util.GetSubsetName(in.Name, plane))
 	result := hosts[0]
 	for _, host := range hosts[1:] {

@@ -21,7 +21,7 @@ import (
 	"github.com/go-logr/logr"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
-	"github.com/wosai/elastic-env-operator/domain/service"
+	sqbhandler "github.com/wosai/elastic-env-operator/domain/handler"
 	v12 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -47,7 +47,7 @@ type SQBPlaneReconciler struct {
 
 func (r *SQBPlaneReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	return service.HandleReconcile(service.NewSqbPlaneHanlder(req, ctx))
+	return sqbhandler.HandleReconcile(sqbhandler.NewSqbPlaneHanlder(req, ctx))
 }
 
 func (r *SQBPlaneReconciler) SetupWithManager(mgr ctrl.Manager) error {

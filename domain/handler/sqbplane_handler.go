@@ -1,4 +1,4 @@
-package service
+package handler
 
 import (
 	"context"
@@ -22,14 +22,24 @@ func NewSqbPlaneHanlder(req ctrl.Request, ctx context.Context) *sqbPlaneHandler 
 }
 
 func (h *sqbPlaneHandler) GetInstance() (runtimeObj, error) {
-	in := &entity.SQBPlane{}
-	if err := k8sclient.Get(h.ctx, h.req.NamespacedName, in); err != nil {
-		return in, err
-	}
-	if !in.Status.Initialized {
-		return in, nil
-	}
+	in := &entity.SQBPlaneEntity{}
+	err := k8sclient.Get(h.ctx, h.req.NamespacedName, &in.SQBPlane)
+	return in, err
+}
 
+// 初始化逻辑
+func (h *sqbPlaneHandler) IsInitialized(obj runtimeObj) (bool, error) {
+	in := obj.(*entity.SQBPlaneEntity)
+	if in.Annotations[entity.InitializeAnnotationKey] == "true" {
+		return true, nil
+	}
+	in.Initialize()
+	return false, CreateOrUpdate(h.ctx, &in.SQBPlane)
+}
+
+// 正常处理逻辑
+func (h *sqbPlaneHandler) Operate(obj runtimeObj) error {
+	in := obj.(*entity.SQBPlaneEntity)
 	deployments := &appv1.DeploymentList{}
 	if err := k8sclient.List(h.ctx, deployments,
 		&client.ListOptions{
@@ -37,59 +47,34 @@ func (h *sqbPlaneHandler) GetInstance() (runtimeObj, error) {
 			LabelSelector: labels.SelectorFromSet(map[string]string{entity.PlaneKey: in.Name}),
 		},
 	); err != nil && apierrors.IsNotFound(err) {
-		return in, err
+		return err
 	}
-	in.Deployments = deployments
 
 	mirrors := make(map[string]int)
 	for _, deployment := range deployments.Items {
 		mirrors[deployment.Name] = 1
 	}
 	in.Status.Mirrors = mirrors
-	return in, nil
-}
-
-// 初始化逻辑
-func (h *sqbPlaneHandler) IsInitialized(obj runtimeObj) (bool, error) {
-	in := obj.(*entity.SQBPlane)
-	if in.Status.Initialized {
-		return true, nil
-	}
-	in.BuildSelf()
-	if err := CreateOrUpdate(h.ctx, in); err != nil {
-		return false, err
-	}
-	return false, k8sclient.Status().Update(h.ctx, in)
-}
-
-// 正常处理逻辑
-func (h *sqbPlaneHandler) Operate(obj runtimeObj) error {
-	in := obj.(*entity.SQBPlane)
-	mirrors := make(map[string]int)
-	for _, deployment := range in.Deployments.Items {
-		mirrors[deployment.Name] = 1
-	}
-	in.Status.Mirrors = mirrors
 	in.Status.ErrorInfo = ""
-	return k8sclient.Status().Update(h.ctx, in)
+	return k8sclient.Status().Update(h.ctx, &in.SQBPlane)
 }
 
 // 处理失败后逻辑
 func (h *sqbPlaneHandler) ReconcileFail(obj runtimeObj, err error) {
-	in := obj.(*entity.SQBPlane)
+	in := obj.(*entity.SQBPlaneEntity)
 	in.Status.ErrorInfo = err.Error()
-	_ = k8sclient.Status().Update(h.ctx, in)
+	_ = k8sclient.Status().Update(h.ctx, &in.SQBPlane)
 }
 
 // 删除逻辑
 func (h *sqbPlaneHandler) IsDeleting(obj runtimeObj) (bool, error) {
-	in := obj.(*entity.SQBPlane)
+	in := obj.(*entity.SQBPlaneEntity)
 	if in.DeletionTimestamp.IsZero() || !controllerutil.ContainsFinalizer(in, entity.SqbplaneFinalizer) {
 		return false, nil
 	}
 
 	if deleteCheckSum, ok := in.Annotations[entity.ExplicitDeleteAnnotationKey]; ok && deleteCheckSum == util.GetDeleteCheckSum(in.Name) {
-		if err := k8sclient.DeleteAllOf(h.ctx, &entity.SQBDeployment{}, &client.DeleteAllOfOptions{
+		if err := k8sclient.DeleteAllOf(h.ctx, &entity.NewSQBDeployment(nil, nil).SQBDeployment, &client.DeleteAllOfOptions{
 			ListOptions: client.ListOptions{
 				Namespace:     in.Namespace,
 				LabelSelector: labels.SelectorFromSet(map[string]string{entity.PlaneKey: in.Name}),
@@ -106,5 +91,6 @@ func (h *sqbPlaneHandler) IsDeleting(obj runtimeObj) (bool, error) {
 			return true, err
 		}
 	}
-	return true, RemoveFinalizer(h.ctx, in, entity.SqbplaneFinalizer)
+	controllerutil.RemoveFinalizer(in, entity.SqbplaneFinalizer)
+	return true, CreateOrUpdate(h.ctx, &in.SQBPlane)
 }

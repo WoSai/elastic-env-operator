@@ -8,12 +8,12 @@ import (
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
 	"github.com/wosai/elastic-env-operator/domain/util"
-	v1beta12 "istio.io/client-go/pkg/apis/networking/v1beta1"
-	v13 "k8s.io/api/apps/v1"
-	v12 "k8s.io/api/core/v1"
+	istio "istio.io/client-go/pkg/apis/networking/v1beta1"
+	appv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -36,7 +36,7 @@ var _ = Describe("Controller", func() {
 
 	It("create plane success", func() {
 		sqbplane := &qav1alpha1.SQBPlane{
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespace,
 				Name:      planeName,
 			},
@@ -50,7 +50,7 @@ var _ = Describe("Controller", func() {
 		instance := &qav1alpha1.SQBPlane{}
 		err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: planeName}, instance)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(instance.Status.Initialized).To(BeTrue())
+		Expect(instance.Annotations[entity.InitializeAnnotationKey]).To(Equal("true"))
 		Expect(util.ContainString(instance.Finalizers, entity.SqbplaneFinalizer)).To(BeTrue())
 		err = k8sClient.Delete(ctx, sqbplane)
 		Expect(err).NotTo(HaveOccurred())
@@ -60,13 +60,13 @@ var _ = Describe("Controller", func() {
 	It("create application success,create base sqbdeployment,create service", func() {
 		// create application
 		sqbapplication := &qav1alpha1.SQBApplication{
-			ObjectMeta: v1.ObjectMeta{
+			ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespace,
 				Name:      applicationName,
 			},
 			Spec: qav1alpha1.SQBApplicationSpec{
 				ServiceSpec: qav1alpha1.ServiceSpec{
-					Ports: []v12.ServicePort{
+					Ports: []corev1.ServicePort{
 						{
 							Port:       int32(80),
 							TargetPort: intstr.FromInt(8080),
@@ -84,7 +84,7 @@ var _ = Describe("Controller", func() {
 		Expect(err).NotTo(HaveOccurred())
 		instance := &qav1alpha1.SQBApplication{}
 		err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, instance)
-		Expect(instance.Status.Initialized).To(BeTrue())
+		Expect(instance.Annotations[entity.InitializeAnnotationKey]).To(Equal("true"))
 		Expect(util.ContainString(instance.Finalizers, entity.SqbapplicationFinalizer)).To(BeTrue())
 		// 会创建base plane和sqbdeployment
 		basePlane := &qav1alpha1.SQBPlane{}
@@ -93,20 +93,20 @@ var _ = Describe("Controller", func() {
 		sqbdeployment := &qav1alpha1.SQBDeployment{}
 		err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: deploymentName}, sqbdeployment)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(sqbdeployment.Status.Initialized).To(BeTrue())
+		Expect(sqbdeployment.Annotations[entity.InitializeAnnotationKey]).To(Equal("true"))
 		Expect(util.ContainString(sqbdeployment.Finalizers, entity.SqbdeploymentFinalizer)).To(BeTrue())
-		deployment := &v13.Deployment{}
+		deployment := &appv1.Deployment{}
 		err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: deploymentName}, deployment)
 		Expect(err).NotTo(HaveOccurred())
 		// service success
-		service := &v12.Service{}
+		service := &corev1.Service{}
 		err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, service)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(service.Spec.Selector[entity.AppKey]).To(Equal(applicationName))
-		Expect(service.Spec.Type, v12.ServiceTypeClusterIP)
+		Expect(service.Spec.Type, corev1.ServiceTypeClusterIP)
 		port := service.Spec.Ports[0]
 		Expect(port.Name).To(Equal("http-80"))
-		Expect(port.Protocol).To(Equal(v12.ProtocolTCP))
+		Expect(port.Protocol).To(Equal(corev1.ProtocolTCP))
 		Expect(port.Port).To(Equal(int32(80)))
 		Expect(port.TargetPort).To(Equal(intstr.FromInt(8080)))
 
@@ -123,7 +123,7 @@ var _ = Describe("Controller", func() {
 		BeforeEach(func() {
 			// 创建默认的application
 			sqbapplication = &qav1alpha1.SQBApplication{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Namespace: namespace,
 					Name:      applicationName,
 					Annotations: map[string]string{
@@ -132,7 +132,7 @@ var _ = Describe("Controller", func() {
 				},
 				Spec: qav1alpha1.SQBApplicationSpec{
 					ServiceSpec: qav1alpha1.ServiceSpec{
-						Ports: []v12.ServicePort{
+						Ports: []corev1.ServicePort{
 							{
 								Port:       int32(80),
 								TargetPort: intstr.FromInt(8080),
@@ -161,11 +161,11 @@ var _ = Describe("Controller", func() {
 			_ = k8sClient.Delete(ctx, sqbdeployment)
 			_ = k8sClient.Delete(ctx, sqbplane)
 			// 删除service,ingress,deployment
-			service := &v12.Service{ObjectMeta: v1.ObjectMeta{Namespace: namespace, Name: applicationName}}
+			service := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: applicationName}}
 			_ = k8sClient.Delete(ctx, service)
-			ingress := &v1beta1.Ingress{ObjectMeta: v1.ObjectMeta{Namespace: namespace, Name: applicationName}}
+			ingress := &v1beta1.Ingress{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: applicationName}}
 			_ = k8sClient.Delete(ctx, ingress)
-			deployment := &v13.Deployment{ObjectMeta: v1.ObjectMeta{Namespace: namespace, Name: deploymentName}}
+			deployment := &appv1.Deployment{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: deploymentName}}
 			_ = k8sClient.Delete(ctx, deployment)
 			time.Sleep(time.Second)
 		})
@@ -179,23 +179,23 @@ var _ = Describe("Controller", func() {
 				DeploySpec: qav1alpha1.DeploySpec{
 					Replicas: proto.Int32(2),
 					Image:    "busybox",
-					Resources: &v12.ResourceRequirements{
-						Limits: v12.ResourceList{
-							v12.ResourceCPU: *resource.NewQuantity(2, resource.DecimalSI),
+					Resources: &corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU: *resource.NewQuantity(2, resource.DecimalSI),
 						},
-						Requests: v12.ResourceList{
-							v12.ResourceCPU: *resource.NewQuantity(1, resource.DecimalSI),
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU: *resource.NewQuantity(1, resource.DecimalSI),
 						},
 					},
-					Env: []v12.EnvVar{
+					Env: []corev1.EnvVar{
 						{
 							Name:  "env1",
 							Value: "value1",
 						},
 					},
-					HealthCheck: &v12.Probe{
-						Handler: v12.Handler{
-							HTTPGet: &v12.HTTPGetAction{
+					HealthCheck: &corev1.Probe{
+						Handler: corev1.Handler{
+							HTTPGet: &corev1.HTTPGetAction{
 								Port: intstr.FromInt(8080),
 								Path: "/healthy",
 							},
@@ -209,38 +209,38 @@ var _ = Describe("Controller", func() {
 					NodeAffinity: []qav1alpha1.NodeAffinity{
 						{
 							Weight: 100,
-							NodeSelectorRequirement: v12.NodeSelectorRequirement{
+							NodeSelectorRequirement: corev1.NodeSelectorRequirement{
 								Key:      "node",
-								Operator: v12.NodeSelectorOpIn,
+								Operator: corev1.NodeSelectorOpIn,
 								Values:   []string{"qa"},
 							},
 						},
 					},
 					Lifecycle: &qav1alpha1.Lifecycle{
-						Init: &qav1alpha1.InitHandler{Exec: &v12.ExecAction{Command: []string{"sleep", "1"}}},
-						Lifecycle: v12.Lifecycle{
-							PostStart: &v12.Handler{
-								HTTPGet: &v12.HTTPGetAction{
+						Init: &qav1alpha1.InitHandler{Exec: &corev1.ExecAction{Command: []string{"sleep", "1"}}},
+						Lifecycle: corev1.Lifecycle{
+							PostStart: &corev1.Handler{
+								HTTPGet: &corev1.HTTPGetAction{
 									Port: intstr.FromInt(8080),
 									Path: "/poststart",
 								},
 							},
-							PreStop: &v12.Handler{
-								TCPSocket: &v12.TCPSocketAction{
+							PreStop: &corev1.Handler{
+								TCPSocket: &corev1.TCPSocketAction{
 									Port: intstr.FromInt(8080),
 								},
 							},
 						},
 					},
-					Volumes: []v12.Volume{
+					Volumes: []corev1.Volume{
 						{
 							Name: "volume1",
-							VolumeSource: v12.VolumeSource{
-								HostPath: &v12.HostPathVolumeSource{Path: "/tmp"},
+							VolumeSource: corev1.VolumeSource{
+								HostPath: &corev1.HostPathVolumeSource{Path: "/tmp"},
 							},
 						},
 					},
-					VolumeMounts: []v12.VolumeMount{
+					VolumeMounts: []corev1.VolumeMount{
 						{
 							Name:      "volume1",
 							MountPath: "/tmp",
@@ -252,7 +252,7 @@ var _ = Describe("Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			time.Sleep(time.Second)
 
-			deployment := &v13.Deployment{}
+			deployment := &appv1.Deployment{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: deploymentName}, deployment)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(deployment.Spec.Template.Spec.Containers[0].Image).To(Equal("busybox"))
@@ -340,7 +340,7 @@ var _ = Describe("Controller", func() {
 			err = k8sClient.Update(ctx, sqbdeployment)
 			Expect(err).NotTo(HaveOccurred())
 			time.Sleep(time.Second)
-			deployment := &v13.Deployment{}
+			deployment := &appv1.Deployment{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: deploymentName}, deployment)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(deployment.Annotations["type"]).To(Equal("deployment"))
@@ -361,14 +361,14 @@ var _ = Describe("Controller", func() {
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, ingress)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(ingress.Annotations["type"]).To(Equal("ingress"))
-			service := &v12.Service{}
+			service := &corev1.Service{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, service)
 			Expect(service.Annotations["type"]).To(Equal("service"))
 		})
 
 		It("delete sqbapplication without password", func() {
 			// sqbdeployment不删除
-			err := k8sClient.Delete(ctx, &qav1alpha1.SQBApplication{ObjectMeta: v1.ObjectMeta{
+			err := k8sClient.Delete(ctx, &qav1alpha1.SQBApplication{ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespace, Name: applicationName,
 			}})
 			Expect(err).NotTo(HaveOccurred())
@@ -382,13 +382,13 @@ var _ = Describe("Controller", func() {
 		It("delete sqbdeployment without password", func() {
 			// deployment不删除，sqbapplication的status不变
 			err = k8sClient.Delete(ctx, &qav1alpha1.SQBDeployment{
-				ObjectMeta: v1.ObjectMeta{Name: deploymentName, Namespace: namespace},
+				ObjectMeta: metav1.ObjectMeta{Name: deploymentName, Namespace: namespace},
 			})
 			Expect(err).NotTo(HaveOccurred())
 			time.Sleep(time.Second)
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: deploymentName}, sqbdeployment)
 			Expect(err).To(HaveOccurred())
-			deployment := &v13.Deployment{}
+			deployment := &appv1.Deployment{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: deploymentName}, deployment)
 			Expect(err).NotTo(HaveOccurred())
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, sqbapplication)
@@ -399,7 +399,7 @@ var _ = Describe("Controller", func() {
 		It("delete sqbplane without password", func() {
 			// sqbdeployment不删除
 			err = k8sClient.Delete(ctx, &qav1alpha1.SQBPlane{
-				ObjectMeta: v1.ObjectMeta{Name: planeName, Namespace: namespace},
+				ObjectMeta: metav1.ObjectMeta{Name: planeName, Namespace: namespace},
 			})
 			Expect(err).NotTo(HaveOccurred())
 			time.Sleep(time.Second)
@@ -418,7 +418,7 @@ var _ = Describe("Controller", func() {
 				return nil
 			})
 			Expect(err).NotTo(HaveOccurred())
-			err = k8sClient.Delete(ctx, &qav1alpha1.SQBApplication{ObjectMeta: v1.ObjectMeta{
+			err = k8sClient.Delete(ctx, &qav1alpha1.SQBApplication{ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespace, Name: applicationName,
 			}})
 			Expect(err).NotTo(HaveOccurred())
@@ -429,13 +429,13 @@ var _ = Describe("Controller", func() {
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: deploymentName}, sqbdeployment)
 			Expect(err).To(HaveOccurred())
 			// deployment,ingress和service被删除
-			deployment := &v13.Deployment{}
+			deployment := &appv1.Deployment{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: deploymentName}, deployment)
 			Expect(err).To(HaveOccurred())
 			ingress := &v1beta1.Ingress{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, ingress)
 			Expect(err).To(HaveOccurred())
-			service := &v12.Service{}
+			service := &corev1.Service{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, service)
 			Expect(err).To(HaveOccurred())
 		})
@@ -445,7 +445,7 @@ var _ = Describe("Controller", func() {
 		BeforeEach(func() {
 			// 创建默认的application
 			sqbapplication = &qav1alpha1.SQBApplication{
-				ObjectMeta: v1.ObjectMeta{
+				ObjectMeta: metav1.ObjectMeta{
 					Namespace: namespace,
 					Name:      applicationName,
 					Annotations: map[string]string{
@@ -454,7 +454,7 @@ var _ = Describe("Controller", func() {
 				},
 				Spec: qav1alpha1.SQBApplicationSpec{
 					ServiceSpec: qav1alpha1.ServiceSpec{
-						Ports: []v12.ServicePort{
+						Ports: []corev1.ServicePort{
 							{
 								Port:       int32(80),
 								TargetPort: intstr.FromInt(8080),
@@ -473,6 +473,9 @@ var _ = Describe("Controller", func() {
 			sqbdeployment = &qav1alpha1.SQBDeployment{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: deploymentName}, sqbdeployment)
 			Expect(err).NotTo(HaveOccurred())
+			sqbplane = &qav1alpha1.SQBPlane{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: "base"}, sqbplane)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		AfterEach(func() {
@@ -480,17 +483,18 @@ var _ = Describe("Controller", func() {
 			_ = k8sClient.Delete(ctx, sqbapplication)
 			_ = k8sClient.Delete(ctx, sqbplane)
 			// 删除service,ingress,deployment,virtualservice,destinationrule
-			service := &v12.Service{ObjectMeta: v1.ObjectMeta{Namespace: namespace, Name: applicationName}}
+			service := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: applicationName}}
 			_ = k8sClient.Delete(ctx, service)
-			ingress := &v1beta1.Ingress{ObjectMeta: v1.ObjectMeta{Namespace: namespace, Name: applicationName}}
+			ingress := &v1beta1.Ingress{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: applicationName}}
 			_ = k8sClient.Delete(ctx, ingress)
-			virtualservice := &v1beta12.VirtualService{ObjectMeta: v1.ObjectMeta{Namespace: namespace, Name: applicationName}}
+			virtualservice := &istio.VirtualService{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: applicationName}}
 			_ = k8sClient.Delete(ctx, virtualservice)
-			destinationrule := &v1beta12.DestinationRule{ObjectMeta: v1.ObjectMeta{Namespace: namespace, Name: applicationName}}
+			destinationrule := &istio.DestinationRule{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: applicationName}}
 			_ = k8sClient.Delete(ctx, destinationrule)
-			_ = k8sClient.DeleteAllOf(ctx, &v13.Deployment{}, &client.DeleteAllOfOptions{
+			_ = k8sClient.DeleteAllOf(ctx, &appv1.Deployment{}, &client.DeleteAllOfOptions{
 				ListOptions: client.ListOptions{
 					LabelSelector: labels.SelectorFromSet(map[string]string{entity.AppKey: applicationName}),
+					Namespace:     namespace,
 				},
 			})
 			time.Sleep(time.Second)
@@ -505,7 +509,7 @@ var _ = Describe("Controller", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			time.Sleep(time.Second)
-			virtualservice := &v1beta12.VirtualService{}
+			virtualservice := &istio.VirtualService{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, virtualservice)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(virtualservice.Spec.Hosts).To(Equal([]string{applicationName + ".beta.iwosai.com",
@@ -513,7 +517,7 @@ var _ = Describe("Controller", func() {
 			Expect(virtualservice.Spec.Gateways).To(Equal([]string{"mesh"}))
 			Expect(virtualservice.Spec.Http[0].Route[0].Destination.Host).To(Equal(applicationName))
 			Expect(virtualservice.Spec.Http[0].Route[0].Destination.Subset).To(Equal(deploymentName))
-			destinationrule := &v1beta12.DestinationRule{}
+			destinationrule := &istio.DestinationRule{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, destinationrule)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(destinationrule.Spec.Host).To(Equal(applicationName))
@@ -553,7 +557,7 @@ var _ = Describe("Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			time.Sleep(time.Second)
 			// 新增了virtualservice
-			virtualservice := &v1beta12.VirtualService{}
+			virtualservice := &istio.VirtualService{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: deploymentName}, virtualservice)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(virtualservice.Spec.Hosts).To(Equal([]string{deploymentName + ".iwosai.com"}))
@@ -571,11 +575,11 @@ var _ = Describe("Controller", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			time.Sleep(time.Second)
-			virtualservice := &v1beta12.VirtualService{}
+			virtualservice := &istio.VirtualService{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, virtualservice)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(virtualservice.Annotations["type"]).To(Equal("virtualservice"))
-			destinationrule := &v1beta12.DestinationRule{}
+			destinationrule := &istio.DestinationRule{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, destinationrule)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(destinationrule.Annotations["type"]).To(Equal("destinationrule"))
@@ -595,21 +599,19 @@ var _ = Describe("Controller", func() {
 						ServicePort: 80,
 					},
 				}
-				sqbapplication.Annotations = map[string]string{
-					entity.IstioInjectAnnotationKey: "true",
-				}
+				sqbapplication.Annotations[entity.IstioInjectAnnotationKey] = "true"
 				return nil
 			})
 			Expect(err).NotTo(HaveOccurred())
 			// 加一个sqbplane和sqbdeployment
 			plane2 := &qav1alpha1.SQBPlane{
-				ObjectMeta: v1.ObjectMeta{Namespace: namespace, Name: "test"},
+				ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: "test"},
 				Spec:       qav1alpha1.SQBPlaneSpec{Description: "test"},
 			}
 			err = k8sClient.Create(ctx, plane2)
 			Expect(err).NotTo(HaveOccurred())
 			sqbdeployment2 := &qav1alpha1.SQBDeployment{
-				ObjectMeta: v1.ObjectMeta{Namespace: namespace, Name: util.GetSubsetName(applicationName, "test")},
+				ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: util.GetSubsetName(applicationName, "test")},
 				Spec: qav1alpha1.SQBDeploymentSpec{
 					Selector: qav1alpha1.Selector{
 						App:   applicationName,
@@ -620,7 +622,7 @@ var _ = Describe("Controller", func() {
 			err = k8sClient.Create(ctx, sqbdeployment2)
 			Expect(err).NotTo(HaveOccurred())
 			time.Sleep(time.Second)
-			virtualservice := &v1beta12.VirtualService{}
+			virtualservice := &istio.VirtualService{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, virtualservice)
 			Expect(err).NotTo(HaveOccurred())
 			// route顺序为特性环境+subpath，特性环境，基础环境+subpath，基础环境
@@ -672,15 +674,15 @@ var _ = Describe("Controller", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			time.Sleep(time.Second)
-			err = k8sClient.Delete(ctx, &qav1alpha1.SQBApplication{ObjectMeta: v1.ObjectMeta{
+			err = k8sClient.Delete(ctx, &qav1alpha1.SQBApplication{ObjectMeta: metav1.ObjectMeta{
 				Namespace: namespace, Name: applicationName,
 			}})
 			Expect(err).NotTo(HaveOccurred())
 			time.Sleep(time.Second)
-			virtualservice := &v1beta12.VirtualService{}
+			virtualservice := &istio.VirtualService{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, virtualservice)
 			Expect(err).To(HaveOccurred())
-			destinationrule := &v1beta12.DestinationRule{}
+			destinationrule := &istio.DestinationRule{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, destinationrule)
 			Expect(err).To(HaveOccurred())
 		})

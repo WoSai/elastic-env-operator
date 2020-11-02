@@ -6,10 +6,10 @@ import (
 	"strings"
 )
 
-var ConfigMapData = &SQBConfigMap{}
+var ConfigMapData = &SQBConfigMapEntity{}
 
 // operator相关的业务配置实体
-type SQBConfigMap struct {
+type SQBConfigMapEntity struct {
 	ingressOpen         bool
 	istioInject         bool
 	istioEnable         bool
@@ -21,7 +21,10 @@ type SQBConfigMap struct {
 	Initialized         bool
 }
 
-func (sc *SQBConfigMap) FromMap(data map[string]string) {
+func (sc *SQBConfigMapEntity) FromMap(data map[string]string) {
+	if len(data) == 0 {
+		data = make(map[string]string)
+	}
 	if data["ingressOpen"] == "true" {
 		sc.ingressOpen = true
 	} else {
@@ -62,12 +65,12 @@ func (sc *SQBConfigMap) FromMap(data map[string]string) {
 	sc.Initialized = true
 }
 
-func (sc *SQBConfigMap) GetDomainNames(prefix string) []string {
+func (sc *SQBConfigMapEntity) GetDomainNames(prefix string) []string {
 	hosts := strings.Split(strings.ReplaceAll(sc.domainPostfix, "*", prefix), ",")
 	return hosts
 }
 
-func (sc *SQBConfigMap) GetImagePullSecrets() []v1.LocalObjectReference {
+func (sc *SQBConfigMapEntity) GetImagePullSecrets() []v1.LocalObjectReference {
 	imagePullSecrets := make([]v1.LocalObjectReference, 0)
 	if secretStr := sc.imagePullSecrets; secretStr != "" {
 		secrets := strings.Split(secretStr, ",")
@@ -78,27 +81,27 @@ func (sc *SQBConfigMap) GetImagePullSecrets() []v1.LocalObjectReference {
 	return imagePullSecrets
 }
 
-func (sc *SQBConfigMap) IstioTimeout() int64 {
+func (sc *SQBConfigMapEntity) IstioTimeout() int64 {
 	return sc.istioTimeout
 }
 
-func (sc *SQBConfigMap) IstioGateways() []string {
+func (sc *SQBConfigMapEntity) IstioGateways() []string {
 	return sc.istioGateways
 }
 
-func (sc *SQBConfigMap) IngressOpen() bool {
+func (sc *SQBConfigMapEntity) IngressOpen() bool {
 	return sc.ingressOpen
 }
 
-func (sc *SQBConfigMap) IstioEnable() bool {
+func (sc *SQBConfigMapEntity) IstioEnable() bool {
 	return sc.istioEnable
 }
 
-func (sc *SQBConfigMap) IstioInject() bool {
+func (sc *SQBConfigMapEntity) IstioInject() bool {
 	return sc.istioInject
 }
 
-func (sc *SQBConfigMap) GlobalDeploy() (string, bool) {
+func (sc *SQBConfigMapEntity) GlobalDeploy() (string, bool) {
 	enable := false
 	if sc.globalDefaultDeploy != "" {
 		enable = true

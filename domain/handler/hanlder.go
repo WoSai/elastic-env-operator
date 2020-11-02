@@ -1,23 +1,29 @@
-package service
+package handler
 
 import (
 	"context"
+	"github.com/go-logr/logr"
 	"github.com/wosai/elastic-env-operator/domain/entity"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
 	"time"
 )
 
 var (
 	k8sclient client.Client
+	log       logr.Logger
 )
 
 func SetK8sClient(c client.Client) {
 	k8sclient = c
+}
+
+func SetK8sLog(l logr.Logger) {
+	log = l
 }
 
 type runtimeObj interface {
@@ -25,25 +31,18 @@ type runtimeObj interface {
 	metav1.Object
 }
 
-type ISQBReconciler interface {
-	//
+type SQBHandler interface {
 	GetInstance() (runtimeObj, error)
-	// 初始化逻辑
 	IsInitialized(runtimeObj) (bool, error)
-	// 正常处理逻辑
 	Operate(runtimeObj) error
-	// 处理失败后逻辑
 	ReconcileFail(runtimeObj, error)
-	// 删除逻辑
 	IsDeleting(runtimeObj) (bool, error)
 }
 
-// reconcile公共逻辑流程
-func HandleReconcile(r ISQBReconciler) (ctrl.Result, error) {
+func HandleReconcile(r SQBHandler) (ctrl.Result, error) {
 	if !entity.ConfigMapData.Initialized {
 		return ctrl.Result{RequeueAfter: time.Second}, nil
 	}
-
 	obj, err := r.GetInstance()
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -54,11 +53,18 @@ func HandleReconcile(r ISQBReconciler) (ctrl.Result, error) {
 		}
 	}
 
+	log.Info("get instance", "kind", obj.GetObjectKind().GroupVersionKind(),
+		"namespace", obj.GetNamespace(), "name", obj.GetName())
+
+	generation := obj.GetGeneration()
 	if yes, err := r.IsInitialized(obj); !yes {
 		if err != nil {
 			r.ReconcileFail(obj, err)
+			return ctrl.Result{}, err
 		}
-		return ctrl.Result{Requeue: true}, nil
+		if generation != obj.GetGeneration() {
+			return ctrl.Result{}, nil
+		}
 	}
 
 	if yes, err := r.IsDeleting(obj); yes {
@@ -72,36 +78,27 @@ func HandleReconcile(r ISQBReconciler) (ctrl.Result, error) {
 	if err != nil {
 		r.ReconcileFail(obj, err)
 	}
-
 	return ctrl.Result{}, err
 }
 
 func CreateOrUpdate(ctx context.Context, obj runtimeObj) error {
-	if obj == nil {
-		return nil
-	}
+	kind, _ := apiutil.GVKForObject(obj, entity.K8sScheme)
 	if obj.GetCreationTimestamp().Time.IsZero() {
-		if err := k8sclient.Create(ctx, obj); err != nil {
-			return err
-		}
-	}
-	if err := k8sclient.Update(ctx, obj); err != nil {
+		err := k8sclient.Create(ctx, obj)
+		log.Info("create obj", "kind", kind,
+			"namespace", obj.GetNamespace(), "name", obj.GetName(), "error", err)
 		return err
 	}
-	return nil
+	err := k8sclient.Update(ctx, obj)
+	log.Info("update obj", "kind", kind,
+		"namespace", obj.GetNamespace(), "name", obj.GetName(), "error", err)
+	return err
 }
 
 func Delete(ctx context.Context, obj runtimeObj) error {
-	if obj == nil {
-		return nil
-	}
-	if err := k8sclient.Delete(ctx, obj); err != nil {
-		return err
-	}
-	return nil
-}
-
-func RemoveFinalizer(ctx context.Context, obj runtimeObj, finalizer string) error {
-	controllerutil.RemoveFinalizer(obj, finalizer)
-	return k8sclient.Update(ctx, obj)
+	kind, _ := apiutil.GVKForObject(obj, entity.K8sScheme)
+	err := k8sclient.Delete(ctx, obj)
+	log.Info("delete obj", "kind", kind,
+		"namespace", obj.GetNamespace(), "name", obj.GetName(), "error", err)
+	return client.IgnoreNotFound(err)
 }

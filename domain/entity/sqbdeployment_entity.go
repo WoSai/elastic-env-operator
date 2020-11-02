@@ -14,20 +14,39 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
-type SQBDeployment struct {
+type SQBDeploymentEntity struct {
 	qav1alpha1.SQBDeployment
-	SqbApplication        *SQBApplication
 	Deployment            *appv1.Deployment
 	SpecialVirtualService *istio.VirtualService
 }
 
-func (in *SQBDeployment) BuildSelf() {
-	if in.Status.Initialized == true {
-		return
+// 创建默认的sqbdeployment
+func NewSQBDeployment(sqbapplication *SQBApplicationEntity, sqbplane *SQBPlaneEntity) *SQBDeploymentEntity {
+	if sqbapplication == nil || sqbplane == nil {
+		return &SQBDeploymentEntity{
+			SQBDeployment: qav1alpha1.SQBDeployment{},
+		}
 	}
+	return &SQBDeploymentEntity{
+		SQBDeployment: qav1alpha1.SQBDeployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: sqbapplication.Namespace,
+				Name:      util.GetSubsetName(sqbapplication.Name, sqbplane.Name),
+			},
+			Spec: qav1alpha1.SQBDeploymentSpec{
+				Selector: qav1alpha1.Selector{
+					App:   sqbapplication.Name,
+					Plane: sqbplane.Name,
+				},
+			},
+		},
+	}
+}
 
+// 使用sqbapplication初始化sqbdeployment
+func (in *SQBDeploymentEntity) Initialize(sqbapplication *qav1alpha1.SQBApplication) {
 	controllerutil.AddFinalizer(in, SqbdeploymentFinalizer)
-	applicationDeploy, _ := json.Marshal(in.SqbApplication.Spec.DeploySpec)
+	applicationDeploy, _ := json.Marshal(sqbapplication.Spec.DeploySpec)
 	deploymentDeploy, _ := json.Marshal(in.Spec.DeploySpec)
 	mergeDeploy, _ := jsonpatch.MergePatch(applicationDeploy, deploymentDeploy)
 	deploy := qav1alpha1.DeploySpec{}
@@ -35,20 +54,18 @@ func (in *SQBDeployment) BuildSelf() {
 		in.Spec.DeploySpec = deploy
 	}
 
-	in.Labels = util.MergeStringMap(in.SqbApplication.Labels, in.Labels)
+	in.Labels = util.MergeStringMap(sqbapplication.Labels, in.Labels)
 	in.Labels = util.MergeStringMap(in.Labels, map[string]string{
 		AppKey:   in.Spec.Selector.App,
 		PlaneKey: in.Spec.Selector.Plane,
 	})
-	in.Status.Initialized = true
+	if len(in.Annotations) == 0 {
+		in.Annotations = make(map[string]string)
+	}
+	in.Annotations[InitializeAnnotationKey] = "true"
 }
 
-func (in *SQBDeployment) BuildRef() {
-	in.buildDeployment()
-	in.buildSpecialVirtualService()
-}
-
-func (in *SQBDeployment) buildDeployment() {
+func (in *SQBDeploymentEntity) UpdateDeployment() {
 	if in.Deployment == nil {
 		return
 	}
@@ -148,7 +165,7 @@ func (in *SQBDeployment) buildDeployment() {
 	}
 }
 
-func (in *SQBDeployment) buildSpecialVirtualService() {
+func (in *SQBDeploymentEntity) UpdateSpecialVirtualService() {
 	if in.SpecialVirtualService == nil {
 		return
 	}
@@ -177,5 +194,14 @@ func (in *SQBDeployment) buildSpecialVirtualService() {
 		},
 	}
 	// 为了删除Deployment能自动删除SpecialVirtualservice
-	_ = controllerutil.SetControllerReference(in.Deployment, in.SpecialVirtualService, k8sscheme)
+	_ = controllerutil.SetControllerReference(in.Deployment, in.SpecialVirtualService, K8sScheme)
+}
+
+func (in *SQBDeploymentEntity) HasPublicEntry() bool {
+	if ConfigMapData.IstioEnable() {
+		if publicEntry, ok := in.Annotations[PublicEntryAnnotationKey]; ok {
+			return publicEntry == "true"
+		}
+	}
+	return false
 }

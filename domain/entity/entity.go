@@ -23,12 +23,13 @@ const (
 	IngressAnnotationKey         = "qa.shouqianba.com/passthrough-ingress"
 	DestinationRuleAnnotationKey = "qa.shouqianba.com/passthrough-destinationrule"
 	VirtualServiceAnnotationKey  = "qa.shouqianba.com/passthrough-virtualservice"
+	InitializeAnnotationKey      = "qa.shouqianba.com/initialized"
 )
 
 var (
-	k8sscheme *runtime.Scheme
+	K8sScheme *runtime.Scheme
 )
 
 func SetK8sScheme(s *runtime.Scheme) {
-	k8sscheme = s
+	K8sScheme = s
 }

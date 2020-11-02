@@ -20,7 +20,7 @@ import (
 	"context"
 	"github.com/go-logr/logr"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
-	"github.com/wosai/elastic-env-operator/domain/service"
+	"github.com/wosai/elastic-env-operator/domain/handler"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -39,7 +39,7 @@ type SQBDeploymentReconciler struct {
 
 func (r *SQBDeploymentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	return service.HandleReconcile(service.NewSqbDeploymentHanlder(req, ctx))
+	return handler.HandleReconcile(handler.NewSqbDeploymentHanlder(req, ctx))
 }
 
 func (r *SQBDeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
