@@ -65,6 +65,10 @@ type SQBDeploymentList struct {
 	Items           []SQBDeployment `json:"items"`
 }
 
+func (sqbdeployment *SQBDeployment) Merge(oldSqbdeployment *SQBDeployment) {
+	sqbdeployment.Spec.DeploySpec.Merge(&oldSqbdeployment.Spec.DeploySpec)
+}
+
 func init() {
 	SchemeBuilder.Register(&SQBDeployment{}, &SQBDeploymentList{})
 }

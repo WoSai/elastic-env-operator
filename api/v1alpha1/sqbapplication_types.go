@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/wosai/elastic-env-operator/domain/util"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -110,6 +111,52 @@ type SQBApplicationList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []SQBApplication `json:"items"`
+}
+
+//merge list和map都合并去重
+func (sqbapplication *SQBApplication) Merge(oldSqbapplication *SQBApplication) {
+	// annotation、label
+	sqbapplication.Annotations = util.MergeStringMap(oldSqbapplication.Annotations, sqbapplication.Annotations)
+	sqbapplication.Labels = util.MergeStringMap(oldSqbapplication.Labels, sqbapplication.Labels)
+	// host
+	hosts := append(oldSqbapplication.Spec.Hosts, sqbapplication.Spec.Hosts...)
+	hostsMap := make(map[string]struct{})
+	for _, host := range hosts {
+		hostsMap[host] = struct{}{}
+	}
+	hosts = make([]string, 0)
+	for host := range hostsMap {
+		hosts = append(hosts, host)
+	}
+	sqbapplication.Spec.Hosts = hosts
+	// subpath根据path去重
+	subpaths := append(oldSqbapplication.Spec.Subpaths, sqbapplication.Spec.Subpaths...)
+	subpathMap := make(map[string]Subpath)
+	for _, subpath := range subpaths {
+		subpathMap[subpath.Path] = subpath
+	}
+	subpaths = make([]Subpath, 0)
+	for _, subpath := range subpathMap {
+		subpaths = append(subpaths, subpath)
+	}
+	sqbapplication.Spec.Subpaths = subpaths
+	// ports根据port去重
+	ports := append(oldSqbapplication.Spec.Ports, sqbapplication.Spec.Ports...)
+	portsMap := make(map[int32]corev1.ServicePort)
+	for _, port := range ports {
+		portsMap[port.Port] = port
+	}
+	ports = make([]corev1.ServicePort, 0)
+	for _, port := range portsMap {
+		ports = append(ports, port)
+	}
+	sqbapplication.Spec.Ports = ports
+	// deploy去重
+	sqbapplication.Spec.DeploySpec.Merge(&oldSqbapplication.Spec.DeploySpec)
+}
+
+func (deploy *DeploySpec) Merge(oldDeploy *DeploySpec) {
+
 }
 
 func init() {
