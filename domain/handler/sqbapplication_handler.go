@@ -93,7 +93,7 @@ func (h *sqbApplicationHandler) Operate(obj runtimeObj) error {
 
 	destinationrule := &istio.DestinationRule{ObjectMeta: objmeta}
 	virtualservice := &istio.VirtualService{ObjectMeta: objmeta}
-	if in.IsIstioInject() {
+	if in.IsIstioInject() && len(planes) != 0 {
 		if err := k8sclient.Get(h.ctx, h.req.NamespacedName, destinationrule); err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
