@@ -74,10 +74,7 @@ func (h *sqbDeploymentHandler) Operate(obj runtimeObj) error {
 		}
 	}
 	in.Status.ErrorInfo = ""
-	if err := k8sclient.Status().Update(h.ctx, &in.SQBDeployment); err != nil {
-		return err
-	}
-	return CreateOrUpdate(h.ctx, &in.SQBDeployment)
+	return k8sclient.Status().Update(h.ctx, &in.SQBDeployment)
 }
 
 // 处理失败后逻辑
@@ -90,10 +87,10 @@ func (h *sqbDeploymentHandler) ReconcileFail(obj runtimeObj, err error) {
 // 删除逻辑
 func (h *sqbDeploymentHandler) IsDeleting(obj runtimeObj) (bool, error) {
 	in := obj.(*entity.SQBDeploymentEntity)
-	objmeta := metav1.ObjectMeta{Namespace: in.Namespace, Name: in.Name}
 	if in.DeletionTimestamp.IsZero() || !controllerutil.ContainsFinalizer(in, entity.SqbdeploymentFinalizer) {
 		return false, nil
 	}
+	objmeta := metav1.ObjectMeta{Namespace: in.Namespace, Name: in.Name}
 	if deleteCheckSum, ok := in.Annotations[entity.ExplicitDeleteAnnotationKey]; ok && deleteCheckSum == util.GetDeleteCheckSum(in.Name) {
 		deployment := &appv1.Deployment{ObjectMeta: objmeta}
 		if err := Delete(h.ctx, deployment); err != nil {
