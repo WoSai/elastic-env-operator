@@ -69,7 +69,7 @@ type SQBDeploymentList struct {
 func (old *SQBDeployment) Merge(new *SQBDeployment) {
 	old.Annotations = util.MergeStringMap(old.Annotations, new.Annotations)
 	old.Labels = util.MergeStringMap(old.Labels, new.Labels)
-	old.Spec.DeploySpec.Merge(&new.Spec.DeploySpec)
+	old.Spec.DeploySpec.merge(&new.Spec.DeploySpec)
 }
 
 func init() {

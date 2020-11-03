@@ -154,10 +154,10 @@ func (old *SQBApplication) Merge(new *SQBApplication) {
 	}
 	old.Spec.Ports = ports
 	// deploy去重
-	old.Spec.DeploySpec.Merge(&new.Spec.DeploySpec)
+	old.Spec.DeploySpec.merge(&new.Spec.DeploySpec)
 }
 
-func (old *DeploySpec) Merge(new *DeploySpec) {
+func (old *DeploySpec) merge(new *DeploySpec) {
 	// 先做merge patch
 	originOld := old.DeepCopy()
 	deployByte, _ := json.Marshal(new)
