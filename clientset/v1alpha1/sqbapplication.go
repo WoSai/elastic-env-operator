@@ -93,7 +93,7 @@ func (c *sqbApplication) Create(ctx context.Context, app *v1alpha1.SQBApplicatio
 // the SQBApplication, and an error, if there is any.
 func (c *sqbApplication) Update(ctx context.Context, app *v1alpha1.SQBApplication, opts v1.UpdateOptions) (result *v1alpha1.SQBApplication, err error) {
 	result = &v1alpha1.SQBApplication{}
-	err = c.client.Put().Namespace(c.namespace).Resource(applicationResource).
+	err = c.client.Put().Namespace(c.namespace).Resource(applicationResource).Name(app.Name).
 		VersionedParams(&opts, ParameterCodec).Body(app).Do(ctx).Into(result)
 	return
 }
