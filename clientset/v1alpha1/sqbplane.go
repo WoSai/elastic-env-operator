@@ -92,7 +92,7 @@ func (c *sqbPlane) Create(ctx context.Context, plane *v1alpha1.SQBPlane, opts v1
 // the SQBPlane, and an error, if there is any.
 func (c *sqbPlane) Update(ctx context.Context, plane *v1alpha1.SQBPlane, opts v1.UpdateOptions) (result *v1alpha1.SQBPlane, err error) {
 	result = &v1alpha1.SQBPlane{}
-	err = c.client.Put().Namespace(c.namespace).Resource(planeResource).
+	err = c.client.Put().Namespace(c.namespace).Resource(planeResource).Name(plane.Name).
 		VersionedParams(&opts, ParameterCodec).Body(plane).Do(ctx).Into(result)
 	return
 }
