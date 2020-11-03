@@ -11,12 +11,12 @@ import (
 func TestAnnotation(t *testing.T) {
 	old := &SQBApplication{
 		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{"a":"1"},
+			Annotations: map[string]string{"a": "1"},
 		},
 	}
 	news := &SQBApplication{
 		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{"b":"2"},
+			Annotations: map[string]string{"b": "2"},
 		},
 	}
 	old.Merge(news)
@@ -24,7 +24,7 @@ func TestAnnotation(t *testing.T) {
 	assert.Equal(t, old.Annotations["b"], "2")
 	news = &SQBApplication{
 		ObjectMeta: metav1.ObjectMeta{
-			Annotations: map[string]string{"a":"2"},
+			Annotations: map[string]string{"a": "2"},
 		},
 	}
 	old.Merge(news)
@@ -68,7 +68,7 @@ func TestReplicaImage(t *testing.T) {
 		Spec: SQBApplicationSpec{
 			DeploySpec: DeploySpec{
 				Replicas: proto.Int(2),
-				Image: "test",
+				Image:    "test",
 			},
 		},
 	}
@@ -90,7 +90,7 @@ func TestEnv(t *testing.T) {
 			DeploySpec: DeploySpec{
 				Env: []v1.EnvVar{
 					{
-						Name: "a",
+						Name:  "a",
 						Value: "1",
 					},
 				},
@@ -102,7 +102,7 @@ func TestEnv(t *testing.T) {
 			DeploySpec: DeploySpec{
 				Env: []v1.EnvVar{
 					{
-						Name: "b",
+						Name:  "b",
 						Value: "2",
 					},
 				},
@@ -119,7 +119,7 @@ func TestEnv2(t *testing.T) {
 			DeploySpec: DeploySpec{
 				Env: []v1.EnvVar{
 					{
-						Name: "a",
+						Name:  "a",
 						Value: "1",
 					},
 				},
@@ -131,7 +131,7 @@ func TestEnv2(t *testing.T) {
 			DeploySpec: DeploySpec{
 				Env: []v1.EnvVar{
 					{
-						Name: "a",
+						Name:  "a",
 						Value: "2",
 					},
 				},
