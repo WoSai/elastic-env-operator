@@ -73,9 +73,7 @@ func (h *sqbDeploymentHandler) Operate(obj runtimeObj) error {
 			}
 		}
 	}
-	if in.Status.ErrorInfo != "" {
-		in.Status.ErrorInfo = ""
-	}
+	in.Status.ErrorInfo = ""
 	if err := k8sclient.Status().Update(h.ctx, &in.SQBDeployment); err != nil {
 		return err
 	}
@@ -92,12 +90,20 @@ func (h *sqbDeploymentHandler) ReconcileFail(obj runtimeObj, err error) {
 // 删除逻辑
 func (h *sqbDeploymentHandler) IsDeleting(obj runtimeObj) (bool, error) {
 	in := obj.(*entity.SQBDeploymentEntity)
+	objmeta := metav1.ObjectMeta{Namespace: in.Namespace, Name: in.Name}
 	if in.DeletionTimestamp.IsZero() || !controllerutil.ContainsFinalizer(in, entity.SqbdeploymentFinalizer) {
 		return false, nil
 	}
 	if deleteCheckSum, ok := in.Annotations[entity.ExplicitDeleteAnnotationKey]; ok && deleteCheckSum == util.GetDeleteCheckSum(in.Name) {
-		if err := Delete(h.ctx, in.Deployment); err != nil {
+		deployment := &appv1.Deployment{ObjectMeta: objmeta}
+		if err := Delete(h.ctx, deployment); err != nil {
 			return true, err
+		}
+		if entity.ConfigMapData.IstioEnable() {
+			specialVirtualService := &istio.VirtualService{ObjectMeta: objmeta}
+			if err := Delete(h.ctx, specialVirtualService); err != nil {
+				return true, err
+			}
 		}
 	}
 	controllerutil.RemoveFinalizer(in, entity.SqbdeploymentFinalizer)

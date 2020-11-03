@@ -121,9 +121,7 @@ func (h *sqbApplicationHandler) Operate(obj runtimeObj) error {
 		}
 	}
 
-	if in.Status.ErrorInfo != "" {
-		in.Status.ErrorInfo = ""
-	}
+	in.Status.ErrorInfo = ""
 	if err := k8sclient.Status().Update(h.ctx, &in.SQBApplication); err != nil {
 		return err
 	}
