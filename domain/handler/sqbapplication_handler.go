@@ -42,16 +42,6 @@ func (h *sqbApplicationHandler) IsInitialized(obj runtimeObj) (bool, error) {
 
 func (h *sqbApplicationHandler) Operate(obj runtimeObj) error {
 	in := obj.(*entity.SQBApplicationEntity)
-	objmeta := metav1.ObjectMeta{Namespace: in.Namespace, Name: in.Name}
-	service := &corev1.Service{ObjectMeta: objmeta}
-	if err := k8sclient.Get(h.ctx, h.req.NamespacedName, service); err != nil && !apierrors.IsNotFound(err) {
-		return err
-	}
-	in.Service = service
-	in.UpdateService()
-	if err := CreateOrUpdate(h.ctx, in.Service); err != nil {
-		return err
-	}
 
 	deployments := &appv1.DeploymentList{}
 	if err := k8sclient.List(h.ctx, deployments,
@@ -73,6 +63,34 @@ func (h *sqbApplicationHandler) Operate(obj runtimeObj) error {
 	}
 	in.Status.Planes = planes
 	in.Status.Mirrors = mirrors
+	if len(planes) == 0 {
+		if in.Spec.Image != "" {
+			// 创建对应的base环境服务
+			sqbplane := entity.NewSQBPlane(in.Namespace, "base", "base")
+			sqbdeployment := entity.NewSQBDeployment(in, sqbplane)
+			if err := CreateOrUpdate(h.ctx, &sqbplane.SQBPlane); err != nil {
+				return err
+			}
+			if err := CreateOrUpdate(h.ctx, &sqbdeployment.SQBDeployment); err != nil {
+				return err
+			}
+		} else if in.Status.ErrorInfo != "" {
+			in.Status.ErrorInfo = ""
+			return k8sclient.Status().Update(h.ctx, &in.SQBApplication)
+		}
+		return nil
+	}
+
+	objmeta := metav1.ObjectMeta{Namespace: in.Namespace, Name: in.Name}
+	service := &corev1.Service{ObjectMeta: objmeta}
+	if err := k8sclient.Get(h.ctx, h.req.NamespacedName, service); err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+	in.Service = service
+	in.UpdateService()
+	if err := CreateOrUpdate(h.ctx, in.Service); err != nil {
+		return err
+	}
 
 	ingress := &v1beta1.Ingress{ObjectMeta: objmeta}
 	if in.IsIngressOpen() {
@@ -85,15 +103,14 @@ func (h *sqbApplicationHandler) Operate(obj runtimeObj) error {
 			return err
 		}
 	} else {
-		err := Delete(h.ctx, ingress)
-		if err != nil && !apierrors.IsNotFound(err) {
+		if err := Delete(h.ctx, ingress); err != nil {
 			return err
 		}
 	}
 
 	destinationrule := &istio.DestinationRule{ObjectMeta: objmeta}
 	virtualservice := &istio.VirtualService{ObjectMeta: objmeta}
-	if in.IsIstioInject() && len(planes) != 0 {
+	if in.IsIstioInject() {
 		if err := k8sclient.Get(h.ctx, h.req.NamespacedName, destinationrule); err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
@@ -111,32 +128,15 @@ func (h *sqbApplicationHandler) Operate(obj runtimeObj) error {
 			return err
 		}
 	} else if entity.ConfigMapData.IstioEnable() {
-		err := Delete(h.ctx, destinationrule)
-		if err != nil && !apierrors.IsNotFound(err) {
+		if err := Delete(h.ctx, destinationrule); err != nil {
 			return err
 		}
-		err = Delete(h.ctx, virtualservice)
-		if err != nil && !apierrors.IsNotFound(err) {
+		if err := Delete(h.ctx, virtualservice); err != nil {
 			return err
 		}
 	}
-
 	in.Status.ErrorInfo = ""
-	if err := k8sclient.Status().Update(h.ctx, &in.SQBApplication); err != nil {
-		return err
-	}
-	if len(planes) == 0 && in.Spec.Image != "" {
-		// 创建对应的base环境服务
-		sqbplane := entity.NewSQBPlane(in.Namespace, "base", "base")
-		sqbdeployment := entity.NewSQBDeployment(in, sqbplane)
-		if err := CreateOrUpdate(h.ctx, &sqbplane.SQBPlane); err != nil {
-			return err
-		}
-		if err := CreateOrUpdate(h.ctx, &sqbdeployment.SQBDeployment); err != nil {
-			return err
-		}
-	}
-	return nil
+	return k8sclient.Status().Update(h.ctx, &in.SQBApplication)
 }
 
 func (h *sqbApplicationHandler) ReconcileFail(obj runtimeObj, err error) {
