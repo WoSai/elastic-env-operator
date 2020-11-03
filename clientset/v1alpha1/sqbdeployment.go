@@ -92,7 +92,7 @@ func (c *sqbDeployment) Create(ctx context.Context, deployment *v1alpha1.SQBDepl
 // the SQBDeployment, and an error, if there is any.
 func (c *sqbDeployment) Update(ctx context.Context, deployment *v1alpha1.SQBDeployment, opts v1.UpdateOptions) (result *v1alpha1.SQBDeployment, err error) {
 	result = &v1alpha1.SQBDeployment{}
-	err = c.client.Put().Namespace(c.namespace).Resource(deploymentResource).
+	err = c.client.Put().Namespace(c.namespace).Resource(deploymentResource).Name(deployment.Name).
 		VersionedParams(&opts, ParameterCodec).Body(deployment).Do(ctx).Into(result)
 	return
 }
