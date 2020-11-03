@@ -17,6 +17,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"encoding/json"
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/wosai/elastic-env-operator/domain/util"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -114,12 +116,12 @@ type SQBApplicationList struct {
 }
 
 //merge list和map都合并去重
-func (sqbapplication *SQBApplication) Merge(oldSqbapplication *SQBApplication) {
+func (old *SQBApplication) Merge(new *SQBApplication) {
 	// annotation、label
-	sqbapplication.Annotations = util.MergeStringMap(oldSqbapplication.Annotations, sqbapplication.Annotations)
-	sqbapplication.Labels = util.MergeStringMap(oldSqbapplication.Labels, sqbapplication.Labels)
+	old.Annotations = util.MergeStringMap(old.Annotations, new.Annotations)
+	old.Labels = util.MergeStringMap(old.Labels, new.Labels)
 	// host
-	hosts := append(oldSqbapplication.Spec.Hosts, sqbapplication.Spec.Hosts...)
+	hosts := append(old.Spec.Hosts, new.Spec.Hosts...)
 	hostsMap := make(map[string]struct{})
 	for _, host := range hosts {
 		hostsMap[host] = struct{}{}
@@ -128,9 +130,9 @@ func (sqbapplication *SQBApplication) Merge(oldSqbapplication *SQBApplication) {
 	for host := range hostsMap {
 		hosts = append(hosts, host)
 	}
-	sqbapplication.Spec.Hosts = hosts
+	old.Spec.Hosts = hosts
 	// subpath根据path去重
-	subpaths := append(oldSqbapplication.Spec.Subpaths, sqbapplication.Spec.Subpaths...)
+	subpaths := append(old.Spec.Subpaths, new.Spec.Subpaths...)
 	subpathMap := make(map[string]Subpath)
 	for _, subpath := range subpaths {
 		subpathMap[subpath.Path] = subpath
@@ -139,9 +141,9 @@ func (sqbapplication *SQBApplication) Merge(oldSqbapplication *SQBApplication) {
 	for _, subpath := range subpathMap {
 		subpaths = append(subpaths, subpath)
 	}
-	sqbapplication.Spec.Subpaths = subpaths
+	old.Spec.Subpaths = subpaths
 	// ports根据port去重
-	ports := append(oldSqbapplication.Spec.Ports, sqbapplication.Spec.Ports...)
+	ports := append(old.Spec.Ports, new.Spec.Ports...)
 	portsMap := make(map[int32]corev1.ServicePort)
 	for _, port := range ports {
 		portsMap[port.Port] = port
@@ -150,13 +152,62 @@ func (sqbapplication *SQBApplication) Merge(oldSqbapplication *SQBApplication) {
 	for _, port := range portsMap {
 		ports = append(ports, port)
 	}
-	sqbapplication.Spec.Ports = ports
+	old.Spec.Ports = ports
 	// deploy去重
-	sqbapplication.Spec.DeploySpec.Merge(&oldSqbapplication.Spec.DeploySpec)
+	old.Spec.DeploySpec.Merge(&new.Spec.DeploySpec)
 }
 
-func (deploy *DeploySpec) Merge(oldDeploy *DeploySpec) {
-
+func (old *DeploySpec) Merge(new *DeploySpec) {
+	// 先做merge patch
+	originOld := old.DeepCopy()
+	deployByte, _ := json.Marshal(new)
+	oldDeployByte, _ := json.Marshal(old)
+	mergeDeployByte, _ := jsonpatch.MergePatch(oldDeployByte, deployByte)
+	_ = json.Unmarshal(mergeDeployByte, &old)
+	// hostalias根据ip去重
+	hostaliases := append(originOld.HostAlias, old.HostAlias...)
+	hostaliasMap := make(map[string]corev1.HostAlias)
+	for _, hostalias := range hostaliases {
+		hostaliasMap[hostalias.IP] = hostalias
+	}
+	hostaliases = make([]corev1.HostAlias, 0)
+	for _, hostalias := range hostaliasMap {
+		hostaliases = append(hostaliases, hostalias)
+	}
+	old.HostAlias = hostaliases
+	// env根据name去重
+	envs := append(originOld.Env, old.Env...)
+	envMap := make(map[string]corev1.EnvVar)
+	for _, env := range envs {
+		envMap[env.Name] = env
+	}
+	envs = make([]corev1.EnvVar, 0)
+	for _, env := range envMap {
+		envs = append(envs, env)
+	}
+	old.Env = envs
+	// volumes根据name去重
+	volumes := append(originOld.Volumes, old.Volumes...)
+	volumeMap := make(map[string]corev1.Volume)
+	for _, volume := range volumes {
+		volumeMap[volume.Name] = volume
+	}
+	volumes = make([]corev1.Volume, 0)
+	for _, volume := range volumeMap {
+		volumes = append(volumes, volume)
+	}
+	old.Volumes = volumes
+	// volumeMounts根据name去重
+	volumeMounts := append(originOld.VolumeMounts, old.VolumeMounts...)
+	volumeMountsMap := make(map[string]corev1.VolumeMount)
+	for _, volumeMount := range volumeMounts {
+		volumeMountsMap[volumeMount.Name] = volumeMount
+	}
+	volumeMounts = make([]corev1.VolumeMount, 0)
+	for _, volumeMount := range volumeMountsMap {
+		volumeMounts = append(volumeMounts, volumeMount)
+	}
+	old.VolumeMounts = volumeMounts
 }
 
 func init() {
