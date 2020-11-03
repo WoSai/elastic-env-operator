@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"github.com/wosai/elastic-env-operator/domain/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -63,6 +64,12 @@ type SQBDeploymentList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
 	Items           []SQBDeployment `json:"items"`
+}
+
+func (old *SQBDeployment) Merge(new *SQBDeployment) {
+	old.Annotations = util.MergeStringMap(old.Annotations, new.Annotations)
+	old.Labels = util.MergeStringMap(old.Labels, new.Labels)
+	old.Spec.DeploySpec.merge(&new.Spec.DeploySpec)
 }
 
 func init() {

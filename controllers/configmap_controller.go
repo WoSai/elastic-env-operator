@@ -19,9 +19,12 @@ package controllers
 import (
 	"context"
 	"github.com/go-logr/logr"
+	"github.com/wosai/elastic-env-operator/domain/entity"
 	v1 "k8s.io/api/core/v1"
+	v14 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -46,14 +49,22 @@ func (r *ConfigMapReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-	ConfigMapData = instance.Data
-	return ctrl.Result{}, nil
+	data := instance.Data
+	istio := &v14.CustomResourceDefinition{}
+	err = r.Get(ctx, types.NamespacedName{Namespace: "", Name: "virtualservices.networking.istio.io"}, istio)
+	if err == nil {
+		data["istioEnable"] = "true"
+	} else {
+		data["istioEnable"] = "false"
+	}
+	entity.ConfigMapData.FromMap(data)
+	return ctrl.Result{}, r.Update(ctx, instance)
 }
 
 func (r *ConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	namespace := os.Getenv("CONFIGMAP_NAMESPACE")
 	if namespace == "" {
-		namespace = "default"
+		namespace = "elastic-env-operator-system"
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v1.ConfigMap{}, builder.WithPredicates(predicate.NewPredicateFuncs(

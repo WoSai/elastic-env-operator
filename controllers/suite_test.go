@@ -18,9 +18,10 @@ package controllers
 
 import (
 	"context"
+	"github.com/gogo/protobuf/proto"
+	"github.com/wosai/elastic-env-operator/domain/entity"
+	"github.com/wosai/elastic-env-operator/domain/handler"
 	istio "istio.io/client-go/pkg/apis/networking/v1beta1"
-	v12 "k8s.io/api/core/v1"
-	v13 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"testing"
@@ -39,6 +40,8 @@ import (
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	v1beta13 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	// +kubebuilder:scaffold:imports
 )
 
@@ -87,6 +90,10 @@ var _ = BeforeSuite(func(done Done) {
 	})
 	Expect(err).ToNot(HaveOccurred())
 
+	handler.SetK8sClient(mgr.GetClient())
+	entity.SetK8sScheme(mgr.GetScheme())
+	handler.SetK8sLog(ctrl.Log.WithName("domain handler"))
+
 	err = (&SQBDeploymentReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("SQBDeployment"),
@@ -122,18 +129,56 @@ var _ = BeforeSuite(func(done Done) {
 	k8sClient = mgr.GetClient()
 	Expect(k8sClient).ToNot(BeNil())
 
-	err = k8sClient.Create(context.Background(), &v12.ConfigMap{
-		ObjectMeta: v13.ObjectMeta{
-			Namespace: "default",
-			Name:      "operator-configmap",
+	virtualServiceCRD := &v1beta13.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{Name: "virtualservices.networking.istio.io"},
+		Spec: v1beta13.CustomResourceDefinitionSpec{
+			Group: "networking.istio.io",
+			Names: v1beta13.CustomResourceDefinitionNames{
+				Plural: "virtualservices",
+				Kind:   "VirtualService",
+			},
+			Scope:                 "Namespaced",
+			PreserveUnknownFields: proto.Bool(true),
+			Versions: []v1beta13.CustomResourceDefinitionVersion{
+				{
+					Name:    "v1beta1",
+					Served:  true,
+					Storage: true,
+				},
+			},
 		},
-		Data: map[string]string{
-			"ingressOpen": "true",
-			"istioInject": "true",
-		},
-	})
+	}
+	err = k8sClient.Create(context.Background(), virtualServiceCRD)
 	Expect(err).NotTo(HaveOccurred())
+
+	destinationRuleCRD := &v1beta13.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{Name: "destinationrules.networking.istio.io"},
+		Spec: v1beta13.CustomResourceDefinitionSpec{
+			Group: "networking.istio.io",
+			Names: v1beta13.CustomResourceDefinitionNames{
+				Plural: "destinationrules",
+				Kind:   "DestinationRule",
+			},
+			Scope: "Namespaced",
+			Versions: []v1beta13.CustomResourceDefinitionVersion{
+				{
+					Name:    "v1beta1",
+					Served:  true,
+					Storage: true,
+				},
+			},
+		},
+	}
+	err = k8sClient.Create(context.Background(), destinationRuleCRD)
+	Expect(err).NotTo(HaveOccurred())
+
 	time.Sleep(time.Second * 5)
+
+	entity.ConfigMapData.FromMap(map[string]string{
+		"ingressOpen": "true",
+		"istioInject": "true",
+		"istioEnable": "true",
+	})
 
 	close(done)
 }, 60)

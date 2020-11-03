@@ -8,6 +8,7 @@ require (
 	github.com/gogo/protobuf v1.3.1
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
+	gotest.tools v2.2.0+incompatible
 	istio.io/api v0.0.0-20200812202721-24be265d41c3
 	istio.io/client-go v0.0.0-20200814134724-bcbf0ed82b30
 	k8s.io/api v0.18.6
