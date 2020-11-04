@@ -17,7 +17,7 @@ type ingressHandler struct {
 	ctx context.Context
 }
 
-func NewIngressHandler(sqbapplication *qav1alpha1.SQBApplication, ctx context.Context) *ingressHandler {
+func newIngressHandler(sqbapplication *qav1alpha1.SQBApplication, ctx context.Context) *ingressHandler {
 	return &ingressHandler{sqbapplication: sqbapplication, ctx: ctx}
 }
 

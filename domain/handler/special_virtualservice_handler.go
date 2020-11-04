@@ -17,7 +17,7 @@ type speccialVirtualServiceHandler struct {
 	ctx context.Context
 }
 
-func NewSpecialVirtualServiceHandler(sqbdeployment *qav1alpha1.SQBDeployment, ctx context.Context) *speccialVirtualServiceHandler {
+func newSpecialVirtualServiceHandler(sqbdeployment *qav1alpha1.SQBDeployment, ctx context.Context) *speccialVirtualServiceHandler {
 	return &speccialVirtualServiceHandler{sqbdeployment: sqbdeployment, ctx: ctx}
 }
 
