@@ -125,7 +125,7 @@ func (in *SQBApplicationEntity) UpdateVirtualService() {
 	in.Virtualservice.Spec.Http = in.getOrGenerateHttpRoutes(in.Virtualservice.Spec.Http)
 	// 处理tcp route
 	for _, port := range in.Spec.Ports {
-		if util.ContainString([]string{"tcp", "mongo", "mysql", "redis"}, strings.ToLower(string(port.Protocol))) {
+		if util.ContainString([]string{"tcp", "mongo", "mysql", "redis"}, strings.ToLower(strings.Split(port.Name, "-")[0])) {
 			in.Virtualservice.Spec.Tcp = in.getOrGenerateTcpRoutes(in.Virtualservice.Spec.Tcp)
 			break
 		} else {
