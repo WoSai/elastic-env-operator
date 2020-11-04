@@ -16,7 +16,7 @@ type serviceHandler struct {
 	ctx context.Context
 }
 
-func newServiceHandler(sqbapplication *qav1alpha1.SQBApplication, ctx context.Context) *serviceHandler {
+func NewServiceHandler(sqbapplication *qav1alpha1.SQBApplication, ctx context.Context) *serviceHandler {
 	return &serviceHandler{sqbapplication: sqbapplication, ctx: ctx}
 }
 

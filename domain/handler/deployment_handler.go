@@ -17,7 +17,7 @@ type deploymentHandler struct {
 	ctx context.Context
 }
 
-func newDeploymentHandler(sqbdeployment *qav1alpha1.SQBDeployment, ctx context.Context) *deploymentHandler {
+func NewDeploymentHandler(sqbdeployment *qav1alpha1.SQBDeployment, ctx context.Context) *deploymentHandler {
 	return &deploymentHandler{sqbdeployment: sqbdeployment, ctx: ctx}
 }
 
@@ -76,15 +76,6 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 		_ = json.Unmarshal([]byte(anno), &deployment.Annotations)
 	} else {
 		deployment.Annotations = nil
-	}
-	if len(deployment.Annotations) == 0 {
-		deployment.Annotations = make(map[string]string)
-	}
-	// sqbapplication controller要用到publicEntry
-	if publicEntry, ok := h.sqbdeployment.Annotations[entity.PublicEntryAnnotationKey]; ok {
-		deployment.Annotations[entity.PublicEntryAnnotationKey] = publicEntry
-	} else {
-		delete(deployment.Annotations, entity.PublicEntryAnnotationKey)
 	}
 	// init lifecycle
 	if deploy.Lifecycle != nil && deploy.Lifecycle.Init != nil {

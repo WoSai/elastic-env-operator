@@ -17,7 +17,7 @@ type ingressHandler struct {
 	ctx context.Context
 }
 
-func newIngressHandler(sqbapplication *qav1alpha1.SQBApplication, ctx context.Context) *ingressHandler {
+func NewIngressHandler(sqbapplication *qav1alpha1.SQBApplication, ctx context.Context) *ingressHandler {
 	return &ingressHandler{sqbapplication: sqbapplication, ctx: ctx}
 }
 
@@ -32,7 +32,7 @@ func (h *ingressHandler) CreateOrUpdate() error {
 		paths := make([]v1beta1.HTTPIngressPath, 0)
 		for _, subpath := range h.sqbapplication.Spec.Subpaths {
 			var path v1beta1.HTTPIngressPath
-			if entity.ConfigMapData.IstioInject() && h.sqbapplication.Annotations[entity.IstioInjectAnnotationKey] == "true" {
+			if IsIstioInject(h.sqbapplication) {
 				path = v1beta1.HTTPIngressPath{
 					Backend: v1beta1.IngressBackend{
 						ServiceName: "istio-ingressgateway" + "-" + h.sqbapplication.Namespace,

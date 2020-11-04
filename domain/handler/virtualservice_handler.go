@@ -20,7 +20,7 @@ type virtualServiceHandler struct {
 	ctx context.Context
 }
 
-func newVirtualServiceHandler(sqbapplication *qav1alpha1.SQBApplication, ctx context.Context) *virtualServiceHandler {
+func NewVirtualServiceHandler(sqbapplication *qav1alpha1.SQBApplication, ctx context.Context) *virtualServiceHandler {
 	return &virtualServiceHandler{sqbapplication: sqbapplication, ctx: ctx}
 }
 

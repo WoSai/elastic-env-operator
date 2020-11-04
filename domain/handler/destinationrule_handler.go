@@ -18,7 +18,7 @@ type destinationRuleHandler struct {
 	ctx context.Context
 }
 
-func newDestinationRuleHandler(sqbapplication *qav1alpha1.SQBApplication, ctx context.Context) *destinationRuleHandler {
+func NewDestinationRuleHandler(sqbapplication *qav1alpha1.SQBApplication, ctx context.Context) *destinationRuleHandler {
 	return &destinationRuleHandler{sqbapplication: sqbapplication, ctx: ctx}
 }
 

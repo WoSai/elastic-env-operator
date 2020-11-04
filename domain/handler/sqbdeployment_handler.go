@@ -2,12 +2,9 @@ package handler
 
 import (
 	"context"
+	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
 	"github.com/wosai/elastic-env-operator/domain/util"
-	istio "istio.io/client-go/pkg/apis/networking/v1beta1"
-	appv1 "k8s.io/api/apps/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -23,86 +20,81 @@ func NewSqbDeploymentHanlder(req ctrl.Request, ctx context.Context) *sqbDeployme
 }
 
 func (h *sqbDeploymentHandler) GetInstance() (runtimeObj, error) {
-	in := &entity.SQBDeploymentEntity{}
-	err := k8sclient.Get(h.ctx, h.req.NamespacedName, &in.SQBDeployment)
+	in := &qav1alpha1.SQBDeployment{}
+	err := k8sclient.Get(h.ctx, h.req.NamespacedName, in)
 	return in, err
 }
 
 // 初始化逻辑
 func (h *sqbDeploymentHandler) IsInitialized(obj runtimeObj) (bool, error) {
-	in := obj.(*entity.SQBDeploymentEntity)
+	in := obj.(*qav1alpha1.SQBDeployment)
 	if in.Annotations[entity.InitializeAnnotationKey] == "true" {
 		return true, nil
 	}
-	sqbapplication := &entity.SQBApplicationEntity{}
+	sqbapplication := &qav1alpha1.SQBApplication{}
 	if err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: in.Namespace, Name: in.Spec.Selector.App},
-		&sqbapplication.SQBApplication); err != nil {
+		sqbapplication); err != nil {
 		return false, err
 	}
-	in.Initialize(&sqbapplication.SQBApplication)
-	return false, CreateOrUpdate(h.ctx, &in.SQBDeployment)
+
+	newSQBDeployment := &qav1alpha1.SQBDeployment{}
+	newSQBDeployment.Spec.DeploySpec = sqbapplication.Spec.DeploySpec
+	newSQBDeployment.Labels = sqbapplication.Labels
+
+	in.Merge(newSQBDeployment)
+	controllerutil.AddFinalizer(in, entity.SqbdeploymentFinalizer)
+	in.Labels = util.MergeStringMap(in.Labels, map[string]string{
+		entity.AppKey:   in.Spec.Selector.App,
+		entity.PlaneKey: in.Spec.Selector.Plane,
+	})
+	if len(in.Annotations) == 0 {
+		in.Annotations = make(map[string]string)
+	}
+	in.Annotations[entity.InitializeAnnotationKey] = "true"
+	return false, CreateOrUpdate(h.ctx, in)
 }
 
 // 正常处理逻辑
 func (h *sqbDeploymentHandler) Operate(obj runtimeObj) error {
-	in := obj.(*entity.SQBDeploymentEntity)
-	objmeta := metav1.ObjectMeta{Namespace: in.Namespace, Name: in.Name}
-	deployment := &appv1.Deployment{ObjectMeta: objmeta}
-	if err := k8sclient.Get(h.ctx, h.req.NamespacedName, deployment); err != nil && !apierrors.IsNotFound(err) {
-		return err
-	}
-	in.Deployment = deployment
-	in.UpdateDeployment()
-	if err := CreateOrUpdate(h.ctx, in.Deployment); err != nil {
+	in := obj.(*qav1alpha1.SQBDeployment)
+	if err := NewDeploymentHandler(in, h.ctx).CreateOrUpdate(); err != nil {
 		return err
 	}
 
 	if entity.ConfigMapData.IstioEnable() {
-		specialVirtualService := &istio.VirtualService{ObjectMeta: objmeta}
-		err := k8sclient.Get(h.ctx, h.req.NamespacedName, specialVirtualService)
-
-		if in.HasPublicEntry() {
-			in.SpecialVirtualService = specialVirtualService
-			in.UpdateSpecialVirtualService()
-			if err := CreateOrUpdate(h.ctx, in.SpecialVirtualService); err != nil {
+		handler := NewSpecialVirtualServiceHandler(in, h.ctx)
+		if in.Annotations[entity.PublicEntryAnnotationKey] == "true" {
+			if err := handler.CreateOrUpdate(); err != nil {
 				return err
 			}
-		} else if err == nil {
-			if err := Delete(h.ctx, specialVirtualService); err != nil {
+		} else {
+			if err := handler.Delete(); err != nil {
 				return err
 			}
 		}
 	}
 	in.Status.ErrorInfo = ""
-	return k8sclient.Status().Update(h.ctx, &in.SQBDeployment)
+	return k8sclient.Status().Update(h.ctx, in)
 }
 
 // 处理失败后逻辑
 func (h *sqbDeploymentHandler) ReconcileFail(obj runtimeObj, err error) {
-	in := obj.(*entity.SQBDeploymentEntity)
+	in := obj.(*qav1alpha1.SQBDeployment)
 	in.Status.ErrorInfo = err.Error()
-	_ = k8sclient.Status().Update(h.ctx, &in.SQBDeployment)
+	_ = k8sclient.Status().Update(h.ctx, in)
 }
 
 // 删除逻辑
 func (h *sqbDeploymentHandler) IsDeleting(obj runtimeObj) (bool, error) {
-	in := obj.(*entity.SQBDeploymentEntity)
+	in := obj.(*qav1alpha1.SQBDeployment)
 	if in.DeletionTimestamp.IsZero() || !controllerutil.ContainsFinalizer(in, entity.SqbdeploymentFinalizer) {
 		return false, nil
 	}
-	objmeta := metav1.ObjectMeta{Namespace: in.Namespace, Name: in.Name}
 	if deleteCheckSum, ok := in.Annotations[entity.ExplicitDeleteAnnotationKey]; ok && deleteCheckSum == util.GetDeleteCheckSum(in.Name) {
-		deployment := &appv1.Deployment{ObjectMeta: objmeta}
-		if err := Delete(h.ctx, deployment); err != nil {
+		if err := NewDeploymentHandler(in, h.ctx).Delete(); err != nil {
 			return true, err
-		}
-		if entity.ConfigMapData.IstioEnable() {
-			specialVirtualService := &istio.VirtualService{ObjectMeta: objmeta}
-			if err := Delete(h.ctx, specialVirtualService); err != nil {
-				return true, err
-			}
 		}
 	}
 	controllerutil.RemoveFinalizer(in, entity.SqbdeploymentFinalizer)
-	return true, CreateOrUpdate(h.ctx, &in.SQBDeployment)
+	return true, CreateOrUpdate(h.ctx, in)
 }
