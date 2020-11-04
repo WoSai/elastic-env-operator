@@ -98,7 +98,11 @@ func (sc *SQBConfigMapEntity) IstioEnable() bool {
 }
 
 func (sc *SQBConfigMapEntity) IstioInject() bool {
-	return sc.istioInject
+	if sc.istioEnable {
+		return sc.istioInject
+	} else {
+		return false
+	}
 }
 
 func (sc *SQBConfigMapEntity) GlobalDeploy() (string, bool) {

@@ -48,9 +48,10 @@ spec:
     servicePort: 80
   # service相关配置
   ports:
-  - port: 80
+  - name: http-80  # name命名规则：{istio支持的protocol}-{port}
+    port: 80
     targetPort: 8080
-    protocol: TCP  # istio定义的protocol类型，service port的name需要以protocol开头
+    protocol: TCP  # k8s原生protocol
   # deployment相关配置
   replicas: 1  # 可选，副本数，默认1
   image: # 镜像，必选
