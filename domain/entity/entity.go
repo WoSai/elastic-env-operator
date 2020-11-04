@@ -7,7 +7,7 @@ import (
 const (
 	XEnvFlag                     = "x-env-flag"
 	AppKey                       = "app"
-	PlaneKey                     = "plane"
+	PlaneKey                     = "version"
 	TeamKey                      = "team"
 	GroupKey                     = "group"
 	SqbplaneFinalizer            = "SQBPLANE"

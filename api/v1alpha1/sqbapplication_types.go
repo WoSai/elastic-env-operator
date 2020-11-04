@@ -90,7 +90,7 @@ type SQBApplicationStatus struct {
 
 	Planes      map[string]int `json:"planes,omitempty"`
 	Mirrors     map[string]int `json:"mirrors,omitempty"`
-	Initialized bool           `json:"initialized,omitempty"`
+	Initialized bool           `json:"initialized,omitempty"` // 废弃了，使用注解qa.shouqianba.com/initialized判断初始化
 	ErrorInfo   string         `json:"errorInfo,omitempty"`
 }
 
