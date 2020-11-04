@@ -12,7 +12,6 @@ import (
 	"k8s.io/api/extensions/v1beta1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
-	"strconv"
 	"strings"
 )
 
@@ -49,15 +48,7 @@ func (in *SQBApplicationEntity) UpdateService() {
 	if in.Service == nil {
 		return
 	}
-	ports := make([]corev1.ServicePort, 0)
-	for _, port := range in.Spec.Ports {
-		port.Name = strings.ToLower(string(port.Protocol)) + "-" + strconv.Itoa(int(port.Port))
-		if port.Protocol != corev1.ProtocolUDP {
-			port.Protocol = corev1.ProtocolTCP
-		}
-		ports = append(ports, port)
-	}
-	in.Service.Spec.Ports = ports
+	in.Service.Spec.Ports = in.Spec.Ports
 	in.Service.Spec.Selector = map[string]string{
 		AppKey: in.Name,
 	}
