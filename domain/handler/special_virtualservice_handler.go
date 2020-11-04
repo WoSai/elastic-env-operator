@@ -16,7 +16,7 @@ import (
 
 type specialVirtualServiceHandler struct {
 	sqbdeployment *qav1alpha1.SQBDeployment
-	ctx context.Context
+	ctx           context.Context
 }
 
 func NewSpecialVirtualServiceHandler(sqbdeployment *qav1alpha1.SQBDeployment, ctx context.Context) *specialVirtualServiceHandler {

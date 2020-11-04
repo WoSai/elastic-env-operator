@@ -17,7 +17,7 @@ import (
 
 type virtualServiceHandler struct {
 	sqbapplication *qav1alpha1.SQBApplication
-	ctx context.Context
+	ctx            context.Context
 }
 
 func NewVirtualServiceHandler(sqbapplication *qav1alpha1.SQBApplication, ctx context.Context) *virtualServiceHandler {
@@ -199,7 +199,6 @@ func getOrGenerateTcpRoutes(sqbapplication *qav1alpha1.SQBApplication, tcpRoutes
 	}
 	return resultTcpRoutes
 }
-
 
 // 辅助查找route的逻辑
 type TCPRoute istioapi.TCPRoute

@@ -68,7 +68,7 @@ var _ = Describe("Controller", func() {
 				ServiceSpec: qav1alpha1.ServiceSpec{
 					Ports: []corev1.ServicePort{
 						{
-							Name: "http-80",
+							Name:       "http-80",
 							Port:       int32(80),
 							TargetPort: intstr.FromInt(8080),
 							Protocol:   "TCP",
@@ -135,7 +135,7 @@ var _ = Describe("Controller", func() {
 					ServiceSpec: qav1alpha1.ServiceSpec{
 						Ports: []corev1.ServicePort{
 							{
-								Name: "http-80",
+								Name:       "http-80",
 								Port:       int32(80),
 								TargetPort: intstr.FromInt(8080),
 								Protocol:   "TCP",
@@ -458,7 +458,7 @@ var _ = Describe("Controller", func() {
 					ServiceSpec: qav1alpha1.ServiceSpec{
 						Ports: []corev1.ServicePort{
 							{
-								Name: "http-80",
+								Name:       "http-80",
 								Port:       int32(80),
 								TargetPort: intstr.FromInt(8080),
 								Protocol:   "TCP",

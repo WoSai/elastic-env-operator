@@ -13,7 +13,7 @@ import (
 
 type serviceHandler struct {
 	sqbapplication *qav1alpha1.SQBApplication
-	ctx context.Context
+	ctx            context.Context
 }
 
 func NewServiceHandler(sqbapplication *qav1alpha1.SQBApplication, ctx context.Context) *serviceHandler {

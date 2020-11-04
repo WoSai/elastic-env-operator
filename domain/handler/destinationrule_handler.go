@@ -15,7 +15,7 @@ import (
 
 type destinationRuleHandler struct {
 	sqbapplication *qav1alpha1.SQBApplication
-	ctx context.Context
+	ctx            context.Context
 }
 
 func NewDestinationRuleHandler(sqbapplication *qav1alpha1.SQBApplication, ctx context.Context) *destinationRuleHandler {

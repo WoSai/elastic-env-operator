@@ -92,7 +92,7 @@ func (h *sqbApplicationHandler) Operate(obj runtimeObj) error {
 		if in.Spec.Image != "" {
 			// 创建对应的base环境服务
 			sqbplane := &qav1alpha1.SQBPlane{
-				ObjectMeta:metav1.ObjectMeta{Namespace: in.Namespace, Name: "base"},
+				ObjectMeta: metav1.ObjectMeta{Namespace: in.Namespace, Name: "base"},
 				Spec: qav1alpha1.SQBPlaneSpec{
 					Description: "base",
 				},
@@ -101,7 +101,7 @@ func (h *sqbApplicationHandler) Operate(obj runtimeObj) error {
 				ObjectMeta: metav1.ObjectMeta{Namespace: in.Namespace, Name: util.GetSubsetName(in.Name, sqbplane.Name)},
 				Spec: qav1alpha1.SQBDeploymentSpec{
 					Selector: qav1alpha1.Selector{
-						App: in.Name,
+						App:   in.Name,
 						Plane: sqbplane.Name,
 					},
 				},

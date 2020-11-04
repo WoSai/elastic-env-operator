@@ -14,7 +14,7 @@ import (
 
 type deploymentHandler struct {
 	sqbdeployment *qav1alpha1.SQBDeployment
-	ctx context.Context
+	ctx           context.Context
 }
 
 func NewDeploymentHandler(sqbdeployment *qav1alpha1.SQBDeployment, ctx context.Context) *deploymentHandler {

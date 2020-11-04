@@ -14,7 +14,7 @@ import (
 
 type ingressHandler struct {
 	sqbapplication *qav1alpha1.SQBApplication
-	ctx context.Context
+	ctx            context.Context
 }
 
 func NewIngressHandler(sqbapplication *qav1alpha1.SQBApplication, ctx context.Context) *ingressHandler {
