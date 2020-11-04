@@ -22,7 +22,7 @@ func NewDestinationRuleHandler(sqbapplication *qav1alpha1.SQBApplication, ctx co
 	return &destinationRuleHandler{sqbapplication: sqbapplication, ctx: ctx}
 }
 
-func (h *destinationRuleHandler) Operate() error {
+func (h *destinationRuleHandler) CreateOrUpdate() error {
 	destinationrule := &istio.DestinationRule{ObjectMeta: metav1.ObjectMeta{Namespace: h.sqbapplication.Namespace, Name: h.sqbapplication.Name}}
 	err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: destinationrule.Namespace, Name: destinationrule.Name}, destinationrule)
 	if err != nil && !apierrors.IsNotFound(err) {
@@ -47,4 +47,9 @@ func (h *destinationRuleHandler) Operate() error {
 		destinationrule.Annotations = nil
 	}
 	return CreateOrUpdate(h.ctx, destinationrule)
+}
+
+func (h *destinationRuleHandler) Delete() error {
+	destinationrule := &istio.DestinationRule{ObjectMeta: metav1.ObjectMeta{Namespace: h.sqbapplication.Namespace, Name: h.sqbapplication.Name}}
+	return Delete(h.ctx, destinationrule)
 }

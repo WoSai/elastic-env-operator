@@ -21,7 +21,7 @@ func NewIngressHandler(sqbapplication *qav1alpha1.SQBApplication, ctx context.Co
 	return &ingressHandler{sqbapplication: sqbapplication, ctx: ctx}
 }
 
-func (h *ingressHandler) Operate() error {
+func (h *ingressHandler) CreateOrUpdate() error {
 	ingress := &v1beta1.Ingress{ObjectMeta: metav1.ObjectMeta{Namespace: h.sqbapplication.Namespace, Name: h.sqbapplication.Name}}
 	err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: ingress.Namespace, Name: ingress.Name}, ingress)
 	if err != nil && !apierrors.IsNotFound(err) {
@@ -67,4 +67,9 @@ func (h *ingressHandler) Operate() error {
 		ingress.Annotations = nil
 	}
 	return CreateOrUpdate(h.ctx, ingress)
+}
+
+func (h *ingressHandler) Delete() error {
+	ingress := &v1beta1.Ingress{ObjectMeta: metav1.ObjectMeta{Namespace: h.sqbapplication.Namespace, Name: h.sqbapplication.Name}}
+	return Delete(h.ctx, ingress)
 }

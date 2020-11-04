@@ -20,7 +20,7 @@ func NewServiceHandler(sqbapplication *qav1alpha1.SQBApplication, ctx context.Co
 	return &serviceHandler{sqbapplication: sqbapplication, ctx: ctx}
 }
 
-func (h *serviceHandler) Operate() error {
+func (h *serviceHandler) CreateOrUpdate() error {
 	service := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Namespace: h.sqbapplication.Namespace, Name: h.sqbapplication.Name}}
 	err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: service.Namespace, Name: service.Name}, service)
 	if err != nil && !apierrors.IsNotFound(err) {
@@ -39,3 +39,7 @@ func (h *serviceHandler) Operate() error {
 	return CreateOrUpdate(h.ctx, service)
 }
 
+func (h *serviceHandler) Delete() error {
+	service := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Namespace: h.sqbapplication.Namespace, Name: h.sqbapplication.Name}}
+	return Delete(h.ctx, service)
+}

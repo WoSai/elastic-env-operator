@@ -24,7 +24,7 @@ func NewVirtualServiceHandler(sqbapplication *qav1alpha1.SQBApplication, ctx con
 	return &virtualServiceHandler{sqbapplication: sqbapplication, ctx: ctx}
 }
 
-func (h *virtualServiceHandler) Operate() error {
+func (h *virtualServiceHandler) CreateOrUpdate() error {
 	virtualservice := &istio.VirtualService{ObjectMeta: metav1.ObjectMeta{Namespace: h.sqbapplication.Namespace, Name: h.sqbapplication.Name}}
 	err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: virtualservice.Namespace, Name: virtualservice.Name}, virtualservice)
 	if err != nil && !apierrors.IsNotFound(err) {
@@ -51,6 +51,11 @@ func (h *virtualServiceHandler) Operate() error {
 		virtualservice.Annotations = nil
 	}
 	return CreateOrUpdate(h.ctx, virtualservice)
+}
+
+func (h *virtualServiceHandler) Delete() error {
+	virtualservice := &istio.VirtualService{ObjectMeta: metav1.ObjectMeta{Namespace: h.sqbapplication.Namespace, Name: h.sqbapplication.Name}}
+	return Delete(h.ctx, virtualservice)
 }
 
 func getOrGenerateHttpRoutes(sqbapplication *qav1alpha1.SQBApplication, httpRoutes []*istioapi.HTTPRoute) []*istioapi.HTTPRoute {
