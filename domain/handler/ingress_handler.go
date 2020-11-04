@@ -2,15 +2,14 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"strconv"
-	"strings"
 )
 
 type ingressHandler struct {
@@ -23,15 +22,20 @@ func NewIngressHandler(sqbapplication *qav1alpha1.SQBApplication, ctx context.Co
 }
 
 func (h *ingressHandler) Operate() error {
+	ingress := &v1beta1.Ingress{ObjectMeta: metav1.ObjectMeta{Namespace: h.sqbapplication.Namespace, Name: h.sqbapplication.Name}}
+	err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: ingress.Namespace, Name: ingress.Name}, ingress)
+	if err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
 	rules := make([]v1beta1.IngressRule, 0)
 	for _, host := range h.sqbapplication.Spec.Hosts {
 		paths := make([]v1beta1.HTTPIngressPath, 0)
-		for _, subpath := range in.Spec.Subpaths {
+		for _, subpath := range h.sqbapplication.Spec.Subpaths {
 			var path v1beta1.HTTPIngressPath
-			if in.IsIstioInject() {
+			if entity.ConfigMapData.IstioInject() && h.sqbapplication.Annotations[entity.IstioInjectAnnotationKey] == "true" {
 				path = v1beta1.HTTPIngressPath{
 					Backend: v1beta1.IngressBackend{
-						ServiceName: "istio-ingressgateway" + "-" + in.Namespace,
+						ServiceName: "istio-ingressgateway" + "-" + h.sqbapplication.Namespace,
 						ServicePort: intstr.FromInt(80),
 					},
 				}
@@ -56,10 +60,11 @@ func (h *ingressHandler) Operate() error {
 		}
 		rules = append(rules, rule)
 	}
-	in.Ingress.Spec.Rules = rules
-	if anno, ok := in.Annotations[IngressAnnotationKey]; ok {
-		_ = json.Unmarshal([]byte(anno), &in.Ingress.Annotations)
+	ingress.Spec.Rules = rules
+	if anno, ok := h.sqbapplication.Annotations[entity.IngressAnnotationKey]; ok {
+		_ = json.Unmarshal([]byte(anno), &ingress.Annotations)
 	} else {
-		in.Ingress.Annotations = nil
+		ingress.Annotations = nil
 	}
+	return CreateOrUpdate(h.ctx, ingress)
 }
