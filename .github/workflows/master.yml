@@ -48,6 +48,7 @@ jobs:
     - name: Build and Release Docker Image
       uses: docker/build-push-action@v1
       with:
+        registry: registry.wosai-inc.com
         username: ${{ secrets.SQB_REGISTRY_USERNAME }}
         password: ${{ secrets.SQB_REGISTRY_PASSWORD }}
         repository: registry.wosai-inc.com/qa/elastic-env-operator
