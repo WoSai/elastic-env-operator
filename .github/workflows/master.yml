@@ -5,7 +5,7 @@ on:
     branches:
     - master
   push:
-    branchs:
+    branches:
     - release/*
     - hotfix/*
     - master
@@ -17,32 +17,33 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     env:
-      RELEASE_VERSION: v1.0.0
-      DOCKER_IMAGE: wosai/elastic-env-operatpr
+      RELEASE_VERSION: v0.2.0
+      DOCKER_IMAGE: wosai/elastic-env-operator
     steps:
     - name: Set up Go 1.x
       uses: actions/setup-go@v2
       with:
         go-version: ^1.14
       id: go
+    - name: Set up Kubebuilder
+      if: ${{ github.event_name == 'pull_request' }}
+      run: |
+        os=$(go env GOOS)
+        arch=$(go env GOARCH)
+        curl -L https://go.kubebuilder.io/dl/2.3.1/${os}/${arch} | tar -xz -C /tmp/
+        sudo mv /tmp/kubebuilder_2.3.1_${os}_${arch} /usr/local/kubebuilder
+        export PATH=$PATH:/usr/local/kubebuilder/bin
     - name: Check out code into the Go module directory
       uses: actions/checkout@v2
     - name: Test
       run: go test -race -coverprofile=coverage.txt -covermode=atomic -v ./...
+      if: ${{ github.event_name == 'pull_request' }}
     - name: Test Coverage Report
       run: bash <(curl -s https://codecov.io/bash)
-    - name: Install Operator SDK
-      run:  |
-        curl -LO https://github.com/operator-framework/operator-sdk/releases/download/${RELEASE_VERSION}/operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
-        chmod +x operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu
-        sudo mkdir -p /usr/local/bin/
-        sudo mv operator-sdk-${RELEASE_VERSION}-x86_64-linux-gnu /usr/local/bin/operator-sdk
-        operator-sdk version
     - name: Build and Release Docker Image
       uses: docker/build-push-action@v1
       with:
         username: ${{ secrets.DOCKERHUB_ORG_USERNAME }}
         password: ${{ secrets.DOCKERHUB_ORG_ACCESS_TOKEN }}
-        repository: wosai/deepmock
+        repository: wosai/elastic-env-operator
         tag_with_ref: true
-        tag_with_sha: true

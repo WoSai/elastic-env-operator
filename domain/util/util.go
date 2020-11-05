@@ -3,7 +3,6 @@ package util
 import (
 	"crypto/md5"
 	"fmt"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"os"
 	"strings"
 )
@@ -28,14 +27,6 @@ func ContainString(list []string, item string) bool {
 		}
 	}
 	return false
-}
-
-// 忽略没有匹配资源的错误
-func IgnoreNoMatchError(err error) error {
-	if err != nil && !apierrors.IsNotFound(err) && !strings.HasPrefix(err.Error(), "no matches for kind") {
-		return err
-	}
-	return nil
 }
 
 //
