@@ -26,6 +26,7 @@ jobs:
         go-version: ^1.14
       id: go
     - name: Set up Kubebuilder
+      if: ${{ github.event_name == 'pull_request' }}
       run: |
         os=$(go env GOOS)
         arch=$(go env GOARCH)
