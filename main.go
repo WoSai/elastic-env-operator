@@ -73,7 +73,7 @@ func main() {
 
 	handler.SetK8sClient(mgr.GetClient())
 	handler.SetK8sLog(ctrl.Log.WithName("domain handler"))
-	entity.SetK8sScheme(mgr.GetScheme())
+	handler.SetK8sScheme(mgr.GetScheme())
 
 	if err = (&controllers.SQBDeploymentReconciler{
 		Client: mgr.GetClient(),

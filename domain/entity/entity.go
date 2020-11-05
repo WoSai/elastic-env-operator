@@ -1,9 +1,5 @@
 package entity
 
-import (
-	"k8s.io/apimachinery/pkg/runtime"
-)
-
 const (
 	XEnvFlag                     = "x-env-flag"
 	AppKey                       = "app"
@@ -26,10 +22,3 @@ const (
 	InitializeAnnotationKey      = "qa.shouqianba.com/initialized"
 )
 
-var (
-	K8sScheme *runtime.Scheme
-)
-
-func SetK8sScheme(s *runtime.Scheme) {
-	K8sScheme = s
-}

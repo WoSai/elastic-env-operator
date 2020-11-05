@@ -16,6 +16,7 @@ import (
 var (
 	k8sclient client.Client
 	log       logr.Logger
+	k8sScheme *runtime.Scheme
 )
 
 func SetK8sClient(c client.Client) {
@@ -24,6 +25,10 @@ func SetK8sClient(c client.Client) {
 
 func SetK8sLog(l logr.Logger) {
 	log = l
+}
+
+func SetK8sScheme(s *runtime.Scheme) {
+	k8sScheme = s
 }
 
 type runtimeObj interface {
@@ -82,7 +87,7 @@ func HandleReconcile(r SQBHandler) (ctrl.Result, error) {
 }
 
 func CreateOrUpdate(ctx context.Context, obj runtimeObj) error {
-	kind, _ := apiutil.GVKForObject(obj, entity.K8sScheme)
+	kind, _ := apiutil.GVKForObject(obj, k8sScheme)
 	if obj.GetCreationTimestamp().Time.IsZero() {
 		err := k8sclient.Create(ctx, obj)
 		log.Info("create obj", "kind", kind,
@@ -96,7 +101,7 @@ func CreateOrUpdate(ctx context.Context, obj runtimeObj) error {
 }
 
 func Delete(ctx context.Context, obj runtimeObj) error {
-	kind, _ := apiutil.GVKForObject(obj, entity.K8sScheme)
+	kind, _ := apiutil.GVKForObject(obj, k8sScheme)
 	err := k8sclient.Delete(ctx, obj)
 	log.Info("delete obj", "kind", kind,
 		"namespace", obj.GetNamespace(), "name", obj.GetName(), "error", err)
