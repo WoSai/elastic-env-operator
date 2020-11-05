@@ -17,8 +17,8 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     env:
-      RELEASE_VERSION: v1.0.0
-      DOCKER_IMAGE: wosai/elastic-env-operatpr
+      RELEASE_VERSION: v0.2.0
+      DOCKER_IMAGE: wosai/elastic-env-operator
     steps:
     - name: Set up Go 1.x
       uses: actions/setup-go@v2
