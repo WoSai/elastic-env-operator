@@ -5,7 +5,7 @@ on:
     branches:
     - master
   push:
-    branchs:
+    branches:
     - release/*
     - hotfix/*
     - master
@@ -36,14 +36,14 @@ jobs:
       uses: actions/checkout@v2
     - name: Test
       run: go test -race -coverprofile=coverage.txt -covermode=atomic -v ./...
+      if: ${{ github.event_name == 'pull_request' }}
     - name: Test Coverage Report
       run: bash <(curl -s https://codecov.io/bash)
     - name: Build and Release Docker Image
       uses: docker/build-push-action@v1
       with:
-        registry: registry.wosai-inc.com
-        username: ${{ secrets.SQB_REGISTRY_USERNAME }}
-        password: ${{ secrets.SQB_REGISTRY_PASSWORD }}
-        repository: registry.wosai-inc.com/qa/elastic-env-operator
+        username: ${{ secrets.DOCKERHUB_ORG_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_ORG_ACCESS_TOKEN }}
+        repository: wosai/elastic-env-operator
         tag_with_ref: true
         tag_with_sha: true
