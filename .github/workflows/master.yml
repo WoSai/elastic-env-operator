@@ -46,4 +46,4 @@ jobs:
         username: ${{ secrets.DOCKERHUB_ORG_USERNAME }}
         password: ${{ secrets.DOCKERHUB_ORG_ACCESS_TOKEN }}
         repository: wosai/elastic-env-operator
-        tags: $GITHUB_REF-$GITHUB_SHA
+        tag_with_ref: true
