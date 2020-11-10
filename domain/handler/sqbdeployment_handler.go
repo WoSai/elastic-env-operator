@@ -57,24 +57,25 @@ func (h *sqbDeploymentHandler) IsInitialized(obj runtimeObj) (bool, error) {
 // 正常处理逻辑
 func (h *sqbDeploymentHandler) Operate(obj runtimeObj) error {
 	in := obj.(*qav1alpha1.SQBDeployment)
-	if err := NewDeploymentHandler(in, h.ctx).CreateOrUpdate(); err != nil {
-		return err
+
+	handlers := []SQBHanlder{
+		NewDeploymentHandler(in, h.ctx),
+		NewSpecialVirtualServiceHandler(in, h.ctx),
 	}
 
-	if entity.ConfigMapData.IstioEnable() {
-		handler := NewSpecialVirtualServiceHandler(in, h.ctx)
-		if in.Annotations[entity.PublicEntryAnnotationKey] == "true" {
-			if err := handler.CreateOrUpdate(); err != nil {
-				return err
-			}
-		} else {
-			if err := handler.Delete(); err != nil {
-				return err
-			}
+	for _, handler := range handlers {
+		if err := handler.Handle(); err != nil {
+			return err
 		}
 	}
-	in.Status.ErrorInfo = ""
-	return k8sclient.Status().Update(h.ctx, in)
+
+	if !in.DeletionTimestamp.IsZero() {
+		controllerutil.RemoveFinalizer(in, entity.Finalizer)
+		return CreateOrUpdate(h.ctx, in)
+	} else {
+		in.Status.ErrorInfo = ""
+		return k8sclient.Status().Update(h.ctx, in)
+	}
 }
 
 // 处理失败后逻辑
@@ -82,21 +83,6 @@ func (h *sqbDeploymentHandler) ReconcileFail(obj runtimeObj, err error) {
 	in := obj.(*qav1alpha1.SQBDeployment)
 	in.Status.ErrorInfo = err.Error()
 	_ = k8sclient.Status().Update(h.ctx, in)
-}
-
-// 删除逻辑
-func (h *sqbDeploymentHandler) IsDeleting(obj runtimeObj) (bool, error) {
-	in := obj.(*qav1alpha1.SQBDeployment)
-	if in.DeletionTimestamp.IsZero() || !controllerutil.ContainsFinalizer(in, entity.Finalizer) {
-		return false, nil
-	}
-	if deleteCheckSum, ok := in.Annotations[entity.ExplicitDeleteAnnotationKey]; ok && deleteCheckSum == util.GetDeleteCheckSum(in.Name) {
-		if err := NewDeploymentHandler(in, h.ctx).Delete(); err != nil {
-			return true, err
-		}
-	}
-	controllerutil.RemoveFinalizer(in, entity.Finalizer)
-	return true, CreateOrUpdate(h.ctx, in)
 }
 
 func HasPublicEntry(sqbdeployment *qav1alpha1.SQBDeployment) bool {

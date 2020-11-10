@@ -8,7 +8,6 @@ import (
 	"github.com/wosai/elastic-env-operator/domain/entity"
 	"github.com/wosai/elastic-env-operator/domain/util"
 	appv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -67,89 +66,32 @@ func (h *sqbApplicationHandler) IsInitialized(obj runtimeObj) (bool, error) {
 
 func (h *sqbApplicationHandler) Operate(obj runtimeObj) error {
 	in := obj.(*qav1alpha1.SQBApplication)
-
-	deployments := &appv1.DeploymentList{}
-	if err := k8sclient.List(h.ctx, deployments,
-		&client.ListOptions{
-			Namespace:     in.Namespace,
-			LabelSelector: labels.SelectorFromSet(map[string]string{entity.AppKey: in.Name}),
-		},
-	); err != nil && !apierrors.IsNotFound(err) {
-		return err
-	}
-	// SQBDeployment可能会被删除，所以planes和mirrors以deployment为准
-	planes := make(map[string]int)
-	mirrors := make(map[string]int)
-	for _, deployment := range deployments.Items {
-		mirrors[deployment.Name] = 1
-		if plane, ok := deployment.Labels[entity.PlaneKey]; ok {
-			planes[plane] = 1
+	// 如果没有被删除，先更新planes和mirrors
+	if in.DeletionTimestamp.IsZero() {
+		deployments := &appv1.DeploymentList{}
+		if err := k8sclient.List(h.ctx, deployments,
+			&client.ListOptions{
+				Namespace:     in.Namespace,
+				LabelSelector: labels.SelectorFromSet(map[string]string{entity.AppKey: in.Name}),
+			},
+		); err != nil && !apierrors.IsNotFound(err) {
+			return err
+		}
+		// SQBDeployment可能会被删除，所以planes和mirrors以deployment为准
+		planes := make(map[string]int)
+		mirrors := make(map[string]int)
+		for _, deployment := range deployments.Items {
+			mirrors[deployment.Name] = 1
+			if plane, ok := deployment.Labels[entity.PlaneKey]; ok {
+				planes[plane] = 1
+			}
+		}
+		in.Status.Planes = planes
+		in.Status.Mirrors = mirrors
+		if len(planes) == 0 {
+			return h.CreateBase(in)
 		}
 	}
-	in.Status.Planes = planes
-	in.Status.Mirrors = mirrors
-	if len(planes) == 0 {
-		if in.Spec.Image != "" {
-			// 创建对应的base环境服务
-			sqbplane := &qav1alpha1.SQBPlane{
-				ObjectMeta: metav1.ObjectMeta{Namespace: in.Namespace, Name: "base"},
-				Spec: qav1alpha1.SQBPlaneSpec{
-					Description: "base",
-				},
-			}
-			sqbdeployment := &qav1alpha1.SQBDeployment{
-				ObjectMeta: metav1.ObjectMeta{Namespace: in.Namespace, Name: util.GetSubsetName(in.Name, sqbplane.Name)},
-				Spec: qav1alpha1.SQBDeploymentSpec{
-					Selector: qav1alpha1.Selector{
-						App:   in.Name,
-						Plane: sqbplane.Name,
-					},
-				},
-			}
-			if err := CreateOrUpdate(h.ctx, sqbplane); err != nil {
-				return err
-			}
-			if err := CreateOrUpdate(h.ctx, sqbdeployment); err != nil {
-				return err
-			}
-		} else if in.Status.ErrorInfo != "" {
-			in.Status.ErrorInfo = ""
-			return k8sclient.Status().Update(h.ctx, in)
-		}
-		return nil
-	}
-
-	//if err := NewServiceHandler(in, h.ctx).CreateOrUpdate(); err != nil {
-	//	return err
-	//}
-	//
-	//ingressh := NewIngressHandler(in, h.ctx)
-	//
-	//if IsIngressOpen(in) {
-	//	if err := ingressh.CreateOrUpdate(); err != nil {
-	//		return err
-	//	}
-	//} else {
-	//	if err := ingressh.Delete(); err != nil {
-	//		return err
-	//	}
-	//}
-	//
-	//if IsIstioInject(in) {
-	//	if err := NewDestinationRuleHandler(in, h.ctx).CreateOrUpdate(); err != nil {
-	//		return err
-	//	}
-	//	if err := NewVirtualServiceHandler(in, h.ctx).CreateOrUpdate(); err != nil {
-	//		return err
-	//	}
-	//} else if entity.ConfigMapData.IstioEnable() {
-	//	if err := NewDestinationRuleHandler(in, h.ctx).Delete(); err != nil {
-	//		return err
-	//	}
-	//	if err := NewVirtualServiceHandler(in, h.ctx).Delete(); err != nil {
-	//		return err
-	//	}
-	//}
 
 	handlers := []SQBHanlder{
 		NewServiceHandler(in, h.ctx),
@@ -181,39 +123,35 @@ func (h *sqbApplicationHandler) ReconcileFail(obj runtimeObj, err error) {
 	_ = k8sclient.Status().Update(h.ctx, in)
 }
 
-func (h *sqbApplicationHandler) IsDeleting(obj runtimeObj) (bool, error) {
-	in := obj.(*qav1alpha1.SQBApplication)
-	if in.DeletionTimestamp.IsZero() || !controllerutil.ContainsFinalizer(in, entity.Finalizer) {
-		return false, nil
+func (h *sqbApplicationHandler) CreateBase(sqbapplication *qav1alpha1.SQBApplication) error {
+	if sqbapplication.Spec.Image != "" {
+		// 创建对应的base环境服务
+		sqbplane := &qav1alpha1.SQBPlane{
+			ObjectMeta: metav1.ObjectMeta{Namespace: sqbapplication.Namespace, Name: "base"},
+			Spec: qav1alpha1.SQBPlaneSpec{
+				Description: "base",
+			},
+		}
+		sqbdeployment := &qav1alpha1.SQBDeployment{
+			ObjectMeta: metav1.ObjectMeta{Namespace: sqbapplication.Namespace, Name: util.GetSubsetName(sqbapplication.Name, sqbplane.Name)},
+			Spec: qav1alpha1.SQBDeploymentSpec{
+				Selector: qav1alpha1.Selector{
+					App:   sqbapplication.Name,
+					Plane: sqbplane.Name,
+				},
+			},
+		}
+		if err := CreateOrUpdate(h.ctx, sqbplane); err != nil {
+			return err
+		}
+		if err := CreateOrUpdate(h.ctx, sqbdeployment); err != nil {
+			return err
+		}
+	} else if sqbapplication.Status.ErrorInfo != "" {
+		sqbapplication.Status.ErrorInfo = ""
+		return k8sclient.Status().Update(h.ctx, sqbapplication)
 	}
-	if deleteCheckSum, ok := in.Annotations[entity.ExplicitDeleteAnnotationKey]; ok && deleteCheckSum == util.GetDeleteCheckSum(in.Name) {
-		objmeta := metav1.ObjectMeta{Namespace: in.Namespace, Name: in.Name}
-		if err := Delete(h.ctx, &corev1.Service{ObjectMeta: objmeta}); err != nil {
-			return true, err
-		}
-		if IsIngressOpen(in) {
-			if err := NewIngressHandler(in, h.ctx).Delete(); err != nil {
-				return true, err
-			}
-		}
-		if IsIstioInject(in) {
-			if err := NewDestinationRuleHandler(in, h.ctx).Delete(); err != nil {
-				return true, err
-			}
-			if err := NewVirtualServiceHandler(in, h.ctx).Delete(); err != nil {
-				return true, err
-			}
-		}
-
-		if err := NewDeploymentListHandler(in, nil, h.ctx).Delete(); err != nil {
-			return true, err
-		}
-		if err := NewSqbDeploymentListHandler(in, nil, h.ctx).Delete(); err != nil {
-			return true, err
-		}
-	}
-	controllerutil.RemoveFinalizer(in, entity.Finalizer)
-	return true, CreateOrUpdate(h.ctx, in)
+	return nil
 }
 
 // 判断应用是否启用istio逻辑：

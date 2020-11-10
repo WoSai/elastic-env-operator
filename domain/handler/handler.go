@@ -32,7 +32,6 @@ type (
 		IsInitialized(runtimeObj) (bool, error)
 		Operate(runtimeObj) error
 		ReconcileFail(runtimeObj, error)
-		IsDeleting(runtimeObj) (bool, error)
 	}
 
 	SQBHanlder interface {
@@ -80,13 +79,6 @@ func HandleReconcile(r SQBReconciler) (ctrl.Result, error) {
 		if generation != obj.GetGeneration() {
 			return ctrl.Result{}, nil
 		}
-	}
-
-	if yes, err := r.IsDeleting(obj); yes {
-		if err != nil {
-			r.ReconcileFail(obj, err)
-		}
-		return ctrl.Result{}, err
 	}
 
 	err = r.Operate(obj)
