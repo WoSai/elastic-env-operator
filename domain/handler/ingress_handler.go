@@ -73,3 +73,13 @@ func (h *ingressHandler) Delete() error {
 	ingress := &v1beta1.Ingress{ObjectMeta: metav1.ObjectMeta{Namespace: h.sqbapplication.Namespace, Name: h.sqbapplication.Name}}
 	return Delete(h.ctx, ingress)
 }
+
+func (h *ingressHandler) Handle() error {
+	if IsExplicitDelete(h.sqbapplication) {
+		return h.Delete()
+	}
+	if !IsIngressOpen(h.sqbapplication) {
+		return h.Delete()
+	}
+	return h.CreateOrUpdate()
+}

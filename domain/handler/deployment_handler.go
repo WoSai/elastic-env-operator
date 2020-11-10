@@ -120,3 +120,10 @@ func (h *deploymentHandler) Delete() error {
 	deployment := &appv1.Deployment{ObjectMeta: metav1.ObjectMeta{Namespace: h.sqbdeployment.Namespace, Name: h.sqbdeployment.Name}}
 	return Delete(h.ctx, deployment)
 }
+
+func (h *deploymentHandler) Handle() error {
+	if IsExplicitDelete(h.sqbdeployment) {
+		return h.Delete()
+	}
+	return h.CreateOrUpdate()
+}

@@ -34,7 +34,7 @@ func (h *sqbPlaneHandler) IsInitialized(obj runtimeObj) (bool, error) {
 	if in.Annotations[entity.InitializeAnnotationKey] == "true" {
 		return true, nil
 	}
-	controllerutil.AddFinalizer(in, entity.SqbplaneFinalizer)
+	controllerutil.AddFinalizer(in, entity.Finalizer)
 	if len(in.Annotations) == 0 {
 		in.Annotations = make(map[string]string)
 	}
@@ -74,28 +74,18 @@ func (h *sqbPlaneHandler) ReconcileFail(obj runtimeObj, err error) {
 // 删除逻辑
 func (h *sqbPlaneHandler) IsDeleting(obj runtimeObj) (bool, error) {
 	in := obj.(*qav1alpha1.SQBPlane)
-	if in.DeletionTimestamp.IsZero() || !controllerutil.ContainsFinalizer(in, entity.SqbplaneFinalizer) {
+	if in.DeletionTimestamp.IsZero() || !controllerutil.ContainsFinalizer(in, entity.Finalizer) {
 		return false, nil
 	}
 
 	if deleteCheckSum, ok := in.Annotations[entity.ExplicitDeleteAnnotationKey]; ok && deleteCheckSum == util.GetDeleteCheckSum(in.Name) {
-		if err := k8sclient.DeleteAllOf(h.ctx, &qav1alpha1.SQBDeployment{}, &client.DeleteAllOfOptions{
-			ListOptions: client.ListOptions{
-				Namespace:     in.Namespace,
-				LabelSelector: labels.SelectorFromSet(map[string]string{entity.PlaneKey: in.Name}),
-			},
-		}); err != nil {
+		if err := NewDeploymentListHandler(nil, in, h.ctx).Delete(); err != nil {
 			return true, err
 		}
-		if err := k8sclient.DeleteAllOf(h.ctx, &appv1.Deployment{}, &client.DeleteAllOfOptions{
-			ListOptions: client.ListOptions{
-				Namespace:     in.Namespace,
-				LabelSelector: labels.SelectorFromSet(map[string]string{entity.PlaneKey: in.Name}),
-			},
-		}); err != nil {
+		if err := NewSqbDeploymentListHandler(nil, in, h.ctx).Delete(); err != nil {
 			return true, err
 		}
 	}
-	controllerutil.RemoveFinalizer(in, entity.SqbplaneFinalizer)
+	controllerutil.RemoveFinalizer(in, entity.Finalizer)
 	return true, CreateOrUpdate(h.ctx, in)
 }

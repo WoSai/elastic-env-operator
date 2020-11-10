@@ -58,6 +58,19 @@ func (h *virtualServiceHandler) Delete() error {
 	return Delete(h.ctx, virtualservice)
 }
 
+func (h *virtualServiceHandler) Handle() error {
+	if !entity.ConfigMapData.IstioEnable() {
+		return nil
+	}
+	if IsExplicitDelete(h.sqbapplication) {
+		return h.Delete()
+	}
+	if IsIstioInject(h.sqbapplication) {
+		return h.CreateOrUpdate()
+	}
+	return h.Delete()
+}
+
 func getOrGenerateHttpRoutes(sqbapplication *qav1alpha1.SQBApplication, httpRoutes []*istioapi.HTTPRoute) []*istioapi.HTTPRoute {
 	resultHttpRoutes := make([]*istioapi.HTTPRoute, 0)
 	subpaths := sqbapplication.Spec.Subpaths

@@ -42,7 +42,7 @@ func (h *sqbDeploymentHandler) IsInitialized(obj runtimeObj) (bool, error) {
 	newSQBDeployment.Labels = sqbapplication.Labels
 
 	in.Merge(newSQBDeployment)
-	controllerutil.AddFinalizer(in, entity.SqbdeploymentFinalizer)
+	controllerutil.AddFinalizer(in, entity.Finalizer)
 	in.Labels = util.MergeStringMap(in.Labels, map[string]string{
 		entity.AppKey:   in.Spec.Selector.App,
 		entity.PlaneKey: in.Spec.Selector.Plane,
@@ -87,7 +87,7 @@ func (h *sqbDeploymentHandler) ReconcileFail(obj runtimeObj, err error) {
 // 删除逻辑
 func (h *sqbDeploymentHandler) IsDeleting(obj runtimeObj) (bool, error) {
 	in := obj.(*qav1alpha1.SQBDeployment)
-	if in.DeletionTimestamp.IsZero() || !controllerutil.ContainsFinalizer(in, entity.SqbdeploymentFinalizer) {
+	if in.DeletionTimestamp.IsZero() || !controllerutil.ContainsFinalizer(in, entity.Finalizer) {
 		return false, nil
 	}
 	if deleteCheckSum, ok := in.Annotations[entity.ExplicitDeleteAnnotationKey]; ok && deleteCheckSum == util.GetDeleteCheckSum(in.Name) {
@@ -95,6 +95,14 @@ func (h *sqbDeploymentHandler) IsDeleting(obj runtimeObj) (bool, error) {
 			return true, err
 		}
 	}
-	controllerutil.RemoveFinalizer(in, entity.SqbdeploymentFinalizer)
+	controllerutil.RemoveFinalizer(in, entity.Finalizer)
 	return true, CreateOrUpdate(h.ctx, in)
+}
+
+func HasPublicEntry(sqbdeployment *qav1alpha1.SQBDeployment) bool {
+	publicEntry, ok := sqbdeployment.Annotations[entity.PublicEntryAnnotationKey]
+	if ok {
+		return publicEntry == "true"
+	}
+	return false
 }

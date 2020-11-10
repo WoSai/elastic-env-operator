@@ -4,12 +4,14 @@ import (
 	"context"
 	"github.com/go-logr/logr"
 	"github.com/wosai/elastic-env-operator/domain/entity"
+	"github.com/wosai/elastic-env-operator/domain/util"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"time"
 )
 
@@ -18,6 +20,27 @@ var (
 	log       logr.Logger
 	k8sScheme *runtime.Scheme
 )
+
+type (
+	runtimeObj interface {
+		runtime.Object
+		metav1.Object
+	}
+
+	SQBReconciler interface {
+		GetInstance() (runtimeObj, error)
+		IsInitialized(runtimeObj) (bool, error)
+		Operate(runtimeObj) error
+		ReconcileFail(runtimeObj, error)
+		IsDeleting(runtimeObj) (bool, error)
+	}
+
+	SQBHanlder interface {
+		Handle() error
+	}
+)
+
+
 
 func SetK8sClient(c client.Client) {
 	k8sclient = c
@@ -31,20 +54,7 @@ func SetK8sScheme(s *runtime.Scheme) {
 	k8sScheme = s
 }
 
-type runtimeObj interface {
-	runtime.Object
-	metav1.Object
-}
-
-type SQBHandler interface {
-	GetInstance() (runtimeObj, error)
-	IsInitialized(runtimeObj) (bool, error)
-	Operate(runtimeObj) error
-	ReconcileFail(runtimeObj, error)
-	IsDeleting(runtimeObj) (bool, error)
-}
-
-func HandleReconcile(r SQBHandler) (ctrl.Result, error) {
+func HandleReconcile(r SQBReconciler) (ctrl.Result, error) {
 	if !entity.ConfigMapData.Initialized {
 		return ctrl.Result{RequeueAfter: time.Second}, nil
 	}
@@ -106,4 +116,13 @@ func Delete(ctx context.Context, obj runtimeObj) error {
 	log.Info("delete obj", "kind", kind,
 		"namespace", obj.GetNamespace(), "name", obj.GetName(), "error", err)
 	return client.IgnoreNotFound(err)
+}
+
+func IsExplicitDelete(obj runtimeObj) bool {
+	deleteCheckSum, ok := obj.GetAnnotations()[entity.ExplicitDeleteAnnotationKey]
+	if !obj.GetDeletionTimestamp().Time.IsZero() && ok && deleteCheckSum == util.GetDeleteCheckSum(obj.GetName()) &&
+		controllerutil.ContainsFinalizer(obj, entity.Finalizer) {
+		return true
+	}
+	return false
 }

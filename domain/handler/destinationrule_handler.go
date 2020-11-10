@@ -53,3 +53,16 @@ func (h *destinationRuleHandler) Delete() error {
 	destinationrule := &istio.DestinationRule{ObjectMeta: metav1.ObjectMeta{Namespace: h.sqbapplication.Namespace, Name: h.sqbapplication.Name}}
 	return Delete(h.ctx, destinationrule)
 }
+
+func (h *destinationRuleHandler) Handle() error {
+	if !entity.ConfigMapData.IstioEnable() {
+		return nil
+	}
+	if IsExplicitDelete(h.sqbapplication) {
+		return h.Delete()
+	}
+	if IsIstioInject(h.sqbapplication) {
+		return h.CreateOrUpdate()
+	}
+	return h.Delete()
+}

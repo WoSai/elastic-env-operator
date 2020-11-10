@@ -67,3 +67,13 @@ func (h *specialVirtualServiceHandler) Delete() error {
 	specialvirtualservice := &istio.VirtualService{ObjectMeta: metav1.ObjectMeta{Namespace: h.sqbdeployment.Namespace, Name: h.sqbdeployment.Name}}
 	return Delete(h.ctx, specialvirtualservice)
 }
+
+func (h *specialVirtualServiceHandler) Handle() error {
+	if !entity.ConfigMapData.IstioEnable() {
+		return nil
+	}
+	if HasPublicEntry(h.sqbdeployment) {
+		return h.CreateOrUpdate()
+	}
+	return h.Delete()
+}

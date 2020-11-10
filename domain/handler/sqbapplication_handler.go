@@ -46,7 +46,7 @@ func (h *sqbApplicationHandler) IsInitialized(obj runtimeObj) (bool, error) {
 			in.Spec.DeploySpec = deploy
 		}
 	}
-	controllerutil.AddFinalizer(in, entity.SqbapplicationFinalizer)
+	controllerutil.AddFinalizer(in, entity.Finalizer)
 	// hosts为用户定义+configmap默认配置
 	hosts := entity.ConfigMapData.GetDomainNames(in.Name)
 	for _, host := range in.Spec.Hosts {
@@ -119,39 +119,60 @@ func (h *sqbApplicationHandler) Operate(obj runtimeObj) error {
 		return nil
 	}
 
-	if err := NewServiceHandler(in, h.ctx).CreateOrUpdate(); err != nil {
-		return err
+	//if err := NewServiceHandler(in, h.ctx).CreateOrUpdate(); err != nil {
+	//	return err
+	//}
+	//
+	//ingressh := NewIngressHandler(in, h.ctx)
+	//
+	//if IsIngressOpen(in) {
+	//	if err := ingressh.CreateOrUpdate(); err != nil {
+	//		return err
+	//	}
+	//} else {
+	//	if err := ingressh.Delete(); err != nil {
+	//		return err
+	//	}
+	//}
+	//
+	//if IsIstioInject(in) {
+	//	if err := NewDestinationRuleHandler(in, h.ctx).CreateOrUpdate(); err != nil {
+	//		return err
+	//	}
+	//	if err := NewVirtualServiceHandler(in, h.ctx).CreateOrUpdate(); err != nil {
+	//		return err
+	//	}
+	//} else if entity.ConfigMapData.IstioEnable() {
+	//	if err := NewDestinationRuleHandler(in, h.ctx).Delete(); err != nil {
+	//		return err
+	//	}
+	//	if err := NewVirtualServiceHandler(in, h.ctx).Delete(); err != nil {
+	//		return err
+	//	}
+	//}
+
+	handlers := []SQBHanlder{
+		NewServiceHandler(in, h.ctx),
+		NewIngressHandler(in, h.ctx),
+		NewDestinationRuleHandler(in, h.ctx),
+		NewVirtualServiceHandler(in, h.ctx),
+		NewSqbDeploymentListHandler(in, nil, h.ctx),
+		NewDeploymentListHandler(in, nil, h.ctx),
 	}
 
-	ingressh := NewIngressHandler(in, h.ctx)
-
-	if IsIngressOpen(in) {
-		if err := ingressh.CreateOrUpdate(); err != nil {
+	for _, handler := range handlers {
+		if err := handler.Handle(); err != nil {
 			return err
 		}
+	}
+
+	if !in.DeletionTimestamp.IsZero() {
+		controllerutil.RemoveFinalizer(in, entity.Finalizer)
+		return CreateOrUpdate(h.ctx, in)
 	} else {
-		if err := ingressh.Delete(); err != nil {
-			return err
-		}
+		in.Status.ErrorInfo = ""
+		return k8sclient.Status().Update(h.ctx, in)
 	}
-
-	if IsIstioInject(in) {
-		if err := NewDestinationRuleHandler(in, h.ctx).CreateOrUpdate(); err != nil {
-			return err
-		}
-		if err := NewVirtualServiceHandler(in, h.ctx).CreateOrUpdate(); err != nil {
-			return err
-		}
-	} else if entity.ConfigMapData.IstioEnable() {
-		if err := NewDestinationRuleHandler(in, h.ctx).Delete(); err != nil {
-			return err
-		}
-		if err := NewVirtualServiceHandler(in, h.ctx).Delete(); err != nil {
-			return err
-		}
-	}
-	in.Status.ErrorInfo = ""
-	return k8sclient.Status().Update(h.ctx, in)
 }
 
 func (h *sqbApplicationHandler) ReconcileFail(obj runtimeObj, err error) {
@@ -162,7 +183,7 @@ func (h *sqbApplicationHandler) ReconcileFail(obj runtimeObj, err error) {
 
 func (h *sqbApplicationHandler) IsDeleting(obj runtimeObj) (bool, error) {
 	in := obj.(*qav1alpha1.SQBApplication)
-	if in.DeletionTimestamp.IsZero() || !controllerutil.ContainsFinalizer(in, entity.SqbapplicationFinalizer) {
+	if in.DeletionTimestamp.IsZero() || !controllerutil.ContainsFinalizer(in, entity.Finalizer) {
 		return false, nil
 	}
 	if deleteCheckSum, ok := in.Annotations[entity.ExplicitDeleteAnnotationKey]; ok && deleteCheckSum == util.GetDeleteCheckSum(in.Name) {
@@ -184,24 +205,14 @@ func (h *sqbApplicationHandler) IsDeleting(obj runtimeObj) (bool, error) {
 			}
 		}
 
-		if err := k8sclient.DeleteAllOf(h.ctx, &qav1alpha1.SQBDeployment{}, &client.DeleteAllOfOptions{
-			ListOptions: client.ListOptions{
-				Namespace:     in.Namespace,
-				LabelSelector: labels.SelectorFromSet(map[string]string{entity.AppKey: in.Name}),
-			},
-		}); err != nil {
+		if err := NewDeploymentListHandler(in, nil, h.ctx).Delete(); err != nil {
 			return true, err
 		}
-		if err := k8sclient.DeleteAllOf(h.ctx, &appv1.Deployment{}, &client.DeleteAllOfOptions{
-			ListOptions: client.ListOptions{
-				Namespace:     in.Namespace,
-				LabelSelector: labels.SelectorFromSet(map[string]string{entity.AppKey: in.Name}),
-			},
-		}); err != nil {
+		if err := NewSqbDeploymentListHandler(in, nil, h.ctx).Delete(); err != nil {
 			return true, err
 		}
 	}
-	controllerutil.RemoveFinalizer(in, entity.SqbapplicationFinalizer)
+	controllerutil.RemoveFinalizer(in, entity.Finalizer)
 	return true, CreateOrUpdate(h.ctx, in)
 }
 
