@@ -116,12 +116,12 @@ type SQBApplicationList struct {
 }
 
 //merge list和map都合并去重
-func (old *SQBApplication) Merge(new *SQBApplication) {
+func (old *SQBApplication) Merge(news *SQBApplication) {
 	// annotation、label
-	old.Annotations = util.MergeStringMap(old.Annotations, new.Annotations)
-	old.Labels = util.MergeStringMap(old.Labels, new.Labels)
+	old.Annotations = util.MergeStringMap(old.Annotations, news.Annotations)
+	old.Labels = util.MergeStringMap(old.Labels, news.Labels)
 	// host
-	hosts := append(old.Spec.Hosts, new.Spec.Hosts...)
+	hosts := append(old.Spec.Hosts, news.Spec.Hosts...)
 	hostsMap := make(map[string]struct{})
 	for _, host := range hosts {
 		hostsMap[host] = struct{}{}
@@ -131,36 +131,18 @@ func (old *SQBApplication) Merge(new *SQBApplication) {
 		hosts = append(hosts, host)
 	}
 	old.Spec.Hosts = hosts
-	// subpath根据path去重
-	subpaths := append(old.Spec.Subpaths, new.Spec.Subpaths...)
-	subpathMap := make(map[string]Subpath)
-	for _, subpath := range subpaths {
-		subpathMap[subpath.Path] = subpath
-	}
-	subpaths = make([]Subpath, 0)
-	for _, subpath := range subpathMap {
-		subpaths = append(subpaths, subpath)
-	}
-	old.Spec.Subpaths = subpaths
-	// ports根据port去重
-	ports := append(old.Spec.Ports, new.Spec.Ports...)
-	portsMap := make(map[int32]corev1.ServicePort)
-	for _, port := range ports {
-		portsMap[port.Port] = port
-	}
-	ports = make([]corev1.ServicePort, 0)
-	for _, port := range portsMap {
-		ports = append(ports, port)
-	}
-	old.Spec.Ports = ports
+	// subpath用新的覆盖
+	old.Spec.Subpaths = news.Spec.Subpaths
+	// ports用新的覆盖
+	old.Spec.Ports = news.Spec.Ports
 	// deploy去重
-	old.Spec.DeploySpec.merge(&new.Spec.DeploySpec)
+	old.Spec.DeploySpec.merge(&news.Spec.DeploySpec)
 }
 
-func (old *DeploySpec) merge(new *DeploySpec) {
+func (old *DeploySpec) merge(news *DeploySpec) {
 	// 先做merge patch
 	originOld := old.DeepCopy()
-	deployByte, _ := json.Marshal(new)
+	deployByte, _ := json.Marshal(news)
 	oldDeployByte, _ := json.Marshal(old)
 	mergeDeployByte, _ := jsonpatch.MergePatch(oldDeployByte, deployByte)
 	_ = json.Unmarshal(mergeDeployByte, &old)
