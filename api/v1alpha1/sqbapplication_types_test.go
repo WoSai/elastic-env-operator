@@ -138,3 +138,34 @@ func TestEnv2(t *testing.T) {
 	assert.Equal(t, len(old.Spec.Env), 1)
 	assert.Equal(t, old.Spec.Env[0].Value, "2")
 }
+
+
+func TestPorts(t *testing.T) {
+	old := &SQBApplication{
+		Spec: SQBApplicationSpec{
+			ServiceSpec: ServiceSpec{
+				Ports: []v1.ServicePort{
+					{
+						Name: "http-80",
+						Port: 80,
+					},
+				},
+			},
+		},
+	}
+	news := &SQBApplication{
+		Spec: SQBApplicationSpec{
+			ServiceSpec: ServiceSpec{
+				Ports: []v1.ServicePort{
+					{
+						Name: "http-8080",
+						Port: 8080,
+					},
+				},
+			},
+		},
+	}
+	old.Merge(news)
+	assert.Equal(t, len(old.Spec.Ports), 1)
+	assert.Equal(t, old.Spec.Ports[0].Port, int32(8080))
+}
