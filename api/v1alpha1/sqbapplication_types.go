@@ -131,28 +131,10 @@ func (old *SQBApplication) Merge(new *SQBApplication) {
 		hosts = append(hosts, host)
 	}
 	old.Spec.Hosts = hosts
-	// subpath根据path去重
-	subpaths := append(old.Spec.Subpaths, new.Spec.Subpaths...)
-	subpathMap := make(map[string]Subpath)
-	for _, subpath := range subpaths {
-		subpathMap[subpath.Path] = subpath
-	}
-	subpaths = make([]Subpath, 0)
-	for _, subpath := range subpathMap {
-		subpaths = append(subpaths, subpath)
-	}
-	old.Spec.Subpaths = subpaths
-	// ports根据port去重
-	ports := append(old.Spec.Ports, new.Spec.Ports...)
-	portsMap := make(map[int32]corev1.ServicePort)
-	for _, port := range ports {
-		portsMap[port.Port] = port
-	}
-	ports = make([]corev1.ServicePort, 0)
-	for _, port := range portsMap {
-		ports = append(ports, port)
-	}
-	old.Spec.Ports = ports
+	// subpath用新的覆盖
+	old.Spec.Subpaths = new.Spec.Subpaths
+	// ports用新的覆盖
+	old.Spec.Ports = new.Spec.Ports
 	// deploy去重
 	old.Spec.DeploySpec.merge(&new.Spec.DeploySpec)
 }
