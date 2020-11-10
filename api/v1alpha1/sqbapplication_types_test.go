@@ -139,7 +139,6 @@ func TestEnv2(t *testing.T) {
 	assert.Equal(t, old.Spec.Env[0].Value, "2")
 }
 
-
 func TestPorts(t *testing.T) {
 	old := &SQBApplication{
 		Spec: SQBApplicationSpec{
