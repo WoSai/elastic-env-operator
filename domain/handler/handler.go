@@ -5,8 +5,10 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/wosai/elastic-env-operator/domain/entity"
 	"github.com/wosai/elastic-env-operator/domain/util"
+	appv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -110,9 +112,24 @@ func Delete(ctx context.Context, obj runtimeObj) error {
 	return client.IgnoreNotFound(err)
 }
 
+// DeleteAllOf 根据namespace和label删除某种类型的所有资源
+func DeleteAllOf(ctx context.Context, obj runtimeObj, namespace string, labelMap map[string]string) error {
+	err := k8sclient.DeleteAllOf(ctx, &appv1.Deployment{}, &client.DeleteAllOfOptions{
+		ListOptions: client.ListOptions{
+			Namespace:     namespace,
+			LabelSelector: labels.SelectorFromSet(labelMap),
+		},
+	})
+	kind, _ := apiutil.GVKForObject(obj, k8sScheme)
+	log.Info("delete all obj", "kind", kind,
+		"namespace", namespace, "label", labelMap, "error", err)
+	return err
+}
+
 func IsExplicitDelete(obj runtimeObj) bool {
 	deleteCheckSum, ok := obj.GetAnnotations()[entity.ExplicitDeleteAnnotationKey]
-	if !obj.GetDeletionTimestamp().Time.IsZero() && ok && deleteCheckSum == util.GetDeleteCheckSum(obj.GetName()) &&
+	if obj.GetDeletionTimestamp() != nil && !obj.GetDeletionTimestamp().Time.IsZero() && ok &&
+		deleteCheckSum == util.GetDeleteCheckSum(obj.GetName()) &&
 		controllerutil.ContainsFinalizer(obj, entity.Finalizer) {
 		return true
 	}

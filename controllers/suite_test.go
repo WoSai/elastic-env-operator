@@ -91,7 +91,7 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).ToNot(HaveOccurred())
 
 	handler.SetK8sClient(mgr.GetClient())
-	entity.SetK8sScheme(mgr.GetScheme())
+	handler.SetK8sScheme(mgr.GetScheme())
 	handler.SetK8sLog(ctrl.Log.WithName("domain handler"))
 
 	err = (&SQBDeploymentReconciler{
