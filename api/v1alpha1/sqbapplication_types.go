@@ -116,12 +116,12 @@ type SQBApplicationList struct {
 }
 
 //merge list和map都合并去重
-func (old *SQBApplication) Merge(new *SQBApplication) {
+func (old *SQBApplication) Merge(news *SQBApplication) {
 	// annotation、label
-	old.Annotations = util.MergeStringMap(old.Annotations, new.Annotations)
-	old.Labels = util.MergeStringMap(old.Labels, new.Labels)
+	old.Annotations = util.MergeStringMap(old.Annotations, news.Annotations)
+	old.Labels = util.MergeStringMap(old.Labels, news.Labels)
 	// host
-	hosts := append(old.Spec.Hosts, new.Spec.Hosts...)
+	hosts := append(old.Spec.Hosts, news.Spec.Hosts...)
 	hostsMap := make(map[string]struct{})
 	for _, host := range hosts {
 		hostsMap[host] = struct{}{}
@@ -132,17 +132,17 @@ func (old *SQBApplication) Merge(new *SQBApplication) {
 	}
 	old.Spec.Hosts = hosts
 	// subpath用新的覆盖
-	old.Spec.Subpaths = new.Spec.Subpaths
+	old.Spec.Subpaths = news.Spec.Subpaths
 	// ports用新的覆盖
-	old.Spec.Ports = new.Spec.Ports
+	old.Spec.Ports = news.Spec.Ports
 	// deploy去重
-	old.Spec.DeploySpec.merge(&new.Spec.DeploySpec)
+	old.Spec.DeploySpec.merge(&news.Spec.DeploySpec)
 }
 
-func (old *DeploySpec) merge(new *DeploySpec) {
+func (old *DeploySpec) merge(news *DeploySpec) {
 	// 先做merge patch
 	originOld := old.DeepCopy()
-	deployByte, _ := json.Marshal(new)
+	deployByte, _ := json.Marshal(news)
 	oldDeployByte, _ := json.Marshal(old)
 	mergeDeployByte, _ := jsonpatch.MergePatch(oldDeployByte, deployByte)
 	_ = json.Unmarshal(mergeDeployByte, &old)
