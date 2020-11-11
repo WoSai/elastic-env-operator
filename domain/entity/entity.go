@@ -19,4 +19,3 @@ const (
 	VirtualServiceAnnotationKey  = "qa.shouqianba.com/passthrough-virtualservice"
 	InitializeAnnotationKey      = "qa.shouqianba.com/initialized"
 )
-

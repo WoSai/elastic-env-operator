@@ -122,6 +122,13 @@ var _ = BeforeSuite(func(done Done) {
 	}).SetupWithManager(mgr)
 	Expect(err).ToNot(HaveOccurred())
 
+	err = (&DeploymentReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("Deployment"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr)
+	Expect(err).ToNot(HaveOccurred())
+
 	go func() {
 		err = mgr.Start(ctrl.SetupSignalHandler())
 		Expect(err).ToNot(HaveOccurred())
@@ -172,7 +179,7 @@ var _ = BeforeSuite(func(done Done) {
 	err = k8sClient.Create(context.Background(), destinationRuleCRD)
 	Expect(err).NotTo(HaveOccurred())
 
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 2)
 
 	entity.ConfigMapData.FromMap(map[string]string{
 		"ingressOpen": "true",

@@ -5,7 +5,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/wosai/elastic-env-operator/domain/entity"
 	"github.com/wosai/elastic-env-operator/domain/util"
-	appv1 "k8s.io/api/apps/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -36,12 +35,10 @@ type (
 		ReconcileFail(runtimeObj, error)
 	}
 
-	SQBHanlder interface {
+	SQBHandler interface {
 		Handle() error
 	}
 )
-
-
 
 func SetK8sClient(c client.Client) {
 	k8sclient = c
@@ -68,9 +65,6 @@ func HandleReconcile(r SQBReconciler) (ctrl.Result, error) {
 			return ctrl.Result{}, err
 		}
 	}
-
-	log.Info("get instance", "kind", obj.GetObjectKind().GroupVersionKind(),
-		"namespace", obj.GetNamespace(), "name", obj.GetName())
 
 	generation := obj.GetGeneration()
 	if yes, err := r.IsInitialized(obj); !yes {
@@ -104,6 +98,14 @@ func CreateOrUpdate(ctx context.Context, obj runtimeObj) error {
 	return err
 }
 
+func UpdateStatus(ctx context.Context, obj runtimeObj) error {
+	kind, _ := apiutil.GVKForObject(obj, k8sScheme)
+	err := k8sclient.Status().Update(ctx, obj)
+	log.Info("update obj status", "kind", kind,
+		"namespace", obj.GetNamespace(), "name", obj.GetName(), "error", err)
+	return err
+}
+
 func Delete(ctx context.Context, obj runtimeObj) error {
 	kind, _ := apiutil.GVKForObject(obj, k8sScheme)
 	err := k8sclient.Delete(ctx, obj)
@@ -114,7 +116,7 @@ func Delete(ctx context.Context, obj runtimeObj) error {
 
 // DeleteAllOf 根据namespace和label删除某种类型的所有资源
 func DeleteAllOf(ctx context.Context, obj runtimeObj, namespace string, labelMap map[string]string) error {
-	err := k8sclient.DeleteAllOf(ctx, &appv1.Deployment{}, &client.DeleteAllOfOptions{
+	err := k8sclient.DeleteAllOf(ctx, obj, &client.DeleteAllOfOptions{
 		ListOptions: client.ListOptions{
 			Namespace:     namespace,
 			LabelSelector: labels.SelectorFromSet(labelMap),

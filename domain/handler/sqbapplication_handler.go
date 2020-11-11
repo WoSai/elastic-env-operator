@@ -7,12 +7,8 @@ import (
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
 	"github.com/wosai/elastic-env-operator/domain/util"
-	appv1 "k8s.io/api/apps/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -66,34 +62,11 @@ func (h *sqbApplicationHandler) IsInitialized(obj runtimeObj) (bool, error) {
 
 func (h *sqbApplicationHandler) Operate(obj runtimeObj) error {
 	in := obj.(*qav1alpha1.SQBApplication)
-	// 如果没有被删除，先更新planes和mirrors
-	if in.DeletionTimestamp.IsZero() {
-		deployments := &appv1.DeploymentList{}
-		if err := k8sclient.List(h.ctx, deployments,
-			&client.ListOptions{
-				Namespace:     in.Namespace,
-				LabelSelector: labels.SelectorFromSet(map[string]string{entity.AppKey: in.Name}),
-			},
-		); err != nil && !apierrors.IsNotFound(err) {
-			return err
-		}
-		// SQBDeployment可能会被删除，所以planes和mirrors以deployment为准
-		planes := make(map[string]int)
-		mirrors := make(map[string]int)
-		for _, deployment := range deployments.Items {
-			mirrors[deployment.Name] = 1
-			if plane, ok := deployment.Labels[entity.PlaneKey]; ok {
-				planes[plane] = 1
-			}
-		}
-		in.Status.Planes = planes
-		in.Status.Mirrors = mirrors
-		if len(planes) == 0 {
-			return h.CreateBase(in)
-		}
+	if in.DeletionTimestamp.IsZero() && len(in.Status.Planes) == 0 {
+		return h.CreateBase(in)
 	}
 
-	handlers := []SQBHanlder{
+	handlers := []SQBHandler{
 		NewServiceHandler(in, h.ctx),
 		NewIngressHandler(in, h.ctx),
 		NewDestinationRuleHandler(in, h.ctx),
@@ -111,16 +84,17 @@ func (h *sqbApplicationHandler) Operate(obj runtimeObj) error {
 	if !in.DeletionTimestamp.IsZero() {
 		controllerutil.RemoveFinalizer(in, entity.Finalizer)
 		return CreateOrUpdate(h.ctx, in)
-	} else {
+	} else if in.Status.ErrorInfo != "" {
 		in.Status.ErrorInfo = ""
-		return k8sclient.Status().Update(h.ctx, in)
+		return UpdateStatus(h.ctx, in)
 	}
+	return nil
 }
 
 func (h *sqbApplicationHandler) ReconcileFail(obj runtimeObj, err error) {
 	in := obj.(*qav1alpha1.SQBApplication)
 	in.Status.ErrorInfo = err.Error()
-	_ = k8sclient.Status().Update(h.ctx, in)
+	_ = UpdateStatus(h.ctx, in)
 }
 
 func (h *sqbApplicationHandler) CreateBase(sqbapplication *qav1alpha1.SQBApplication) error {
@@ -149,7 +123,7 @@ func (h *sqbApplicationHandler) CreateBase(sqbapplication *qav1alpha1.SQBApplica
 		}
 	} else if sqbapplication.Status.ErrorInfo != "" {
 		sqbapplication.Status.ErrorInfo = ""
-		return k8sclient.Status().Update(h.ctx, sqbapplication)
+		return UpdateStatus(h.ctx, sqbapplication)
 	}
 	return nil
 }

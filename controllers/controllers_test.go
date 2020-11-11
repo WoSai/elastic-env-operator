@@ -149,7 +149,7 @@ var _ = Describe("Controller", func() {
 			}
 			err = k8sClient.Create(ctx, sqbapplication)
 			Expect(err).NotTo(HaveOccurred())
-			time.Sleep(2 * time.Second)
+			time.Sleep(time.Second)
 			sqbdeployment = &qav1alpha1.SQBDeployment{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: deploymentName}, sqbdeployment)
 			Expect(err).NotTo(HaveOccurred())
@@ -413,18 +413,16 @@ var _ = Describe("Controller", func() {
 
 		It("delete sqbapplication with password", func() {
 			_, err := controllerutil.CreateOrUpdate(ctx, k8sClient, sqbapplication, func() error {
-				sqbapplication.Annotations = map[string]string{
+				sqbapplication.Annotations = util.MergeStringMap(sqbapplication.Annotations, map[string]string{
 					entity.ExplicitDeleteAnnotationKey: util.GetDeleteCheckSum(sqbapplication.Name),
 					entity.IngressOpenAnnotationKey:    "true",
-				}
+				})
 				return nil
 			})
 			Expect(err).NotTo(HaveOccurred())
-			err = k8sClient.Delete(ctx, &qav1alpha1.SQBApplication{ObjectMeta: metav1.ObjectMeta{
-				Namespace: namespace, Name: applicationName,
-			}})
+			err = k8sClient.Delete(ctx, sqbapplication)
 			Expect(err).NotTo(HaveOccurred())
-			time.Sleep(2 * time.Second)
+			time.Sleep(time.Second)
 			// sqbapplication，sqbdeployment被删除
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, sqbapplication)
 			Expect(err).To(HaveOccurred())

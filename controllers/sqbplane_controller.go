@@ -20,19 +20,11 @@ import (
 	"context"
 	"github.com/go-logr/logr"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
-	"github.com/wosai/elastic-env-operator/domain/entity"
 	sqbhandler "github.com/wosai/elastic-env-operator/domain/handler"
-	v12 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/event"
-	"sigs.k8s.io/controller-runtime/pkg/handler"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
-	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // SQBPlaneReconciler reconciles a SQBPlane object
@@ -53,22 +45,5 @@ func (r *SQBPlaneReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 func (r *SQBPlaneReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&qav1alpha1.SQBPlane{}, builder.WithPredicates(GenerationAnnotationPredicate)).
-		Watches(&source.Kind{Type: &v12.Deployment{}},
-			&handler.EnqueueRequestsFromMapFunc{ToRequests: handler.ToRequestsFunc(func(a handler.MapObject) []reconcile.Request {
-				return []reconcile.Request{
-					{NamespacedName: types.NamespacedName{
-						Name:      a.Meta.GetLabels()[entity.PlaneKey],
-						Namespace: a.Meta.GetNamespace(),
-					}},
-				}
-			})},
-			builder.WithPredicates(predicate.Funcs{
-				UpdateFunc: func(event event.UpdateEvent) bool {
-					return false
-				},
-				GenericFunc: func(event event.GenericEvent) bool {
-					return false
-				},
-			})).
 		Complete(r)
 }

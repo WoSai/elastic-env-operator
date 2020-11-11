@@ -33,19 +33,27 @@ metadata:
   annotations:
     qa.shouqianba.com/istio-inject: "false" # 是否开启istio注入
     qa.shouqianba.com/ingress-open: "false" # 是否打开ingress
+    qa.shouqianba.com/service-monitor: "false"
     qa.shouqianba.com/delete: "xxx"  # md5(metadata.name+salt)得到,salt保存在secret,表示明确删除
     qa.shouqianba.com/passthrough-service: # 透传到Service的annotation,下同
-    qa.shouqianba.com/passthrough-ingress:
     qa.shouqianba.com/passthrough-destinationrule:
     qa.shouqianba.com/passthrough-virtualservice:
 spec:
   # ingress相关配置
-  hosts:  # hosts，默认会配置 服务名+configmap的domainPostfix，可自定义
-  - "merchant-enrolment.beta.iwosai.com"
-  subpaths:  # 没有启用istio注入，作用于ingress，启用istio注入，作用于virtualservice
-  - path: /v4
-    serviceName: sales-system-service
-    servicePort: 80
+  ingress:
+    subpaths:  # 没有启用istio注入，作用于ingress，启用istio注入，作用于virtualservice
+    - path: /v4
+      serviceName: sales-system-service
+      servicePort: 80
+    domain: 
+    - class: 
+      annotation:
+      hosts:  # hosts，默认会配置 服务名+configmap的domainPostfix，可自定义
+      - "merchant-enrolment.beta.iwosai.com"
+    - class: 
+      annotation:
+      hosts:  # hosts，默认会配置 服务名+configmap的domainPostfix，可自定义
+      - "merchant-enrolment.beta.iwosai.com"
   # service相关配置
   ports:
   - name: http-80  # name命名规则：{istio支持的protocol}-{port}
@@ -147,7 +155,6 @@ status:
     test: 1
   mirrors: 
     merchant-enrolment-base: 1
-  initialized: true
 ```
 
 
@@ -167,7 +174,6 @@ status:
   mirrors:
     merchant-enrolment: 1
     sales-system-api: 1
-  initialized: true
 ```
 
 ### SQBDeployment
@@ -190,7 +196,6 @@ spec:
   # 同SQBApplication的deploy配置，覆盖默认配置
   replicas: 1
 status:
-  initialized: true
 ```
 
 ## controller处理逻辑
@@ -235,7 +240,8 @@ data:
   imagePullSecrets: "reg-wosai"
   istioTimeout: "30" # istio超时时间，单位秒
   istioGateways: "istio-system/ingressgateway,mesh" # istio的virtualservice的gateways配置
-  
+  specialVirtualServiceIngress: | 
+    ["vpc","vpn","public"]
 ```
 
 ### secret

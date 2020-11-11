@@ -58,7 +58,7 @@ func (h *sqbDeploymentHandler) IsInitialized(obj runtimeObj) (bool, error) {
 func (h *sqbDeploymentHandler) Operate(obj runtimeObj) error {
 	in := obj.(*qav1alpha1.SQBDeployment)
 
-	handlers := []SQBHanlder{
+	handlers := []SQBHandler{
 		NewDeploymentHandler(in, h.ctx),
 		NewSpecialVirtualServiceHandler(in, h.ctx),
 	}
@@ -72,17 +72,18 @@ func (h *sqbDeploymentHandler) Operate(obj runtimeObj) error {
 	if !in.DeletionTimestamp.IsZero() {
 		controllerutil.RemoveFinalizer(in, entity.Finalizer)
 		return CreateOrUpdate(h.ctx, in)
-	} else {
+	} else if in.Status.ErrorInfo != "" {
 		in.Status.ErrorInfo = ""
-		return k8sclient.Status().Update(h.ctx, in)
+		return UpdateStatus(h.ctx, in)
 	}
+	return nil
 }
 
 // 处理失败后逻辑
 func (h *sqbDeploymentHandler) ReconcileFail(obj runtimeObj, err error) {
 	in := obj.(*qav1alpha1.SQBDeployment)
 	in.Status.ErrorInfo = err.Error()
-	_ = k8sclient.Status().Update(h.ctx, in)
+	_ = UpdateStatus(h.ctx, in)
 }
 
 func HasPublicEntry(sqbdeployment *qav1alpha1.SQBDeployment) bool {
