@@ -208,13 +208,25 @@ var _ = Describe("Controller", func() {
 						SuccessThreshold:    1,
 						FailureThreshold:    1,
 					},
-					NodeAffinity: []qav1alpha1.NodeAffinity{
-						{
-							Weight: 100,
-							NodeSelectorRequirement: corev1.NodeSelectorRequirement{
-								Key:      "node",
-								Operator: corev1.NodeSelectorOpIn,
-								Values:   []string{"qa"},
+					NodeAffinity: &qav1alpha1.NodeAffinity{
+						Preferred: []qav1alpha1.NodeSelector{
+							{
+								Weight: 100,
+								NodeSelectorRequirement: corev1.NodeSelectorRequirement{
+									Key:      "node",
+									Operator: corev1.NodeSelectorOpIn,
+									Values:   []string{"qa"},
+								},
+							},
+						},
+						Required: []qav1alpha1.NodeSelector{
+							{
+								Weight: 100,
+								NodeSelectorRequirement: corev1.NodeSelectorRequirement{
+									Key:      "node",
+									Operator: corev1.NodeSelectorOpIn,
+									Values:   []string{"qa"},
+								},
 							},
 						},
 					},
@@ -285,11 +297,14 @@ var _ = Describe("Controller", func() {
 			Expect(initContainer.Command).To(Equal([]string{"sleep", "1"}))
 			Expect(container.VolumeMounts[0].Name).To(Equal("volume1"))
 			Expect(container.VolumeMounts[0].MountPath).To(Equal("/tmp"))
-			nodeAffinity := deployment.Spec.Template.Spec.Affinity.NodeAffinity.
+			required := deployment.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+			Expect(required.NodeSelectorTerms[0].MatchExpressions[0].Key).To(Equal("node"))
+			Expect(required.NodeSelectorTerms[0].MatchExpressions[0].Values[0]).To(Equal("qa"))
+			preferred := deployment.Spec.Template.Spec.Affinity.NodeAffinity.
 				PreferredDuringSchedulingIgnoredDuringExecution[0]
-			Expect(nodeAffinity.Preference.MatchExpressions[0].Key).To(Equal("node"))
-			Expect(nodeAffinity.Preference.MatchExpressions[0].Values[0]).To(Equal("qa"))
-			Expect(nodeAffinity.Weight).To(Equal(int32(100)))
+			Expect(preferred.Preference.MatchExpressions[0].Key).To(Equal("node"))
+			Expect(preferred.Preference.MatchExpressions[0].Values[0]).To(Equal("qa"))
+			Expect(preferred.Weight).To(Equal(int32(100)))
 			Expect(deployment.Spec.Template.Spec.Volumes[0].Name).To(Equal("volume1"))
 			Expect(deployment.Spec.Template.Spec.Volumes[0].HostPath.Path).To(Equal("/tmp"))
 		})

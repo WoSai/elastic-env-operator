@@ -126,10 +126,9 @@ spec:
   volumeMounts: # volumeMounts,initContainer与业务container使用同样的volumeMounts
   - name: ""
     mountPath: ""
-  nodeAffinity: # 亲和性，只根据node的label选择,key表示node的label key，required和prefered二选一
+  nodeAffinity: # 亲和性，只根据node的label选择,key表示node的label key
     required:
-    - weight: 100
-      key: "role"
+    - key: "role"
       operator: "In" # In,NotIn,Exists,DoesNotExist,Gt,Lt
       values:
       - "qa"
