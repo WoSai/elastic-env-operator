@@ -30,23 +30,30 @@ func (h *ingressHandler) CreateOrUpdate() error {
 	rules := make([]v1beta1.IngressRule, 0)
 	for _, host := range h.sqbapplication.Spec.Hosts {
 		paths := make([]v1beta1.HTTPIngressPath, 0)
-		for _, subpath := range h.sqbapplication.Spec.Subpaths {
-			var path v1beta1.HTTPIngressPath
-			if IsIstioInject(h.sqbapplication) {
-				path = v1beta1.HTTPIngressPath{
-					Backend: v1beta1.IngressBackend{
-						ServiceName: "istio-ingressgateway" + "-" + h.sqbapplication.Namespace,
-						ServicePort: intstr.FromInt(80),
-					},
-				}
-			} else {
-				path = v1beta1.HTTPIngressPath{
+		if IsIstioInject(h.sqbapplication) {
+			path := v1beta1.HTTPIngressPath{
+				Backend: v1beta1.IngressBackend{
+					ServiceName: "istio-ingressgateway" + "-" + h.sqbapplication.Namespace,
+					ServicePort: intstr.FromInt(80),
+				},
+			}
+			paths = append(paths, path)
+		} else {
+			for _, subpath := range h.sqbapplication.Spec.Subpaths {
+				path := v1beta1.HTTPIngressPath{
 					Path: subpath.Path,
 					Backend: v1beta1.IngressBackend{
 						ServiceName: subpath.ServiceName,
 						ServicePort: intstr.FromInt(subpath.ServicePort),
 					},
 				}
+				paths = append(paths, path)
+			}
+			path := v1beta1.HTTPIngressPath{
+				Backend: v1beta1.IngressBackend{
+					ServiceName: h.sqbapplication.Name,
+					ServicePort: intstr.FromInt(80),
+				},
 			}
 			paths = append(paths, path)
 		}

@@ -464,7 +464,7 @@ var _ = Describe("Controller", func() {
 						},
 					},
 					DeploySpec: qav1alpha1.DeploySpec{
-						Image: "busybox",
+						Image: image,
 					},
 				},
 			}
@@ -593,11 +593,6 @@ var _ = Describe("Controller", func() {
 						Path:        "/v2",
 						ServiceName: "version2",
 						ServicePort: 82,
-					},
-					{
-						Path:        "/",
-						ServiceName: sqbapplication.Name,
-						ServicePort: 80,
 					},
 				}
 				sqbapplication.Annotations[entity.IstioInjectAnnotationKey] = "true"

@@ -25,21 +25,10 @@ func (sc *SQBConfigMapEntity) FromMap(data map[string]string) {
 	if len(data) == 0 {
 		data = make(map[string]string)
 	}
-	if data["ingressOpen"] == "true" {
-		sc.ingressOpen = true
-	} else {
-		sc.ingressOpen = false
-	}
-	if data["istioInject"] == "true" {
-		sc.istioInject = true
-	} else {
-		sc.istioInject = false
-	}
-	if data["istioEnable"] == "true" {
-		sc.istioEnable = true
-	} else {
-		sc.istioEnable = false
-	}
+	sc.ingressOpen = data["ingressOpen"] == "true"
+	sc.istioInject = data["istioInject"] == "true"
+	sc.istioEnable = data["istioEnable"] == "true"
+
 	if istioTimeout, ok := data["istioTimeout"]; ok {
 		timeout, err := strconv.Atoi(istioTimeout)
 		if err == nil {

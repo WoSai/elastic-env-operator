@@ -80,9 +80,10 @@ func getOrGenerateHttpRoutes(sqbapplication *qav1alpha1.SQBApplication, httpRout
 	if ok {
 		delete(planes, "base")
 	}
-	// plane+subpath决定一条route
+	// plane+subpath决定一条route,path有顺序要求
 	// 处理特性环境
 	for plane := range planes {
+		// 处理subpath
 		for _, subpath := range subpaths {
 			// 查找httproute,用户有可能手动修改route,所以保留原route
 			found, route := findRoute(HTTPRoutes(httpRoutes), subpath.ServiceName, plane)
@@ -92,38 +93,12 @@ func getOrGenerateHttpRoutes(sqbapplication *qav1alpha1.SQBApplication, httpRout
 				continue
 			}
 			// 生成httproute
-			httpRoute := &istioapi.HTTPRoute{
-				Route: []*istioapi.HTTPRouteDestination{
-					{Destination: &istioapi.Destination{
-						Host:   subpath.ServiceName,
-						Subset: util.GetSubsetName(subpath.ServiceName, plane),
-					}},
-				},
-				Timeout: &types2.Duration{Seconds: entity.ConfigMapData.IstioTimeout()},
-			}
-			headerMatchRequest := &istioapi.HTTPMatchRequest{}
-			queryparamsMatchRequest := &istioapi.HTTPMatchRequest{}
-			sourcelabelsMatchRequest := &istioapi.HTTPMatchRequest{}
-			uriStringMatch := &istioapi.StringMatch{
-				MatchType: &istioapi.StringMatch_Prefix{Prefix: subpath.Path},
-			}
-			envFlagMatchMap := map[string]*istioapi.StringMatch{
-				entity.XEnvFlag: {MatchType: &istioapi.StringMatch_Exact{Exact: plane}},
-			}
-			headerMatchRequest.Headers = envFlagMatchMap
-			queryparamsMatchRequest.QueryParams = envFlagMatchMap
-			sourcelabelsMatchRequest.SourceLabels = map[string]string{entity.PlaneKey: plane}
-			if subpath.Path != "/" {
-				headerMatchRequest.Uri = uriStringMatch
-				queryparamsMatchRequest.Uri = uriStringMatch
-				sourcelabelsMatchRequest.Uri = uriStringMatch
-			}
-			httpRoute.Match = []*istioapi.HTTPMatchRequest{headerMatchRequest, queryparamsMatchRequest, sourcelabelsMatchRequest}
-			httpRoute.Headers = &istioapi.Headers{
-				Request: &istioapi.Headers_HeaderOperations{Set: map[string]string{entity.XEnvFlag: plane}},
-			}
+			httpRoute := generatePlaneHttpRoute(subpath.ServiceName, plane, subpath.Path)
 			resultHttpRoutes = append(resultHttpRoutes, httpRoute)
 		}
+		// 处理默认路径
+		httpRoute := generatePlaneHttpRoute(sqbapplication.Name, plane, "/")
+		resultHttpRoutes = append(resultHttpRoutes, httpRoute)
 	}
 	// 处理基础环境
 	if ok {
@@ -135,28 +110,76 @@ func getOrGenerateHttpRoutes(sqbapplication *qav1alpha1.SQBApplication, httpRout
 				resultHttpRoutes = append(resultHttpRoutes, &httpRoute)
 				continue
 			}
-			httpRoute := &istioapi.HTTPRoute{
-				Route: []*istioapi.HTTPRouteDestination{
-					{Destination: &istioapi.Destination{
-						Host:   subpath.ServiceName,
-						Subset: util.GetSubsetName(subpath.ServiceName, "base"),
-					}},
-				},
-				Timeout: &types2.Duration{Seconds: entity.ConfigMapData.IstioTimeout()},
-			}
-			if subpath.Path != "/" {
-				httpRoute.Match = []*istioapi.HTTPMatchRequest{
-					{
-						Uri: &istioapi.StringMatch{
-							MatchType: &istioapi.StringMatch_Prefix{Prefix: subpath.Path},
-						},
-					},
-				}
-			}
+			httpRoute := generateBaseHttpRoute(subpath.ServiceName, subpath.Path)
 			resultHttpRoutes = append(resultHttpRoutes, httpRoute)
 		}
+		httpRoute:= generateBaseHttpRoute(sqbapplication.Name, "/")
+		resultHttpRoutes = append(resultHttpRoutes, httpRoute)
 	}
 	return resultHttpRoutes
+}
+
+func generatePlaneHttpRoute(host, plane, path string) *istioapi.HTTPRoute {
+	httpRoute := &istioapi.HTTPRoute{
+		Route: []*istioapi.HTTPRouteDestination{
+			{Destination: &istioapi.Destination{
+				Host:   host,
+				Subset: util.GetSubsetName(host, plane),
+			}},
+		},
+		Timeout: &types2.Duration{Seconds: entity.ConfigMapData.IstioTimeout()},
+	}
+	prefixMatch := &istioapi.StringMatch{
+		MatchType: &istioapi.StringMatch_Prefix{Prefix: path},
+	}
+	exactMatch := &istioapi.StringMatch{
+		MatchType: &istioapi.StringMatch_Exact{Exact: plane},
+	}
+	headerMatchRequest := &istioapi.HTTPMatchRequest{}
+	queryparamsMatchRequest := &istioapi.HTTPMatchRequest{}
+	sourcelabelsMatchRequest := &istioapi.HTTPMatchRequest{}
+
+	headerMatchRequest.Headers = map[string]*istioapi.StringMatch{
+		entity.XEnvFlag: exactMatch,
+	}
+	queryparamsMatchRequest.QueryParams = map[string]*istioapi.StringMatch{
+		entity.XEnvFlag: exactMatch,
+	}
+	sourcelabelsMatchRequest.SourceLabels = map[string]string{entity.PlaneKey: plane}
+
+	if path != "/" {
+		headerMatchRequest.Uri = prefixMatch
+		queryparamsMatchRequest.Uri = prefixMatch
+		sourcelabelsMatchRequest.Uri = prefixMatch
+	}
+	httpRoute.Match = []*istioapi.HTTPMatchRequest{headerMatchRequest, queryparamsMatchRequest, sourcelabelsMatchRequest}
+	httpRoute.Headers = &istioapi.Headers{
+		Request: &istioapi.Headers_HeaderOperations{Set: map[string]string{entity.XEnvFlag: plane}},
+	}
+	return httpRoute
+}
+
+func generateBaseHttpRoute(host, path string) *istioapi.HTTPRoute {
+	plane := "base"
+	httpRoute := &istioapi.HTTPRoute{
+		Route: []*istioapi.HTTPRouteDestination{
+			{Destination: &istioapi.Destination{
+				Host:   host,
+				Subset: util.GetSubsetName(host, plane),
+			}},
+		},
+		Timeout: &types2.Duration{Seconds: entity.ConfigMapData.IstioTimeout()},
+	}
+	if path != "/" {
+		httpRoute.Match = []*istioapi.HTTPMatchRequest{
+			{
+				Uri: &istioapi.StringMatch{
+					MatchType: &istioapi.StringMatch_Prefix{Prefix: path},
+				},
+			},
+		}
+	}
+	return httpRoute
 }
 
 func getOrGenerateTcpRoutes(sqbapplication *qav1alpha1.SQBApplication, tcpRoutes []*istioapi.TCPRoute) []*istioapi.TCPRoute {

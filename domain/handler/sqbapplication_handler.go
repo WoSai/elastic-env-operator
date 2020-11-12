@@ -7,8 +7,10 @@ import (
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
 	"github.com/wosai/elastic-env-operator/domain/util"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
@@ -50,9 +52,6 @@ func (h *sqbApplicationHandler) IsInitialized(obj runtimeObj) (bool, error) {
 		}
 	}
 	in.Spec.Hosts = hosts
-	// 添加一条默认的subpath /在最后
-	in.Spec.Subpaths = append(in.Spec.Subpaths, qav1alpha1.Subpath{
-		Path: "/", ServiceName: in.Name, ServicePort: 80})
 	if len(in.Annotations) == 0 {
 		in.Annotations = make(map[string]string)
 	}
@@ -102,23 +101,33 @@ func (h *sqbApplicationHandler) CreateBase(sqbapplication *qav1alpha1.SQBApplica
 		// 创建对应的base环境服务
 		sqbplane := &qav1alpha1.SQBPlane{
 			ObjectMeta: metav1.ObjectMeta{Namespace: sqbapplication.Namespace, Name: "base"},
-			Spec: qav1alpha1.SQBPlaneSpec{
-				Description: "base",
-			},
 		}
-		sqbdeployment := &qav1alpha1.SQBDeployment{
-			ObjectMeta: metav1.ObjectMeta{Namespace: sqbapplication.Namespace, Name: util.GetSubsetName(sqbapplication.Name, sqbplane.Name)},
-			Spec: qav1alpha1.SQBDeploymentSpec{
-				Selector: qav1alpha1.Selector{
-					App:   sqbapplication.Name,
-					Plane: sqbplane.Name,
-				},
-			},
-		}
-		if err := CreateOrUpdate(h.ctx, sqbplane); err != nil {
+		err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: sqbplane.Namespace, Name: sqbplane.Name}, sqbplane)
+		if err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
-		if err := CreateOrUpdate(h.ctx, sqbdeployment); err != nil {
+		sqbplane.Spec = qav1alpha1.SQBPlaneSpec{
+			Description: "base",
+		}
+		if err = CreateOrUpdate(h.ctx, sqbplane); err != nil {
+			return err
+		}
+
+		sqbdeployment := &qav1alpha1.SQBDeployment{
+			ObjectMeta: metav1.ObjectMeta{Namespace: sqbapplication.Namespace, Name: util.GetSubsetName(sqbapplication.Name, sqbplane.Name)},
+		}
+		err = k8sclient.Get(h.ctx, client.ObjectKey{Namespace: sqbdeployment.Namespace, Name: sqbdeployment.Name}, sqbdeployment)
+		if err != nil && !apierrors.IsNotFound(err) {
+			return err
+		}
+
+		sqbdeployment.Spec = qav1alpha1.SQBDeploymentSpec{
+			Selector: qav1alpha1.Selector{
+				App:   sqbapplication.Name,
+				Plane: sqbplane.Name,
+			},
+		}
+		if err = CreateOrUpdate(h.ctx, sqbdeployment); err != nil {
 			return err
 		}
 	} else if sqbapplication.Status.ErrorInfo != "" {
