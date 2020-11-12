@@ -64,11 +64,16 @@ type DeploySpec struct {
 	HealthCheck  *corev1.Probe                `json:"healthCheck,omitempty"`
 	Volumes      []corev1.Volume              `json:"volumes,omitempty"`
 	VolumeMounts []corev1.VolumeMount         `json:"volumeMounts,omitempty"`
-	NodeAffinity []NodeAffinity               `json:"nodeAffinity,omitempty"`
+	NodeAffinity *NodeAffinity               `json:"nodeAffinity,omitempty"`
 	Lifecycle    *Lifecycle                   `json:"lifecycle,omitempty"`
 }
 
 type NodeAffinity struct {
+	Required  []NodeSelector `json:"required"`
+	Preferred []NodeSelector `json:"prefered"`
+}
+
+type NodeSelector struct {
 	// +kubebuilder:default:=100
 	Weight                         int32 `json:"weight"`
 	corev1.NodeSelectorRequirement `json:",inline"`

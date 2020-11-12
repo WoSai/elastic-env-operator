@@ -126,13 +126,21 @@ spec:
   volumeMounts: # volumeMounts,initContainer与业务container使用同样的volumeMounts
   - name: ""
     mountPath: ""
-  nodeAffinity: # 亲和性，只保留nodeAffinity的preferred,且只根据node的label选择,key表示node的label key
-  - weight: 100
-    key: "role"
-    operator: "In" # In,NotIn,Exists,DoesNotExist,Gt,Lt
-    values:
-    - "qa"
-    - "crm"
+  nodeAffinity: # 亲和性，只根据node的label选择,key表示node的label key，required和prefered二选一
+    required:
+    - weight: 100
+      key: "role"
+      operator: "In" # In,NotIn,Exists,DoesNotExist,Gt,Lt
+      values:
+      - "qa"
+      - "crm"
+    prefered:
+    - weight: 100
+      key: "role"
+      operator: "In" # In,NotIn,Exists,DoesNotExist,Gt,Lt
+      values:
+      - "qa"
+      - "crm"
   lifecycle:  # lifecycle hook
     init:  # 使用busybox作为init-container执行一条命令，只支持exec，支持env和volumeMounts
       exec:
@@ -187,6 +195,7 @@ metadata:
   annotations:
     qa.shouqianba.com/delete: "xxx"  # 明确删除
     qa.shouqianba.com/public-entry: "true" #是否开启外网入口，默认不开启
+    qa.shouqianba.com/init-container-image: "registry.wosai-inc.com/xxx" # 初始化容器镜像，默认为busybox
     qa.shouqianba.com/passthrough-deployment: # 透传到下游deployment的annotation
     qa.shouqianba.com/passthrough-pod:
 spec:

@@ -88,9 +88,13 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 	// init lifecycle
 	if deploy.Lifecycle != nil && deploy.Lifecycle.Init != nil {
 		init := deploy.Lifecycle.Init
+		image, ok := h.sqbdeployment.Annotations[entity.InitContainerAnnotationKey]
+		if !ok {
+			image = "busybox"
+		}
 		initContainer := corev1.Container{
-			Name:         "busybox",
-			Image:        "busybox",
+			Name:         "init-1",
+			Image:        image,
 			Command:      init.Exec.Command,
 			Env:          deploy.Env,
 			VolumeMounts: deploy.VolumeMounts,
@@ -99,11 +103,13 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 	}
 	// NodeAffinity
 	if deploy.NodeAffinity != nil {
-		var nodeAffinity []corev1.PreferredSchedulingTerm
-		for _, item := range deploy.NodeAffinity {
-			nodeAffinity = append(nodeAffinity, corev1.PreferredSchedulingTerm{
-				Weight: item.Weight,
-				Preference: corev1.NodeSelectorTerm{
+		affinity := &corev1.Affinity{
+			NodeAffinity: &corev1.NodeAffinity{},
+		}
+		if len(deploy.NodeAffinity.Required) != 0 {
+			nodeSelectorTerms := make([]corev1.NodeSelectorTerm, 0)
+			for _, item := range deploy.NodeAffinity.Required {
+				nodeSelectorTerms = append(nodeSelectorTerms, corev1.NodeSelectorTerm{
 					MatchExpressions: []corev1.NodeSelectorRequirement{
 						{
 							Key:      item.Key,
@@ -111,13 +117,29 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 							Values:   item.Values,
 						},
 					},
-				},
-			})
+				})
+			}
+			affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &corev1.NodeSelector{
+				NodeSelectorTerms: nodeSelectorTerms,
+			}
 		}
-		affinity := &corev1.Affinity{
-			NodeAffinity: &corev1.NodeAffinity{
-				PreferredDuringSchedulingIgnoredDuringExecution: nodeAffinity,
-			},
+		if len(deploy.NodeAffinity.Preferred) != 0 {
+			preferredTerms := make([]corev1.PreferredSchedulingTerm, 0)
+			for _, item := range deploy.NodeAffinity.Preferred {
+				preferredTerms = append(preferredTerms, corev1.PreferredSchedulingTerm{
+					Weight: item.Weight,
+					Preference: corev1.NodeSelectorTerm{
+						MatchExpressions: []corev1.NodeSelectorRequirement{
+							{
+								Key:      item.Key,
+								Operator: item.Operator,
+								Values:   item.Values,
+							},
+						},
+					},
+				})
+			}
+			affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = preferredTerms
 		}
 		deployment.Spec.Template.Spec.Affinity = affinity
 	}
