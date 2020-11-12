@@ -22,6 +22,7 @@ import (
 	"github.com/wosai/elastic-env-operator/domain/util"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	prometheus "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -51,6 +52,7 @@ type Subpath struct {
 
 type ServiceSpec struct {
 	Ports []corev1.ServicePort `json:"ports"`
+	Monitors []prometheus.Endpoint `json:"monitors"`
 }
 
 type DeploySpec struct {

@@ -20,8 +20,8 @@ import (
 	"context"
 	"github.com/go-logr/logr"
 	"github.com/wosai/elastic-env-operator/domain/entity"
-	v1 "k8s.io/api/core/v1"
-	v14 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	corev1 "k8s.io/api/core/v1"
+	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -44,18 +44,25 @@ type ConfigMapReconciler struct {
 
 func (r *ConfigMapReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	instance := &v1.ConfigMap{}
+	instance := &corev1.ConfigMap{}
 	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	data := instance.Data
-	istio := &v14.CustomResourceDefinition{}
+	istio := &extv1.CustomResourceDefinition{}
 	err = r.Get(ctx, types.NamespacedName{Namespace: "", Name: "virtualservices.networking.istio.io"}, istio)
 	if err == nil {
 		data["istioEnable"] = "true"
 	} else {
 		data["istioEnable"] = "false"
+	}
+	servicemonitor := &extv1.CustomResourceDefinition{}
+	err = r.Get(ctx, types.NamespacedName{Namespace: "", Name: "servicemonitors.monitoring.coreos.com"}, servicemonitor)
+	if err == nil {
+		data["serviceMonitorEnable"] = "true"
+	} else {
+		data["serviceMonitorEnable"] = "false"
 	}
 	entity.ConfigMapData.FromMap(data)
 	return ctrl.Result{}, r.Update(ctx, instance)
@@ -67,7 +74,7 @@ func (r *ConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		namespace = "elastic-env-operator-system"
 	}
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&v1.ConfigMap{}, builder.WithPredicates(predicate.NewPredicateFuncs(
+		For(&corev1.ConfigMap{}, builder.WithPredicates(predicate.NewPredicateFuncs(
 			func(meta metav1.Object, object runtime.Object) bool {
 				if meta.GetNamespace() == namespace && meta.GetName() == "operator-configmap" {
 					return true

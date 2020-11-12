@@ -13,6 +13,7 @@ type SQBConfigMapEntity struct {
 	ingressOpen         bool
 	istioInject         bool
 	istioEnable         bool
+	serviceMonitorEnable bool
 	domainPostfix       string
 	globalDefaultDeploy string
 	imagePullSecrets    string
@@ -28,6 +29,7 @@ func (sc *SQBConfigMapEntity) FromMap(data map[string]string) {
 	sc.ingressOpen = data["ingressOpen"] == "true"
 	sc.istioInject = data["istioInject"] == "true"
 	sc.istioEnable = data["istioEnable"] == "true"
+	sc.serviceMonitorEnable = data["serviceMonitorEnable"] == "true"
 
 	if istioTimeout, ok := data["istioTimeout"]; ok {
 		timeout, err := strconv.Atoi(istioTimeout)
@@ -92,6 +94,10 @@ func (sc *SQBConfigMapEntity) IstioInject() bool {
 	} else {
 		return false
 	}
+}
+
+func (sc *SQBConfigMapEntity) IsServiceMonitorEnable() bool {
+	return sc.serviceMonitorEnable
 }
 
 func (sc *SQBConfigMapEntity) GlobalDeploy() (string, bool) {

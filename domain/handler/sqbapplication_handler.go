@@ -70,6 +70,7 @@ func (h *sqbApplicationHandler) Operate(obj runtimeObj) error {
 		NewIngressHandler(in, h.ctx),
 		NewDestinationRuleHandler(in, h.ctx),
 		NewVirtualServiceHandler(in, h.ctx),
+		NewServiceMonitorHandler(in, h.ctx),
 		NewSqbDeploymentListHandler(in, nil, h.ctx),
 		NewDeploymentListHandler(in, nil, h.ctx),
 	}
@@ -159,4 +160,16 @@ func IsIngressOpen(sqbapplication *qav1alpha1.SQBApplication) bool {
 		return is == "true"
 	}
 	return entity.ConfigMapData.IngressOpen()
+}
+
+// 判断是否启用ServiceMonitor逻辑
+// 1. 安装了prometheus-operator且有注解，按注解，其他情况不启用
+// 2. 安装了prometheus-operator但没有注解，或者没有安装operator，不启用
+func IsServiceMonitorOpen(sqbapplication *qav1alpha1.SQBApplication) bool {
+	if entity.ConfigMapData.IsServiceMonitorEnable() {
+		if serviceMonitor, ok := sqbapplication.Annotations[entity.ServiceMonitorAnnotationKey]; ok {
+			return serviceMonitor == "true"
+		}
+	}
+	return false
 }

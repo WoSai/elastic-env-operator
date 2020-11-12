@@ -60,6 +60,10 @@ spec:
     port: 80
     targetPort: 8080
     protocol: TCP  # k8s原生protocol
+  monitors:  # service monitor的endpoints
+  - interval: 15s
+    path: /metrics
+    port: http-8080
   # deployment相关配置
   replicas: 1  # 可选，副本数，默认1
   image: # 镜像，必选

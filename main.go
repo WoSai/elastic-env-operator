@@ -33,6 +33,7 @@ import (
 
 	istio "istio.io/client-go/pkg/apis/networking/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	prometheus "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 )
 
 var (
@@ -45,6 +46,7 @@ func init() {
 	utilruntime.Must(qav1alpha1.AddToScheme(scheme))
 	utilruntime.Must(v1.AddToScheme(scheme))
 	utilruntime.Must(istio.AddToScheme(scheme))
+	utilruntime.Must(prometheus.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
