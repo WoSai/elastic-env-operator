@@ -38,7 +38,7 @@ func TestHost(t *testing.T) {
 				Domains: []Domain{
 					{
 						Class: "nginx",
-						Host: "test.iwosai.com",
+						Host:  "test.iwosai.com",
 					},
 				},
 			},
@@ -50,7 +50,7 @@ func TestHost(t *testing.T) {
 				Domains: []Domain{
 					{
 						Class: "nginx-internal",
-						Host: "test.beta.iwosai.com",
+						Host:  "test.beta.iwosai.com",
 					},
 				},
 			},
@@ -66,7 +66,7 @@ func TestHost(t *testing.T) {
 				Domains: []Domain{
 					{
 						Class: "nginx-internal",
-						Host: "test2.beta.iwosai.com",
+						Host:  "test2.beta.iwosai.com",
 					},
 				},
 			},

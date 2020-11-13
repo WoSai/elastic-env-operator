@@ -7,15 +7,15 @@ import (
 
 func TestConfigMap(t *testing.T) {
 	mapdata := map[string]string{
-		"ingressOpen": "true",
-		"istioInject": "true",
-		"istioEnable": "true",
+		"ingressOpen":          "true",
+		"istioInject":          "true",
+		"istioEnable":          "true",
 		"serviceMonitorEnable": "true",
-		"domainPostfix": `{"nginx-internal":"*.beta.iwosai.com","nginx":"*.iwosai.com"}`,
+		"domainPostfix":        `{"nginx-internal":"*.beta.iwosai.com","nginx":"*.iwosai.com"}`,
 		"globalDefaultDeploy":  `{"replicas": 2}`,
-		"imagePullSecrets": "reg-wosai",
-		"istioTimeout" : "30",
-		"istioGateways":  `["istio-system/ingressgateway","mesh"]`,
+		"imagePullSecrets":     "reg-wosai",
+		"istioTimeout":         "30",
+		"istioGateways":        `["istio-system/ingressgateway","mesh"]`,
 	}
 	var configmap = &SQBConfigMapEntity{}
 	configmap.FromMap(mapdata)

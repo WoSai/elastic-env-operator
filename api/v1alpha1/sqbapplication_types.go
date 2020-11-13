@@ -44,9 +44,9 @@ type IngressSpec struct {
 }
 
 type Domain struct {
-	Class string `json:"class"`
+	Class      string `json:"class"`
 	Annotation string `json:"annotation,omitempty"`
-	Host string `json:"host,omitempty"`
+	Host       string `json:"host,omitempty"`
 }
 
 type Subpath struct {
@@ -58,7 +58,7 @@ type Subpath struct {
 
 type ServiceSpec struct {
 	Ports    []corev1.ServicePort  `json:"ports"`
-	Monitors []prometheus.Endpoint `json:"monitors"`
+	Monitors []prometheus.Endpoint `json:"monitors,omitempty"`
 }
 
 type DeploySpec struct {
@@ -101,9 +101,9 @@ type SQBApplicationStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Planes      map[string]int `json:"planes,omitempty"`
-	Mirrors     map[string]int `json:"mirrors,omitempty"`
-	ErrorInfo   string         `json:"errorInfo,omitempty"`
+	Planes    map[string]int `json:"planes,omitempty"`
+	Mirrors   map[string]int `json:"mirrors,omitempty"`
+	ErrorInfo string         `json:"errorInfo,omitempty"`
 }
 
 // +kubebuilder:object:root=true

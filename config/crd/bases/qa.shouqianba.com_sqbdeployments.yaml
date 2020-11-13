@@ -1846,12 +1846,10 @@ spec:
             description: SQBDeploymentStatus defines the observed state of SQBDeployment
             properties:
               errorInfo:
-                type: string
-              initialized:
                 description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
                   of cluster Important: Run "make" to regenerate code after modifying
                   this file'
-                type: boolean
+                type: string
             type: object
         type: object
     served: true

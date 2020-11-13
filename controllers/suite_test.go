@@ -182,9 +182,12 @@ var _ = BeforeSuite(func(done Done) {
 	time.Sleep(time.Second * 2)
 
 	entity.ConfigMapData.FromMap(map[string]string{
-		"ingressOpen": "true",
-		"istioInject": "true",
-		"istioEnable": "true",
+		"ingressOpen":                  "true",
+		"istioInject":                  "true",
+		"istioEnable":                  "true",
+		"domainPostfix":                "{\"nginx-internal\":\"*.beta.iwosai.com\",\"nginx\":\"*.iwosai.com\"}",
+		"istioGateways":                "[\"istio-system/ingressgateway\",\"mesh\"]",
+		"specialVirtualServiceIngress": "nginx",
 	})
 
 	close(done)

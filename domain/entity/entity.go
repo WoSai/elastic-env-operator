@@ -16,7 +16,6 @@ const (
 	DeploymentAnnotationKey      = "qa.shouqianba.com/passthrough-deployment"
 	PodAnnotationKey             = "qa.shouqianba.com/passthrough-pod"
 	ServiceAnnotationKey         = "qa.shouqianba.com/passthrough-service"
-	IngressAnnotationKey         = "qa.shouqianba.com/passthrough-ingress"
 	DestinationRuleAnnotationKey = "qa.shouqianba.com/passthrough-destinationrule"
 	VirtualServiceAnnotationKey  = "qa.shouqianba.com/passthrough-virtualservice"
 	InitializeAnnotationKey      = "qa.shouqianba.com/initialized"

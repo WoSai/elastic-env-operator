@@ -11,17 +11,17 @@ var ConfigMapData = &SQBConfigMapEntity{}
 
 // operator相关的业务配置实体
 type SQBConfigMapEntity struct {
-	ingressOpen          bool
-	istioInject          bool
-	istioEnable          bool
-	serviceMonitorEnable bool
-	domainPostfix        map[string]string // {"ingress class":"host"}
-	globalDefaultDeploy  string
-	imagePullSecrets     string
-	istioTimeout         int64
-	istioGateways        []string
+	ingressOpen                  bool
+	istioInject                  bool
+	istioEnable                  bool
+	serviceMonitorEnable         bool
+	domainPostfix                map[string]string // {"ingress class":"host"}
+	globalDefaultDeploy          string
+	imagePullSecrets             string
+	istioTimeout                 int64
+	istioGateways                []string
 	specialVirtualServiceIngress string
-	Initialized          bool
+	Initialized                  bool
 }
 
 func (sc *SQBConfigMapEntity) FromMap(data map[string]string) {
@@ -70,6 +70,10 @@ func (sc *SQBConfigMapEntity) GetDomainNames(prefix string) map[string]string {
 		domains[k] = strings.ReplaceAll(v, "*", prefix)
 	}
 	return domains
+}
+
+func (sc *SQBConfigMapEntity) GetDomainNameByClass(prefix, class string) string {
+	return sc.GetDomainNames(prefix)[class]
 }
 
 func (sc *SQBConfigMapEntity) GetImagePullSecrets() []v1.LocalObjectReference {

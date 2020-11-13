@@ -72,7 +72,7 @@ func (h *virtualServiceHandler) Handle() error {
 	return h.Delete()
 }
 
-func (h *virtualServiceHandler) getOrGenerateHttpRoutes( httpRoutes []*istioapi.HTTPRoute) []*istioapi.HTTPRoute {
+func (h *virtualServiceHandler) getOrGenerateHttpRoutes(httpRoutes []*istioapi.HTTPRoute) []*istioapi.HTTPRoute {
 	resultHttpRoutes := make([]*istioapi.HTTPRoute, 0)
 	subpaths := h.sqbapplication.Spec.Subpaths
 	planes := h.sqbapplication.Status.Planes
@@ -240,12 +240,16 @@ func generateBaseHttpRoute(host, path string) *istioapi.HTTPRoute {
 func getIngressHosts(sqbapplication *qav1alpha1.SQBApplication) []string {
 	hosts := make([]string, 0)
 	if len(sqbapplication.Spec.Domains) == 0 {
-		for _ ,v := range entity.ConfigMapData.GetDomainNames(sqbapplication.Name) {
+		for _, v := range entity.ConfigMapData.GetDomainNames(sqbapplication.Name) {
 			hosts = append(hosts, v)
 		}
 		return hosts
 	}
 	for _, domain := range sqbapplication.Spec.Domains {
+		host := domain.Host
+		if host == "" {
+			host = entity.ConfigMapData.GetDomainNameByClass(sqbapplication.Name, domain.Class)
+		}
 		hosts = append(hosts, domain.Host)
 	}
 	return hosts

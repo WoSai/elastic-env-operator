@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
+	"github.com/wosai/elastic-env-operator/domain/util"
 	"k8s.io/api/extensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -15,7 +16,7 @@ import (
 
 type ingressHandler struct {
 	sqbapplication *qav1alpha1.SQBApplication
-	sqbdeployment *qav1alpha1.SQBDeployment
+	sqbdeployment  *qav1alpha1.SQBDeployment
 	ctx            context.Context
 }
 
@@ -55,6 +56,7 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 				}
 				paths = append(paths, path)
 			}
+			// 默认路由
 			path := v1beta1.HTTPIngressPath{
 				Backend: v1beta1.IngressBackend{
 					ServiceName: h.sqbapplication.Name,
@@ -63,8 +65,12 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 			}
 			paths = append(paths, path)
 		}
+		host := domain.Host
+		if host == "" {
+			host = entity.ConfigMapData.GetDomainNameByClass(h.sqbapplication.Name, domain.Class)
+		}
 		newrule := v1beta1.IngressRule{
-			Host: domain.Host,
+			Host: host,
 			IngressRuleValue: v1beta1.IngressRuleValue{
 				HTTP: &v1beta1.HTTPIngressRuleValue{
 					Paths: paths,
@@ -80,10 +86,10 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 		}
 		rules = append(rules, newrule)
 		ingress.Spec.Rules = rules
-		ingress.Labels = map[string]string{
-			entity.AppKey: h.sqbapplication.Name,
+		ingress.Labels = util.MergeStringMap(ingress.Labels, map[string]string{
+			entity.AppKey:   h.sqbapplication.Name,
 			entity.GroupKey: h.sqbapplication.Labels[entity.GroupKey],
-		}
+		})
 		if anno := domain.Annotation; anno != "" {
 			_ = json.Unmarshal([]byte(anno), &ingress.Annotations)
 		} else {
@@ -92,7 +98,6 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 		if err = CreateOrUpdate(h.ctx, ingress); err != nil {
 			return err
 		}
-		return nil
 	}
 	return nil
 }
@@ -101,20 +106,20 @@ func (h *ingressHandler) CreateOrUpdateForSqbdeployment() error {
 	ingressClass := SpecialVirtualServiceIngress(h.sqbdeployment)
 	ingress := &v1beta1.Ingress{ObjectMeta: metav1.ObjectMeta{
 		Namespace: h.sqbdeployment.Namespace,
-		Name: h.sqbdeployment.Labels[entity.AppKey] + "-" + ingressClass,
+		Name:      h.sqbdeployment.Labels[entity.AppKey] + "-" + ingressClass,
 	}}
 	if err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: ingress.Namespace, Name: ingress.Name}, ingress); err != nil {
 		return err
 	}
 
 	newrule := v1beta1.IngressRule{
-		Host: entity.ConfigMapData.GetDomainNames(h.sqbdeployment.Name)[SpecialVirtualServiceIngress(h.sqbdeployment)],
+		Host: entity.ConfigMapData.GetDomainNameByClass(h.sqbdeployment.Name, SpecialVirtualServiceIngress(h.sqbdeployment)),
 		IngressRuleValue: v1beta1.IngressRuleValue{
 			HTTP: &v1beta1.HTTPIngressRuleValue{
 				Paths: []v1beta1.HTTPIngressPath{
 					{
 						Backend: v1beta1.IngressBackend{
-							ServiceName: "istio-ingressgateway" + "-" + h.sqbapplication.Namespace,
+							ServiceName: "istio-ingressgateway" + "-" + h.sqbdeployment.Namespace,
 							ServicePort: intstr.FromInt(80),
 						},
 					},
@@ -132,7 +137,6 @@ func (h *ingressHandler) CreateOrUpdateForSqbdeployment() error {
 	ingress.Spec.Rules = rules
 	return CreateOrUpdate(h.ctx, ingress)
 }
-
 
 func (h *ingressHandler) DeleteForSqbapplication() error {
 	ingressList := &v1beta1.IngressList{}
@@ -153,10 +157,10 @@ func (h *ingressHandler) DeleteForSqbapplication() error {
 
 func (h *ingressHandler) DeleteForSqbdeployment() error {
 	ingressClass := SpecialVirtualServiceIngress(h.sqbdeployment)
-	host := entity.ConfigMapData.GetDomainNames(h.sqbdeployment.Name)[ingressClass]
+	host := entity.ConfigMapData.GetDomainNameByClass(h.sqbdeployment.Name, ingressClass)
 	ingress := &v1beta1.Ingress{ObjectMeta: metav1.ObjectMeta{
 		Namespace: h.sqbdeployment.Namespace,
-		Name: h.sqbdeployment.Labels[entity.AppKey] + "-" + ingressClass,
+		Name:      h.sqbdeployment.Labels[entity.AppKey] + "-" + ingressClass,
 	}}
 	err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: ingress.Namespace, Name: ingress.Name}, ingress)
 	if err != nil {

@@ -43,7 +43,7 @@ func (h *sqbApplicationHandler) IsInitialized(obj runtimeObj) (bool, error) {
 		}
 	}
 	if len(in.Spec.Domains) == 0 {
-		for k,v := range entity.ConfigMapData.GetDomainNames(in.Name) {
+		for k, v := range entity.ConfigMapData.GetDomainNames(in.Name) {
 			in.Spec.Domains = append(in.Spec.Domains, qav1alpha1.Domain{Class: k, Host: v})
 		}
 	}

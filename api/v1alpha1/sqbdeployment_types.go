@@ -41,7 +41,7 @@ type Selector struct {
 type SQBDeploymentStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	ErrorInfo   string `json:"errorInfo,omitempty"`
+	ErrorInfo string `json:"errorInfo,omitempty"`
 }
 
 // +kubebuilder:object:root=true

@@ -44,6 +44,19 @@ spec:
                 items:
                   type: string
                 type: array
+              domains:
+                items:
+                  properties:
+                    annotation:
+                      type: string
+                    class:
+                      type: string
+                    host:
+                      type: string
+                  required:
+                  - class
+                  type: object
+                type: array
               env:
                 items:
                   description: EnvVar represents an environment variable present in
@@ -272,10 +285,6 @@ spec:
                       description: IP address of the host file entry.
                       type: string
                   type: object
-                type: array
-              hosts:
-                items:
-                  type: string
                 type: array
               image:
                 type: string
@@ -2235,7 +2244,6 @@ spec:
                   type: object
                 type: array
             required:
-            - monitors
             - ports
             type: object
           status:
@@ -2243,8 +2251,6 @@ spec:
             properties:
               errorInfo:
                 type: string
-              initialized:
-                type: boolean
               mirrors:
                 additionalProperties:
                   type: integer

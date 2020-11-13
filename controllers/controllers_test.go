@@ -7,6 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
+	"github.com/wosai/elastic-env-operator/domain/handler"
 	"github.com/wosai/elastic-env-operator/domain/util"
 	istio "istio.io/client-go/pkg/apis/networking/v1beta1"
 	appv1 "k8s.io/api/apps/v1"
@@ -308,7 +309,6 @@ var _ = Describe("Controller", func() {
 
 		It("ingress close", func() {
 			_ = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, sqbapplication)
-			sqbapplication.Annotations = map[string]string{}
 			sqbapplication.Annotations[entity.IngressOpenAnnotationKey] = "false"
 			err = k8sClient.Update(ctx, sqbapplication)
 			Expect(err).NotTo(HaveOccurred())
@@ -327,30 +327,25 @@ var _ = Describe("Controller", func() {
 					ServiceName: "version1",
 					ServicePort: 8080,
 				},
-				{
-					Path:        "/",
-					ServiceName: sqbapplication.Name,
-					ServicePort: 80,
-				},
 			})
 			err = k8sClient.Update(ctx, sqbapplication)
 			Expect(err).NotTo(HaveOccurred())
 			time.Sleep(time.Second)
-			ingress := &v1beta1.Ingress{}
-			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, ingress)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(ingress.Spec.Rules[0].Host).To(Equal(applicationName + ".beta.iwosai.com"))
-			Expect(ingress.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName).To(Equal("version1"))
-			Expect(ingress.Spec.Rules[0].HTTP.Paths[0].Path).To(Equal("/v1"))
-			Expect(ingress.Spec.Rules[0].HTTP.Paths[1].Backend.ServiceName).To(Equal(applicationName))
-			Expect(ingress.Spec.Rules[0].HTTP.Paths[1].Path).To(Equal("/"))
+			for _, domain := range sqbapplication.Spec.Domains {
+				ingress := &v1beta1.Ingress{}
+				err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName + "-" + domain.Class}, ingress)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ingress.Spec.Rules[0].Host).To(Equal(entity.ConfigMapData.GetDomainNameByClass(applicationName, domain.Class)))
+				Expect(ingress.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName).To(Equal("version1"))
+				Expect(ingress.Spec.Rules[0].HTTP.Paths[0].Path).To(Equal("/v1"))
+				Expect(ingress.Spec.Rules[0].HTTP.Paths[1].Backend.ServiceName).To(Equal(applicationName))
+				Expect(ingress.Spec.Rules[0].HTTP.Paths[1].Path).To(Equal(""))
+			}
 		})
 
 		It("pass deployment annotation,pod annotation", func() {
-			sqbdeployment.Annotations = map[string]string{
-				entity.DeploymentAnnotationKey: `{"type":"deployment"}`,
-				entity.PodAnnotationKey:        `{"type":"pod"}`,
-			}
+			sqbdeployment.Annotations[entity.DeploymentAnnotationKey] = `{"type":"deployment"}`
+			sqbdeployment.Annotations[entity.PodAnnotationKey] = `{"type":"pod"}`
 			err = k8sClient.Update(ctx, sqbdeployment)
 			Expect(err).NotTo(HaveOccurred())
 			time.Sleep(time.Second)
@@ -363,21 +358,24 @@ var _ = Describe("Controller", func() {
 
 		It("pass ingress annotation,service annotation", func() {
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, sqbapplication)
-			sqbapplication.Annotations = map[string]string{
-				entity.IngressAnnotationKey:     `{"type":"ingress"}`,
-				entity.ServiceAnnotationKey:     `{"type":"service"}`,
-				entity.IngressOpenAnnotationKey: "true",
+			sqbapplication.Annotations[entity.ServiceAnnotationKey] = `{"type":"service"}`
+			sqbapplication.Annotations[entity.IngressOpenAnnotationKey] = "true"
+			for i, domain := range sqbapplication.Spec.Domains {
+				domain.Annotation = `{"type":"ingress"}`
+				sqbapplication.Spec.Domains[i] = domain
 			}
 			err = k8sClient.Update(ctx, sqbapplication)
 			Expect(err).NotTo(HaveOccurred())
 			time.Sleep(time.Second)
-			ingress := &v1beta1.Ingress{}
-			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, ingress)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(ingress.Annotations["type"]).To(Equal("ingress"))
 			service := &corev1.Service{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, service)
 			Expect(service.Annotations["type"]).To(Equal("service"))
+			for _, domain := range sqbapplication.Spec.Domains {
+				ingress := &v1beta1.Ingress{}
+				err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: sqbapplication.Name + "-" + domain.Class}, ingress)
+				Expect(err).NotTo(HaveOccurred())
+				Expect(ingress.Annotations["type"]).To(Equal("ingress"))
+			}
 		})
 
 		It("delete sqbapplication without password", func() {
@@ -425,14 +423,10 @@ var _ = Describe("Controller", func() {
 
 		It("delete sqbapplication with password", func() {
 			_, err := controllerutil.CreateOrUpdate(ctx, k8sClient, sqbapplication, func() error {
-				sqbapplication.Annotations = util.MergeStringMap(sqbapplication.Annotations, map[string]string{
-					entity.ExplicitDeleteAnnotationKey: util.GetDeleteCheckSum(sqbapplication.Name),
-					entity.IngressOpenAnnotationKey:    "true",
-				})
+				sqbapplication.Annotations[entity.ExplicitDeleteAnnotationKey] = util.GetDeleteCheckSum(sqbapplication.Name)
+				sqbapplication.Annotations[entity.IngressOpenAnnotationKey] = "true"
 				return nil
 			})
-			Expect(err).NotTo(HaveOccurred())
-			err = k8sClient.Delete(ctx, sqbapplication)
 			Expect(err).NotTo(HaveOccurred())
 			time.Sleep(time.Second)
 			// sqbapplication，sqbdeployment被删除
@@ -515,9 +509,7 @@ var _ = Describe("Controller", func() {
 
 		It("virtualservice created,destinationrule created", func() {
 			_, err := controllerutil.CreateOrUpdate(ctx, k8sClient, sqbapplication, func() error {
-				sqbapplication.Annotations = map[string]string{
-					entity.IstioInjectAnnotationKey: "true",
-				}
+				sqbapplication.Annotations[entity.IstioInjectAnnotationKey] = "true"
 				return nil
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -525,9 +517,8 @@ var _ = Describe("Controller", func() {
 			virtualservice := &istio.VirtualService{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, virtualservice)
 			Expect(err).NotTo(HaveOccurred())
-			Expect(virtualservice.Spec.Hosts).To(Equal([]string{applicationName + ".beta.iwosai.com",
-				applicationName + ".iwosai.com", applicationName}))
-			Expect(virtualservice.Spec.Gateways).To(Equal([]string{"mesh"}))
+			Expect(len(virtualservice.Spec.Hosts)).To(Equal(3))
+			Expect(virtualservice.Spec.Gateways).To(Equal([]string{"istio-system/ingressgateway", "mesh"}))
 			Expect(virtualservice.Spec.Http[0].Route[0].Destination.Host).To(Equal(applicationName))
 			Expect(virtualservice.Spec.Http[0].Route[0].Destination.Subset).To(Equal(deploymentName))
 			destinationrule := &istio.DestinationRule{}
@@ -541,29 +532,25 @@ var _ = Describe("Controller", func() {
 		It("ingress open", func() {
 			// ingress指向istio-ingressgateway
 			_, err := controllerutil.CreateOrUpdate(ctx, k8sClient, sqbapplication, func() error {
-				sqbapplication.Annotations = map[string]string{
-					entity.IngressOpenAnnotationKey: "true",
-					entity.IstioInjectAnnotationKey: "true",
-				}
+				sqbapplication.Annotations[entity.IngressOpenAnnotationKey] = "true"
+				sqbapplication.Annotations[entity.IstioInjectAnnotationKey] = "true"
 				return nil
 			})
 			Expect(err).NotTo(HaveOccurred())
 			time.Sleep(time.Second)
-			ingress := &v1beta1.Ingress{}
-			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, ingress)
-			Expect(ingress.Spec.Rules[0].Host).To(Equal(applicationName + ".beta.iwosai.com"))
-			Expect(ingress.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName).To(Equal("istio-ingressgateway-" + namespace))
-			Expect(ingress.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort).To(Equal(intstr.FromInt(80)))
-			Expect(ingress.Spec.Rules[1].Host).To(Equal(applicationName + ".iwosai.com"))
-			Expect(ingress.Spec.Rules[1].HTTP.Paths[0].Backend.ServiceName).To(Equal("istio-ingressgateway-" + namespace))
-			Expect(ingress.Spec.Rules[1].HTTP.Paths[0].Backend.ServicePort).To(Equal(intstr.FromInt(80)))
+			for _, domain := range sqbapplication.Spec.Domains {
+				ingress := &v1beta1.Ingress{}
+				err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName + "-" + domain.Class}, ingress)
+				Expect(ingress.Spec.Rules[0].Host).To(Equal(domain.Host))
+				Expect(ingress.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName).To(Equal("istio-ingressgateway-" + namespace))
+				Expect(ingress.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort).To(Equal(intstr.FromInt(80)))
+			}
+
 		})
 
 		It("public entry", func() {
 			_, err = controllerutil.CreateOrUpdate(ctx, k8sClient, sqbdeployment, func() error {
-				sqbdeployment.Annotations = map[string]string{
-					entity.PublicEntryAnnotationKey: "true",
-				}
+				sqbdeployment.Annotations[entity.PublicEntryAnnotationKey] = "true"
 				return nil
 			})
 			err = k8sClient.Update(ctx, sqbdeployment)
@@ -575,16 +562,27 @@ var _ = Describe("Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(virtualservice.Spec.Hosts).To(Equal([]string{deploymentName + ".iwosai.com"}))
 			Expect(virtualservice.Spec.Http[0].Headers.Request.Set[entity.XEnvFlag]).To(Equal(planeName))
-			// 需要断言ingress todo
+			// 断言ingress
+			ingress := &v1beta1.Ingress{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName + "-" + handler.SpecialVirtualServiceIngress(sqbdeployment)}, ingress)
+			Expect(len(ingress.Spec.Rules)).To(Equal(2))
+			// 关闭入口
+			_, err = controllerutil.CreateOrUpdate(ctx, k8sClient, sqbdeployment, func() error {
+				sqbdeployment.Annotations[entity.PublicEntryAnnotationKey] = "false"
+				return nil
+			})
+			err = k8sClient.Update(ctx, sqbdeployment)
+			Expect(err).NotTo(HaveOccurred())
+			time.Sleep(time.Second)
+			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName + "-" + handler.SpecialVirtualServiceIngress(sqbdeployment)}, ingress)
+			Expect(len(ingress.Spec.Rules)).To(Equal(1))
 		})
 
 		It("pass virtualservice annotation,destinationrule annotation", func() {
 			_, err := controllerutil.CreateOrUpdate(ctx, k8sClient, sqbapplication, func() error {
-				sqbapplication.Annotations = map[string]string{
-					entity.IstioInjectAnnotationKey:     "true",
-					entity.VirtualServiceAnnotationKey:  `{"type":"virtualservice"}`,
-					entity.DestinationRuleAnnotationKey: `{"type":"destinationrule"}`,
-				}
+				sqbapplication.Annotations[entity.IstioInjectAnnotationKey] = "true"
+				sqbapplication.Annotations[entity.VirtualServiceAnnotationKey] = `{"type":"virtualservice"}`
+				sqbapplication.Annotations[entity.DestinationRuleAnnotationKey] = `{"type":"destinationrule"}`
 				return nil
 			})
 			Expect(err).NotTo(HaveOccurred())
@@ -675,17 +673,10 @@ var _ = Describe("Controller", func() {
 
 		It("delete sqbapplication with password", func() {
 			_, err := controllerutil.CreateOrUpdate(ctx, k8sClient, sqbapplication, func() error {
-				sqbapplication.Annotations = map[string]string{
-					entity.ExplicitDeleteAnnotationKey: util.GetDeleteCheckSum(sqbapplication.Name),
-					entity.IstioInjectAnnotationKey:    "true",
-				}
+				sqbapplication.Annotations[entity.ExplicitDeleteAnnotationKey] = util.GetDeleteCheckSum(sqbapplication.Name)
+				sqbapplication.Annotations[entity.IstioInjectAnnotationKey] = "true"
 				return nil
 			})
-			Expect(err).NotTo(HaveOccurred())
-			time.Sleep(time.Second)
-			err = k8sClient.Delete(ctx, &qav1alpha1.SQBApplication{ObjectMeta: metav1.ObjectMeta{
-				Namespace: namespace, Name: applicationName,
-			}})
 			Expect(err).NotTo(HaveOccurred())
 			time.Sleep(time.Second)
 			virtualservice := &istio.VirtualService{}

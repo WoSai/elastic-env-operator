@@ -38,7 +38,6 @@ func (h *sqbDeploymentListHandler) DeleteForSqbplane() error {
 	return nil
 }
 
-
 func (h *sqbDeploymentListHandler) Handle() error {
 	if h.sqbapplication != nil {
 		return h.DeleteForSqbapplication()
