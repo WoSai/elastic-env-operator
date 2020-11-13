@@ -35,28 +35,47 @@ func TestHost(t *testing.T) {
 	old := &SQBApplication{
 		Spec: SQBApplicationSpec{
 			IngressSpec: IngressSpec{
-				Hosts: []string{"1"},
+				Domains: []Domain{
+					{
+						Class: "nginx",
+						Host: "test.iwosai.com",
+					},
+				},
 			},
 		},
 	}
 	news := &SQBApplication{
 		Spec: SQBApplicationSpec{
 			IngressSpec: IngressSpec{
-				Hosts: []string{"2"},
+				Domains: []Domain{
+					{
+						Class: "nginx-internal",
+						Host: "test.beta.iwosai.com",
+					},
+				},
 			},
 		},
 	}
 	old.Merge(news)
-	assert.Equal(t, len(old.Spec.Hosts), 2)
+	assert.Equal(t, len(old.Spec.Domains), 1)
+	assert.Equal(t, old.Spec.Domains[0].Class, "nginx-internal")
+	assert.Equal(t, old.Spec.Domains[0].Host, "test.beta.iwosai.com")
 	news = &SQBApplication{
 		Spec: SQBApplicationSpec{
 			IngressSpec: IngressSpec{
-				Hosts: []string{"2", "3"},
+				Domains: []Domain{
+					{
+						Class: "nginx-internal",
+						Host: "test2.beta.iwosai.com",
+					},
+				},
 			},
 		},
 	}
 	old.Merge(news)
-	assert.Equal(t, len(old.Spec.Hosts), 3)
+	assert.Equal(t, len(old.Spec.Domains), 1)
+	assert.Equal(t, old.Spec.Domains[0].Class, "nginx-internal")
+	assert.Equal(t, old.Spec.Domains[0].Host, "test2.beta.iwosai.com")
 }
 
 func TestReplicaImage(t *testing.T) {

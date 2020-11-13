@@ -8,27 +8,33 @@ import (
 	"k8s.io/api/extensions/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type ingressHandler struct {
 	sqbapplication *qav1alpha1.SQBApplication
+	sqbdeployment *qav1alpha1.SQBDeployment
 	ctx            context.Context
 }
 
-func NewIngressHandler(sqbapplication *qav1alpha1.SQBApplication, ctx context.Context) *ingressHandler {
+func NewSqbapplicationIngressHandler(sqbapplication *qav1alpha1.SQBApplication, ctx context.Context) *ingressHandler {
 	return &ingressHandler{sqbapplication: sqbapplication, ctx: ctx}
 }
 
-func (h *ingressHandler) CreateOrUpdate() error {
-	ingress := &v1beta1.Ingress{ObjectMeta: metav1.ObjectMeta{Namespace: h.sqbapplication.Namespace, Name: h.sqbapplication.Name}}
-	err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: ingress.Namespace, Name: ingress.Name}, ingress)
-	if err != nil && !apierrors.IsNotFound(err) {
-		return err
-	}
-	rules := make([]v1beta1.IngressRule, 0)
-	for _, host := range h.sqbapplication.Spec.Hosts {
+func NewSqbdeploymentIngressHandler(sqbdeployment *qav1alpha1.SQBDeployment, ctx context.Context) *ingressHandler {
+	return &ingressHandler{sqbdeployment: sqbdeployment, ctx: ctx}
+}
+
+func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
+	for _, domain := range h.sqbapplication.Spec.Domains {
+		ingress := &v1beta1.Ingress{ObjectMeta: metav1.ObjectMeta{Namespace: h.sqbapplication.Namespace, Name: h.sqbapplication.Name + "-" + domain.Class}}
+		err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: ingress.Namespace, Name: ingress.Name}, ingress)
+		if err != nil && !apierrors.IsNotFound(err) {
+			return err
+		}
+
 		paths := make([]v1beta1.HTTPIngressPath, 0)
 		if IsIstioInject(h.sqbapplication) {
 			path := v1beta1.HTTPIngressPath{
@@ -57,36 +63,134 @@ func (h *ingressHandler) CreateOrUpdate() error {
 			}
 			paths = append(paths, path)
 		}
-		rule := v1beta1.IngressRule{
-			Host: host,
+		newrule := v1beta1.IngressRule{
+			Host: domain.Host,
 			IngressRuleValue: v1beta1.IngressRuleValue{
 				HTTP: &v1beta1.HTTPIngressRuleValue{
 					Paths: paths,
 				},
 			},
 		}
-		rules = append(rules, rule)
+		// 与newrule的host不同的rule保留，是special virtualservice的入口或手动配置
+		rules := make([]v1beta1.IngressRule, 0)
+		for _, rule := range ingress.Spec.Rules {
+			if rule.Host != newrule.Host {
+				rules = append(rules, rule)
+			}
+		}
+		rules = append(rules, newrule)
+		ingress.Spec.Rules = rules
+		ingress.Labels = map[string]string{
+			entity.AppKey: h.sqbapplication.Name,
+			entity.GroupKey: h.sqbapplication.Labels[entity.GroupKey],
+		}
+		if anno := domain.Annotation; anno != "" {
+			_ = json.Unmarshal([]byte(anno), &ingress.Annotations)
+		} else {
+			ingress.Annotations = nil
+		}
+		if err = CreateOrUpdate(h.ctx, ingress); err != nil {
+			return err
+		}
+		return nil
 	}
+	return nil
+}
+
+func (h *ingressHandler) CreateOrUpdateForSqbdeployment() error {
+	ingressClass := SpecialVirtualServiceIngress(h.sqbdeployment)
+	ingress := &v1beta1.Ingress{ObjectMeta: metav1.ObjectMeta{
+		Namespace: h.sqbdeployment.Namespace,
+		Name: h.sqbdeployment.Labels[entity.AppKey] + "-" + ingressClass,
+	}}
+	if err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: ingress.Namespace, Name: ingress.Name}, ingress); err != nil {
+		return err
+	}
+
+	newrule := v1beta1.IngressRule{
+		Host: entity.ConfigMapData.GetDomainNames(h.sqbdeployment.Name)[SpecialVirtualServiceIngress(h.sqbdeployment)],
+		IngressRuleValue: v1beta1.IngressRuleValue{
+			HTTP: &v1beta1.HTTPIngressRuleValue{
+				Paths: []v1beta1.HTTPIngressPath{
+					{
+						Backend: v1beta1.IngressBackend{
+							ServiceName: "istio-ingressgateway" + "-" + h.sqbapplication.Namespace,
+							ServicePort: intstr.FromInt(80),
+						},
+					},
+				},
+			},
+		},
+	}
+	rules := make([]v1beta1.IngressRule, 0)
+	for _, rule := range ingress.Spec.Rules {
+		if rule.Host != newrule.Host {
+			rules = append(rules, rule)
+		}
+	}
+	rules = append(rules, newrule)
 	ingress.Spec.Rules = rules
-	if anno, ok := h.sqbapplication.Annotations[entity.IngressAnnotationKey]; ok {
-		_ = json.Unmarshal([]byte(anno), &ingress.Annotations)
-	} else {
-		ingress.Annotations = nil
-	}
 	return CreateOrUpdate(h.ctx, ingress)
 }
 
-func (h *ingressHandler) Delete() error {
-	ingress := &v1beta1.Ingress{ObjectMeta: metav1.ObjectMeta{Namespace: h.sqbapplication.Namespace, Name: h.sqbapplication.Name}}
-	return Delete(h.ctx, ingress)
+
+func (h *ingressHandler) DeleteForSqbapplication() error {
+	ingressList := &v1beta1.IngressList{}
+	err := k8sclient.List(h.ctx, ingressList, &client.ListOptions{
+		Namespace:     h.sqbapplication.Namespace,
+		LabelSelector: labels.SelectorFromSet(map[string]string{entity.AppKey: h.sqbapplication.Name}),
+	})
+	if err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+	for _, ingress := range ingressList.Items {
+		if err = Delete(h.ctx, &ingress); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (h *ingressHandler) DeleteForSqbdeployment() error {
+	ingressClass := SpecialVirtualServiceIngress(h.sqbdeployment)
+	host := entity.ConfigMapData.GetDomainNames(h.sqbdeployment.Name)[ingressClass]
+	ingress := &v1beta1.Ingress{ObjectMeta: metav1.ObjectMeta{
+		Namespace: h.sqbdeployment.Namespace,
+		Name: h.sqbdeployment.Labels[entity.AppKey] + "-" + ingressClass,
+	}}
+	err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: ingress.Namespace, Name: ingress.Name}, ingress)
+	if err != nil {
+		return client.IgnoreNotFound(err)
+	} else {
+		rules := make([]v1beta1.IngressRule, 0)
+		for _, rule := range ingress.Spec.Rules {
+			if rule.Host != host {
+				rules = append(rules, rule)
+			}
+		}
+		ingress.Spec.Rules = rules
+		return CreateOrUpdate(h.ctx, ingress)
+	}
 }
 
 func (h *ingressHandler) Handle() error {
-	if IsExplicitDelete(h.sqbapplication) {
-		return h.Delete()
+	if h.sqbapplication != nil {
+		if IsExplicitDelete(h.sqbapplication) {
+			return h.DeleteForSqbapplication()
+		}
+		if !IsIngressOpen(h.sqbapplication) {
+			return h.DeleteForSqbapplication()
+		}
+		return h.CreateOrUpdateForSqbapplication()
 	}
-	if !IsIngressOpen(h.sqbapplication) {
-		return h.Delete()
+	if h.sqbdeployment != nil {
+		if IsExplicitDelete(h.sqbdeployment) {
+			return h.DeleteForSqbdeployment()
+		}
+		if h.sqbdeployment.Annotations[entity.PublicEntryAnnotationKey] != "true" {
+			return h.DeleteForSqbdeployment()
+		}
+		return h.CreateOrUpdateForSqbdeployment()
 	}
-	return h.CreateOrUpdate()
+	return nil
 }

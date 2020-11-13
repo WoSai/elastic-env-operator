@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestGeneratePlaneHttpRoute (t *testing.T)  {
+func TestGeneratePlaneHttpRoute(t *testing.T) {
 	host := "host1"
 	plane := "plane1"
 	path := "/v1"
@@ -39,7 +39,7 @@ func TestGeneratePlaneHttpRoute (t *testing.T)  {
 	assert.Equal(t, route.Match[2].Uri.GetPrefix(), "")
 }
 
-func TestGenerateBaseHttpRoute (t *testing.T)  {
+func TestGenerateBaseHttpRoute(t *testing.T) {
 	host := "host1"
 	path := "/v1"
 	route := generateBaseHttpRoute(host, path)

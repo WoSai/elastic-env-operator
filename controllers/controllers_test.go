@@ -578,6 +578,7 @@ var _ = Describe("Controller", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(virtualservice.Spec.Hosts).To(Equal([]string{deploymentName + ".iwosai.com"}))
 			Expect(virtualservice.Spec.Http[0].Headers.Request.Set[entity.XEnvFlag]).To(Equal(planeName))
+			// 需要断言ingress todo
 		})
 
 		It("pass virtualservice annotation,destinationrule annotation", func() {

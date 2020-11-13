@@ -28,8 +28,8 @@ func (h *serviceMonitorHandler) CreateOrUpdate() error {
 
 	serviceMonitor.Spec.TargetLabels = []string{entity.GroupKey}
 	serviceMonitor.Spec.Selector.MatchLabels = map[string]string{
-		entity.AppKey: h.sqbapplication.Name,
-		entity.GroupKey:h.sqbapplication.Labels[entity.GroupKey],
+		entity.AppKey:   h.sqbapplication.Name,
+		entity.GroupKey: h.sqbapplication.Labels[entity.GroupKey],
 	}
 	serviceMonitor.Spec.NamespaceSelector.MatchNames = []string{h.sqbapplication.Namespace}
 	serviceMonitor.Spec.Endpoints = h.sqbapplication.Spec.Monitors

@@ -40,20 +40,17 @@ metadata:
     qa.shouqianba.com/passthrough-virtualservice:
 spec:
   # ingress相关配置
-  ingress:
-    subpaths:  # 没有启用istio注入，作用于ingress，启用istio注入，作用于virtualservice
-    - path: /v4
-      serviceName: sales-system-service
-      servicePort: 80
-    domain: 
-    - class: 
-      annotation:
-      hosts:  # hosts，默认会配置 服务名+configmap的domainPostfix，可自定义
-      - "merchant-enrolment.beta.iwosai.com"
-    - class: 
-      annotation:
-      hosts:  # hosts，默认会配置 服务名+configmap的domainPostfix，可自定义
-      - "merchant-enrolment.beta.iwosai.com"
+  subpaths:  # 没有启用istio注入，作用于ingress，启用istio注入，作用于virtualservice
+  - path: /v4
+    serviceName: sales-system-service
+    servicePort: 80
+  domains: 
+  - class: nginx
+    annotation:
+    host: "merchant-enrolment.iwosai.com" # hosts，默认会配置 服务名+configmap的domainPostfix，可自定义
+  - class: nginx-internal
+    annotation:
+    host: "merchant-enrolment.beta.iwosai.com" # hosts，默认会配置 服务名+configmap的domainPostfix，可自定义
   # service相关配置
   ports:
   - name: http-80  # name命名规则：{istio支持的protocol}-{port}
@@ -199,6 +196,7 @@ metadata:
     qa.shouqianba.com/delete: "xxx"  # 明确删除
     qa.shouqianba.com/public-entry: "true" #是否开启外网入口，默认不开启
     qa.shouqianba.com/init-container-image: "registry.wosai-inc.com/xxx" # 初始化容器镜像，默认为busybox
+    qa.shouqianba.com/special-virtualservice-ingressclass: "nginx" # 特性环境入口host作用于哪个ingress
     qa.shouqianba.com/passthrough-deployment: # 透传到下游deployment的annotation
     qa.shouqianba.com/passthrough-pod:
 spec:
@@ -246,14 +244,15 @@ metadata:
 data:
   ingressOpen: "false" # 集群服务默认是否创建ingress
   istioInject: "false" # 集群服务默认是否开启istio注入
-  domainPostfix: "*.beta.iwosai.com,*.iwosai.com" # ingressOpen=true时SQBApplication的ingress host默认会配置SQBApplication name + domainPostfix 域名
+  domainPostfix: | # ingressOpen=true时SQBApplication的ingress host默认会配置SQBApplication name + domainPostfix 域名
+    {"nginx-internal":"*.beta.iwosai.com","nginx":"*.iwosai.com"}
   globalDefaultDeploy: |   # 存放默认的SQBApplication的deploy的值
     {"key": "value"}
   imagePullSecrets: "reg-wosai"
   istioTimeout: "30" # istio超时时间，单位秒
-  istioGateways: "istio-system/ingressgateway,mesh" # istio的virtualservice的gateways配置
-  specialVirtualServiceIngress: | 
-    ["vpc","vpn","public"]
+  istioGateways: | # istio的virtualservice的gateways配置
+    ["istio-system/ingressgateway","mesh"]
+  specialVirtualServiceIngress: "nginx"  # 特殊入口所在ingress,公网(nginx)、经典网络(nginx-internal)、vpc网络(nginx-vpc)
 ```
 
 ### secret

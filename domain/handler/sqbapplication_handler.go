@@ -44,14 +44,11 @@ func (h *sqbApplicationHandler) IsInitialized(obj runtimeObj) (bool, error) {
 		}
 	}
 	controllerutil.AddFinalizer(in, entity.Finalizer)
-	// hosts为用户定义+configmap默认配置
-	hosts := entity.ConfigMapData.GetDomainNames(in.Name)
-	for _, host := range in.Spec.Hosts {
-		if !util.ContainString(hosts, host) {
-			hosts = append(hosts, host)
+	if len(in.Spec.Domains) == 0 {
+		for k,v := range entity.ConfigMapData.GetDomainNames(in.Name) {
+			in.Spec.Domains = append(in.Spec.Domains, qav1alpha1.Domain{Class: k, Host: v})
 		}
 	}
-	in.Spec.Hosts = hosts
 	if len(in.Annotations) == 0 {
 		in.Annotations = make(map[string]string)
 	}
@@ -67,7 +64,7 @@ func (h *sqbApplicationHandler) Operate(obj runtimeObj) error {
 
 	handlers := []SQBHandler{
 		NewServiceHandler(in, h.ctx),
-		NewIngressHandler(in, h.ctx),
+		NewSqbapplicationIngressHandler(in, h.ctx),
 		NewDestinationRuleHandler(in, h.ctx),
 		NewVirtualServiceHandler(in, h.ctx),
 		NewServiceMonitorHandler(in, h.ctx),

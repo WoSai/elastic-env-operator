@@ -18,11 +18,11 @@ package v1alpha1
 
 import (
 	"encoding/json"
+	prometheus "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/wosai/elastic-env-operator/domain/util"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	prometheus "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -39,8 +39,14 @@ type SQBApplicationSpec struct {
 }
 
 type IngressSpec struct {
-	Hosts    []string  `json:"hosts,omitempty"`
+	Domains  []Domain  `json:"domains,omitempty"`
 	Subpaths []Subpath `json:"subpaths,omitempty"`
+}
+
+type Domain struct {
+	Class string `json:"class"`
+	Annotation string `json:"annotation,omitempty"`
+	Host string `json:"host,omitempty"`
 }
 
 type Subpath struct {
@@ -51,7 +57,7 @@ type Subpath struct {
 }
 
 type ServiceSpec struct {
-	Ports []corev1.ServicePort `json:"ports"`
+	Ports    []corev1.ServicePort  `json:"ports"`
 	Monitors []prometheus.Endpoint `json:"monitors"`
 }
 
@@ -66,7 +72,7 @@ type DeploySpec struct {
 	HealthCheck  *corev1.Probe                `json:"healthCheck,omitempty"`
 	Volumes      []corev1.Volume              `json:"volumes,omitempty"`
 	VolumeMounts []corev1.VolumeMount         `json:"volumeMounts,omitempty"`
-	NodeAffinity *NodeAffinity               `json:"nodeAffinity,omitempty"`
+	NodeAffinity *NodeAffinity                `json:"nodeAffinity,omitempty"`
 	Lifecycle    *Lifecycle                   `json:"lifecycle,omitempty"`
 }
 
@@ -97,7 +103,6 @@ type SQBApplicationStatus struct {
 
 	Planes      map[string]int `json:"planes,omitempty"`
 	Mirrors     map[string]int `json:"mirrors,omitempty"`
-	Initialized bool           `json:"initialized,omitempty"` // 废弃了，使用注解qa.shouqianba.com/initialized判断初始化
 	ErrorInfo   string         `json:"errorInfo,omitempty"`
 }
 
@@ -127,17 +132,8 @@ func (old *SQBApplication) Merge(news *SQBApplication) {
 	// annotation、label
 	old.Annotations = util.MergeStringMap(old.Annotations, news.Annotations)
 	old.Labels = util.MergeStringMap(old.Labels, news.Labels)
-	// host
-	hosts := append(old.Spec.Hosts, news.Spec.Hosts...)
-	hostsMap := make(map[string]struct{})
-	for _, host := range hosts {
-		hostsMap[host] = struct{}{}
-	}
-	hosts = make([]string, 0)
-	for host := range hostsMap {
-		hosts = append(hosts, host)
-	}
-	old.Spec.Hosts = hosts
+	// domain使用新的覆盖
+	old.Spec.Domains = news.Spec.Domains
 	// subpath用新的覆盖
 	old.Spec.Subpaths = news.Spec.Subpaths
 	// ports用新的覆盖

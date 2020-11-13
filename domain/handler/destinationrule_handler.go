@@ -46,6 +46,7 @@ func (h *destinationRuleHandler) CreateOrUpdate() error {
 	} else {
 		destinationrule.Annotations = nil
 	}
+	destinationrule.Labels = h.sqbapplication.Labels
 	return CreateOrUpdate(h.ctx, destinationrule)
 }
 

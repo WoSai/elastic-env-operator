@@ -30,14 +30,7 @@ func (h *specialVirtualServiceHandler) CreateOrUpdate() error {
 		return err
 	}
 
-	hosts := entity.ConfigMapData.GetDomainNames(h.sqbdeployment.Name)
-	result := hosts[0]
-	for _, host := range hosts[1:] {
-		if len(host) < len(result) {
-			result = host
-		}
-	}
-	virtualserviceHosts := []string{result}
+	virtualserviceHosts := []string{entity.ConfigMapData.GetDomainNames(h.sqbdeployment.Name)[SpecialVirtualServiceIngress(h.sqbdeployment)]}
 	specialvirtualservice.Spec.Hosts = virtualserviceHosts
 	specialvirtualservice.Spec.Gateways = entity.ConfigMapData.IstioGateways()
 	specialvirtualservice.Spec.Http = []*istioapi.HTTPRoute{

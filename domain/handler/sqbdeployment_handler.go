@@ -60,6 +60,7 @@ func (h *sqbDeploymentHandler) Operate(obj runtimeObj) error {
 
 	handlers := []SQBHandler{
 		NewDeploymentHandler(in, h.ctx),
+		NewSqbdeploymentIngressHandler(in, h.ctx),
 		NewSpecialVirtualServiceHandler(in, h.ctx),
 	}
 
@@ -92,4 +93,12 @@ func HasPublicEntry(sqbdeployment *qav1alpha1.SQBDeployment) bool {
 		return publicEntry == "true"
 	}
 	return false
+}
+
+// 返回special virtualservice的入口对应在哪个ingress上
+func SpecialVirtualServiceIngress(sqbdeployment *qav1alpha1.SQBDeployment) string {
+	if specialVirtualServiceIngress, ok := sqbdeployment.Annotations[entity.SpecialVirtualServiceIngress]; ok {
+		return specialVirtualServiceIngress
+	}
+	return entity.ConfigMapData.SpecialVirtualServiceIngress()
 }

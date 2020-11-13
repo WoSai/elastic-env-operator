@@ -13,6 +13,7 @@ const (
 	PublicEntryAnnotationKey     = "qa.shouqianba.com/public-entry"
 	ServiceMonitorAnnotationKey  = "qa.shouqianba.com/service-monitor"
 	InitContainerAnnotationKey   = "qa.shouqianba.com/init-container-image"
+	SpecialVirtualServiceIngress = "qa.shouqianba.com/special-virtualservice-ingressclass"
 	DeploymentAnnotationKey      = "qa.shouqianba.com/passthrough-deployment"
 	PodAnnotationKey             = "qa.shouqianba.com/passthrough-pod"
 	ServiceAnnotationKey         = "qa.shouqianba.com/passthrough-service"
