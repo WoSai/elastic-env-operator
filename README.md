@@ -33,25 +33,34 @@ metadata:
   annotations:
     qa.shouqianba.com/istio-inject: "false" # 是否开启istio注入
     qa.shouqianba.com/ingress-open: "false" # 是否打开ingress
+    qa.shouqianba.com/service-monitor: "false"
     qa.shouqianba.com/delete: "xxx"  # md5(metadata.name+salt)得到,salt保存在secret,表示明确删除
     qa.shouqianba.com/passthrough-service: # 透传到Service的annotation,下同
-    qa.shouqianba.com/passthrough-ingress:
     qa.shouqianba.com/passthrough-destinationrule:
     qa.shouqianba.com/passthrough-virtualservice:
 spec:
   # ingress相关配置
-  hosts:  # hosts，默认会配置 服务名+configmap的domainPostfix，可自定义
-  - "merchant-enrolment.beta.iwosai.com"
   subpaths:  # 没有启用istio注入，作用于ingress，启用istio注入，作用于virtualservice
   - path: /v4
     serviceName: sales-system-service
     servicePort: 80
+  domains: 
+  - class: nginx
+    annotation:
+    host: "merchant-enrolment.iwosai.com" # hosts，默认会配置 服务名+configmap的domainPostfix，可自定义
+  - class: nginx-internal
+    annotation:
+    host: "merchant-enrolment.beta.iwosai.com" # hosts，默认会配置 服务名+configmap的domainPostfix，可自定义
   # service相关配置
   ports:
   - name: http-80  # name命名规则：{istio支持的protocol}-{port}
     port: 80
     targetPort: 8080
     protocol: TCP  # k8s原生protocol
+  monitors:  # service monitor的endpoints
+  - interval: 15s
+    path: /metrics
+    port: http-8080
   # deployment相关配置
   replicas: 1  # 可选，副本数，默认1
   image: # 镜像，必选
@@ -118,13 +127,20 @@ spec:
   volumeMounts: # volumeMounts,initContainer与业务container使用同样的volumeMounts
   - name: ""
     mountPath: ""
-  nodeAffinity: # 亲和性，只保留nodeAffinity的preferred,且只根据node的label选择,key表示node的label key
-  - weight: 100
-    key: "role"
-    operator: "In" # In,NotIn,Exists,DoesNotExist,Gt,Lt
-    values:
-    - "qa"
-    - "crm"
+  nodeAffinity: # 亲和性，只根据node的label选择,key表示node的label key
+    required:
+    - key: "role"
+      operator: "In" # In,NotIn,Exists,DoesNotExist,Gt,Lt
+      values:
+      - "qa"
+      - "crm"
+    prefered:
+    - weight: 100
+      key: "role"
+      operator: "In" # In,NotIn,Exists,DoesNotExist,Gt,Lt
+      values:
+      - "qa"
+      - "crm"
   lifecycle:  # lifecycle hook
     init:  # 使用busybox作为init-container执行一条命令，只支持exec，支持env和volumeMounts
       exec:
@@ -147,7 +163,6 @@ status:
     test: 1
   mirrors: 
     merchant-enrolment-base: 1
-  initialized: true
 ```
 
 
@@ -167,7 +182,6 @@ status:
   mirrors:
     merchant-enrolment: 1
     sales-system-api: 1
-  initialized: true
 ```
 
 ### SQBDeployment
@@ -181,6 +195,8 @@ metadata:
   annotations:
     qa.shouqianba.com/delete: "xxx"  # 明确删除
     qa.shouqianba.com/public-entry: "true" #是否开启外网入口，默认不开启
+    qa.shouqianba.com/init-container-image: "registry.wosai-inc.com/xxx" # 初始化容器镜像，默认为busybox
+    qa.shouqianba.com/special-virtualservice-ingressclass: "nginx" # 特性环境入口host作用于哪个ingress
     qa.shouqianba.com/passthrough-deployment: # 透传到下游deployment的annotation
     qa.shouqianba.com/passthrough-pod:
 spec:
@@ -190,7 +206,6 @@ spec:
   # 同SQBApplication的deploy配置，覆盖默认配置
   replicas: 1
 status:
-  initialized: true
 ```
 
 ## controller处理逻辑
@@ -229,13 +244,15 @@ metadata:
 data:
   ingressOpen: "false" # 集群服务默认是否创建ingress
   istioInject: "false" # 集群服务默认是否开启istio注入
-  domainPostfix: "*.beta.iwosai.com,*.iwosai.com" # ingressOpen=true时SQBApplication的ingress host默认会配置SQBApplication name + domainPostfix 域名
+  domainPostfix: | # ingressOpen=true时SQBApplication的ingress host默认会配置SQBApplication name + domainPostfix 域名
+    {"nginx-internal":"*.beta.iwosai.com","nginx":"*.iwosai.com"}
   globalDefaultDeploy: |   # 存放默认的SQBApplication的deploy的值
     {"key": "value"}
   imagePullSecrets: "reg-wosai"
   istioTimeout: "30" # istio超时时间，单位秒
-  istioGateways: "istio-system/ingressgateway,mesh" # istio的virtualservice的gateways配置
-  
+  istioGateways: | # istio的virtualservice的gateways配置
+    ["istio-system/ingressgateway","mesh"]
+  specialVirtualServiceIngress: "nginx"  # 特殊入口所在ingress,公网(nginx)、经典网络(nginx-internal)、vpc网络(nginx-vpc)
 ```
 
 ### secret

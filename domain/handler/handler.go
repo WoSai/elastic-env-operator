@@ -2,10 +2,13 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-logr/logr"
 	"github.com/wosai/elastic-env-operator/domain/entity"
+	"github.com/wosai/elastic-env-operator/domain/util"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -16,6 +19,25 @@ import (
 var (
 	k8sclient client.Client
 	log       logr.Logger
+	k8sScheme *runtime.Scheme
+)
+
+type (
+	runtimeObj interface {
+		runtime.Object
+		metav1.Object
+	}
+
+	SQBReconciler interface {
+		GetInstance() (runtimeObj, error)
+		IsInitialized(runtimeObj) (bool, error)
+		Operate(runtimeObj) error
+		ReconcileFail(runtimeObj, error)
+	}
+
+	SQBHandler interface {
+		Handle() error
+	}
 )
 
 func SetK8sClient(c client.Client) {
@@ -26,20 +48,11 @@ func SetK8sLog(l logr.Logger) {
 	log = l
 }
 
-type runtimeObj interface {
-	runtime.Object
-	metav1.Object
+func SetK8sScheme(s *runtime.Scheme) {
+	k8sScheme = s
 }
 
-type SQBHandler interface {
-	GetInstance() (runtimeObj, error)
-	IsInitialized(runtimeObj) (bool, error)
-	Operate(runtimeObj) error
-	ReconcileFail(runtimeObj, error)
-	IsDeleting(runtimeObj) (bool, error)
-}
-
-func HandleReconcile(r SQBHandler) (ctrl.Result, error) {
+func HandleReconcile(r SQBReconciler) (ctrl.Result, error) {
 	if !entity.ConfigMapData.Initialized {
 		return ctrl.Result{RequeueAfter: time.Second}, nil
 	}
@@ -53,9 +66,6 @@ func HandleReconcile(r SQBHandler) (ctrl.Result, error) {
 		}
 	}
 
-	log.Info("get instance", "kind", obj.GetObjectKind().GroupVersionKind(),
-		"namespace", obj.GetNamespace(), "name", obj.GetName())
-
 	generation := obj.GetGeneration()
 	if yes, err := r.IsInitialized(obj); !yes {
 		if err != nil {
@@ -67,13 +77,6 @@ func HandleReconcile(r SQBHandler) (ctrl.Result, error) {
 		}
 	}
 
-	if yes, err := r.IsDeleting(obj); yes {
-		if err != nil {
-			r.ReconcileFail(obj, err)
-		}
-		return ctrl.Result{}, err
-	}
-
 	err = r.Operate(obj)
 	if err != nil {
 		r.ReconcileFail(obj, err)
@@ -82,7 +85,7 @@ func HandleReconcile(r SQBHandler) (ctrl.Result, error) {
 }
 
 func CreateOrUpdate(ctx context.Context, obj runtimeObj) error {
-	kind, _ := apiutil.GVKForObject(obj, entity.K8sScheme)
+	kind, _ := apiutil.GVKForObject(obj, k8sScheme)
 	if obj.GetCreationTimestamp().Time.IsZero() {
 		err := k8sclient.Create(ctx, obj)
 		log.Info("create obj", "kind", kind,
@@ -95,10 +98,43 @@ func CreateOrUpdate(ctx context.Context, obj runtimeObj) error {
 	return err
 }
 
+func UpdateStatus(ctx context.Context, obj runtimeObj) error {
+	kind, _ := apiutil.GVKForObject(obj, k8sScheme)
+	err := k8sclient.Status().Update(ctx, obj)
+	log.Info("update obj status", "kind", kind,
+		"namespace", obj.GetNamespace(), "name", obj.GetName(), "error", err)
+	return err
+}
+
 func Delete(ctx context.Context, obj runtimeObj) error {
-	kind, _ := apiutil.GVKForObject(obj, entity.K8sScheme)
+	kind, _ := apiutil.GVKForObject(obj, k8sScheme)
 	err := k8sclient.Delete(ctx, obj)
 	log.Info("delete obj", "kind", kind,
 		"namespace", obj.GetNamespace(), "name", obj.GetName(), "error", err)
 	return client.IgnoreNotFound(err)
+}
+
+// DeleteAllOf 根据namespace和label删除某种类型的所有资源
+func DeleteAllOf(ctx context.Context, obj runtimeObj, namespace string, labelMap map[string]string) error {
+	err := k8sclient.DeleteAllOf(ctx, obj, &client.DeleteAllOfOptions{
+		ListOptions: client.ListOptions{
+			Namespace:     namespace,
+			LabelSelector: labels.SelectorFromSet(labelMap),
+		},
+	})
+	kind, _ := apiutil.GVKForObject(obj, k8sScheme)
+	log.Info("delete all obj", "kind", kind,
+		"namespace", namespace, "label", labelMap, "error", err)
+	return err
+}
+
+func IsDeleted(obj runtimeObj) (bool, error) {
+	if deleteCheckSum, ok := obj.GetAnnotations()[entity.ExplicitDeleteAnnotationKey]; ok {
+		if deleteCheckSum == util.GetDeleteCheckSum(obj.GetName()) {
+			return true, nil
+		} else {
+			return false, fmt.Errorf("delete annotation %s is wrong", deleteCheckSum)
+		}
+	}
+	return false, nil
 }

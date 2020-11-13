@@ -43,3 +43,10 @@ func (h *serviceHandler) Delete() error {
 	service := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Namespace: h.sqbapplication.Namespace, Name: h.sqbapplication.Name}}
 	return Delete(h.ctx, service)
 }
+
+func (h *serviceHandler) Handle() error {
+	if deleted, _ := IsDeleted(h.sqbapplication); deleted {
+		return h.Delete()
+	}
+	return h.CreateOrUpdate()
+}

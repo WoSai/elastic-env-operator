@@ -19,30 +19,40 @@ package controllers
 import (
 	"context"
 	"github.com/go-logr/logr"
-	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	sqbhandler "github.com/wosai/elastic-env-operator/domain/handler"
+	v12 "k8s.io/api/apps/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/builder"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/event"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 )
 
-// SQBApplicationReconciler reconciles a SQBApplication object
-type SQBApplicationReconciler struct {
+// SQBPlaneReconciler reconciles a SQBPlane object
+type DeploymentReconciler struct {
 	client.Client
 	Log    logr.Logger
 	Scheme *runtime.Scheme
 }
 
-// +kubebuilder:rbac:groups=qa.shouqianba.com,resources=sqbapplications,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=qa.shouqianba.com,resources=sqbapplications/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=qa.shouqianba.com,resources=sqbplanes,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=qa.shouqianba.com,resources=sqbplanes/status,verbs=get;update;patch
 
-func (r *SQBApplicationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+func (r *DeploymentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	return sqbhandler.HandleReconcile(sqbhandler.NewSqbApplicationHanlder(req, ctx))
+	return sqbhandler.HandleReconcile(sqbhandler.NewDeploymentHandlerWithReq(req, ctx))
 }
 
-func (r *SQBApplicationReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&qav1alpha1.SQBApplication{}).
+		For(&v12.Deployment{}, builder.WithPredicates(predicate.Funcs{
+			UpdateFunc: func(event event.UpdateEvent) bool {
+				return false
+			},
+			GenericFunc: func(event event.GenericEvent) bool {
+				return false
+			},
+		})).
 		Complete(r)
 }

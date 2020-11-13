@@ -91,7 +91,7 @@ var _ = BeforeSuite(func(done Done) {
 	Expect(err).ToNot(HaveOccurred())
 
 	handler.SetK8sClient(mgr.GetClient())
-	entity.SetK8sScheme(mgr.GetScheme())
+	handler.SetK8sScheme(mgr.GetScheme())
 	handler.SetK8sLog(ctrl.Log.WithName("domain handler"))
 
 	err = (&SQBDeploymentReconciler{
@@ -118,6 +118,13 @@ var _ = BeforeSuite(func(done Done) {
 	err = (&ConfigMapReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("ConfigMap"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr)
+	Expect(err).ToNot(HaveOccurred())
+
+	err = (&DeploymentReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("Deployment"),
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr)
 	Expect(err).ToNot(HaveOccurred())
@@ -172,12 +179,15 @@ var _ = BeforeSuite(func(done Done) {
 	err = k8sClient.Create(context.Background(), destinationRuleCRD)
 	Expect(err).NotTo(HaveOccurred())
 
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 2)
 
 	entity.ConfigMapData.FromMap(map[string]string{
-		"ingressOpen": "true",
-		"istioInject": "true",
-		"istioEnable": "true",
+		"ingressOpen":                  "true",
+		"istioInject":                  "true",
+		"istioEnable":                  "true",
+		"domainPostfix":                "{\"nginx-internal\":\"*.beta.iwosai.com\",\"nginx\":\"*.iwosai.com\"}",
+		"istioGateways":                "[\"istio-system/ingressgateway\",\"mesh\"]",
+		"specialVirtualServiceIngress": "nginx",
 	})
 
 	close(done)

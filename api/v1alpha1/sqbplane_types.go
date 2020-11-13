@@ -35,9 +35,8 @@ type SQBPlaneSpec struct {
 type SQBPlaneStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
-	Mirrors     map[string]int `json:"mirrors,omitempty"`
-	Initialized bool           `json:"initialized,omitempty"`
-	ErrorInfo   string         `json:"errorInfo,omitempty"`
+	Mirrors   map[string]int `json:"mirrors,omitempty"`
+	ErrorInfo string         `json:"errorInfo,omitempty"`
 }
 
 // +kubebuilder:object:root=true

@@ -46,8 +46,6 @@ spec:
             properties:
               errorInfo:
                 type: string
-              initialized:
-                type: boolean
               mirrors:
                 additionalProperties:
                   type: integer

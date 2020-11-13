@@ -7,7 +7,6 @@ import (
 	"github.com/wosai/elastic-env-operator/domain/util"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type sqbDeploymentHandler struct {
@@ -42,7 +41,6 @@ func (h *sqbDeploymentHandler) IsInitialized(obj runtimeObj) (bool, error) {
 	newSQBDeployment.Labels = sqbapplication.Labels
 
 	in.Merge(newSQBDeployment)
-	controllerutil.AddFinalizer(in, entity.SqbdeploymentFinalizer)
 	in.Labels = util.MergeStringMap(in.Labels, map[string]string{
 		entity.AppKey:   in.Spec.Selector.App,
 		entity.PlaneKey: in.Spec.Selector.Plane,
@@ -57,44 +55,51 @@ func (h *sqbDeploymentHandler) IsInitialized(obj runtimeObj) (bool, error) {
 // 正常处理逻辑
 func (h *sqbDeploymentHandler) Operate(obj runtimeObj) error {
 	in := obj.(*qav1alpha1.SQBDeployment)
-	if err := NewDeploymentHandler(in, h.ctx).CreateOrUpdate(); err != nil {
+	deleted, err := IsDeleted(in)
+	if err != nil {
 		return err
 	}
 
-	if entity.ConfigMapData.IstioEnable() {
-		handler := NewSpecialVirtualServiceHandler(in, h.ctx)
-		if in.Annotations[entity.PublicEntryAnnotationKey] == "true" {
-			if err := handler.CreateOrUpdate(); err != nil {
-				return err
-			}
-		} else {
-			if err := handler.Delete(); err != nil {
-				return err
-			}
+	handlers := []SQBHandler{
+		NewDeploymentHandler(in, h.ctx),
+		NewSqbdeploymentIngressHandler(in, h.ctx),
+		NewSpecialVirtualServiceHandler(in, h.ctx),
+	}
+
+	for _, handler := range handlers {
+		if err = handler.Handle(); err != nil {
+			return err
 		}
 	}
-	in.Status.ErrorInfo = ""
-	return k8sclient.Status().Update(h.ctx, in)
+
+	if deleted {
+		return Delete(h.ctx, in)
+	} else if in.Status.ErrorInfo != "" {
+		in.Status.ErrorInfo = ""
+		return UpdateStatus(h.ctx, in)
+	}
+	return nil
 }
 
 // 处理失败后逻辑
 func (h *sqbDeploymentHandler) ReconcileFail(obj runtimeObj, err error) {
 	in := obj.(*qav1alpha1.SQBDeployment)
 	in.Status.ErrorInfo = err.Error()
-	_ = k8sclient.Status().Update(h.ctx, in)
+	_ = UpdateStatus(h.ctx, in)
 }
 
-// 删除逻辑
-func (h *sqbDeploymentHandler) IsDeleting(obj runtimeObj) (bool, error) {
-	in := obj.(*qav1alpha1.SQBDeployment)
-	if in.DeletionTimestamp.IsZero() || !controllerutil.ContainsFinalizer(in, entity.SqbdeploymentFinalizer) {
-		return false, nil
+func HasPublicEntry(sqbdeployment *qav1alpha1.SQBDeployment) bool {
+	publicEntry, ok := sqbdeployment.Annotations[entity.PublicEntryAnnotationKey]
+	if ok {
+		return publicEntry == "true"
 	}
-	if deleteCheckSum, ok := in.Annotations[entity.ExplicitDeleteAnnotationKey]; ok && deleteCheckSum == util.GetDeleteCheckSum(in.Name) {
-		if err := NewDeploymentHandler(in, h.ctx).Delete(); err != nil {
-			return true, err
-		}
+	return false
+}
+
+// 返回special virtualservice的入口对应在哪个ingress上
+func SpecialVirtualServiceIngress(sqbdeployment *qav1alpha1.SQBDeployment) string {
+	if specialVirtualServiceIngress, ok := sqbdeployment.Annotations[entity.SpecialVirtualServiceIngress]; ok {
+		return specialVirtualServiceIngress
 	}
-	controllerutil.RemoveFinalizer(in, entity.SqbdeploymentFinalizer)
-	return true, CreateOrUpdate(h.ctx, in)
+	return entity.ConfigMapData.SpecialVirtualServiceIngress()
 }

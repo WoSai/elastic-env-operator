@@ -1,6 +1,7 @@
 package entity
 
 import (
+	"encoding/json"
 	v1 "k8s.io/api/core/v1"
 	"strconv"
 	"strings"
@@ -10,36 +11,28 @@ var ConfigMapData = &SQBConfigMapEntity{}
 
 // operator相关的业务配置实体
 type SQBConfigMapEntity struct {
-	ingressOpen         bool
-	istioInject         bool
-	istioEnable         bool
-	domainPostfix       string
-	globalDefaultDeploy string
-	imagePullSecrets    string
-	istioTimeout        int64
-	istioGateways       []string
-	Initialized         bool
+	ingressOpen                  bool
+	istioInject                  bool
+	istioEnable                  bool
+	serviceMonitorEnable         bool
+	domainPostfix                map[string]string // {"ingress class":"host"}
+	globalDefaultDeploy          string
+	imagePullSecrets             string
+	istioTimeout                 int64
+	istioGateways                []string
+	specialVirtualServiceIngress string
+	Initialized                  bool
 }
 
 func (sc *SQBConfigMapEntity) FromMap(data map[string]string) {
 	if len(data) == 0 {
 		data = make(map[string]string)
 	}
-	if data["ingressOpen"] == "true" {
-		sc.ingressOpen = true
-	} else {
-		sc.ingressOpen = false
-	}
-	if data["istioInject"] == "true" {
-		sc.istioInject = true
-	} else {
-		sc.istioInject = false
-	}
-	if data["istioEnable"] == "true" {
-		sc.istioEnable = true
-	} else {
-		sc.istioEnable = false
-	}
+	sc.ingressOpen = data["ingressOpen"] == "true"
+	sc.istioInject = data["istioInject"] == "true"
+	sc.istioEnable = data["istioEnable"] == "true"
+	sc.serviceMonitorEnable = data["serviceMonitorEnable"] == "true"
+
 	if istioTimeout, ok := data["istioTimeout"]; ok {
 		timeout, err := strconv.Atoi(istioTimeout)
 		if err == nil {
@@ -51,23 +44,36 @@ func (sc *SQBConfigMapEntity) FromMap(data map[string]string) {
 		sc.istioTimeout = 30
 	}
 	if domainPostfix, ok := data["domainPostfix"]; ok {
-		sc.domainPostfix = domainPostfix
-	} else {
-		sc.domainPostfix = "*.beta.iwosai.com,*.iwosai.com"
+		domains := make(map[string]string)
+		_ = json.Unmarshal([]byte(domainPostfix), &domains)
+		sc.domainPostfix = domains
 	}
 	sc.globalDefaultDeploy = data["globalDefaultDeploy"]
 	sc.imagePullSecrets = data["imagePullSecrets"]
 	if istioGateways, ok := data["istioGateways"]; ok {
-		sc.istioGateways = strings.Split(istioGateways, ",")
-	} else {
+		gateways := make([]string, 0)
+		_ = json.Unmarshal([]byte(istioGateways), &gateways)
+		sc.istioGateways = gateways
+	}
+	if len(sc.istioGateways) == 0 {
 		sc.istioGateways = []string{"mesh"}
+	}
+	if specialVirtualServiceIngress, ok := data["specialVirtualServiceIngress"]; ok {
+		sc.specialVirtualServiceIngress = specialVirtualServiceIngress
 	}
 	sc.Initialized = true
 }
 
-func (sc *SQBConfigMapEntity) GetDomainNames(prefix string) []string {
-	hosts := strings.Split(strings.ReplaceAll(sc.domainPostfix, "*", prefix), ",")
-	return hosts
+func (sc *SQBConfigMapEntity) GetDomainNames(prefix string) map[string]string {
+	domains := make(map[string]string)
+	for k, v := range sc.domainPostfix {
+		domains[k] = strings.ReplaceAll(v, "*", prefix)
+	}
+	return domains
+}
+
+func (sc *SQBConfigMapEntity) GetDomainNameByClass(prefix, class string) string {
+	return sc.GetDomainNames(prefix)[class]
 }
 
 func (sc *SQBConfigMapEntity) GetImagePullSecrets() []v1.LocalObjectReference {
@@ -105,10 +111,18 @@ func (sc *SQBConfigMapEntity) IstioInject() bool {
 	}
 }
 
+func (sc *SQBConfigMapEntity) IsServiceMonitorEnable() bool {
+	return sc.serviceMonitorEnable
+}
+
 func (sc *SQBConfigMapEntity) GlobalDeploy() (string, bool) {
 	enable := false
 	if sc.globalDefaultDeploy != "" {
 		enable = true
 	}
 	return sc.globalDefaultDeploy, enable
+}
+
+func (sc *SQBConfigMapEntity) SpecialVirtualServiceIngress() string {
+	return sc.specialVirtualServiceIngress
 }

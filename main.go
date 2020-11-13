@@ -31,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"time"
 
+	prometheus "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	istio "istio.io/client-go/pkg/apis/networking/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
@@ -45,6 +46,7 @@ func init() {
 	utilruntime.Must(qav1alpha1.AddToScheme(scheme))
 	utilruntime.Must(v1.AddToScheme(scheme))
 	utilruntime.Must(istio.AddToScheme(scheme))
+	utilruntime.Must(prometheus.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 }
 
@@ -73,7 +75,7 @@ func main() {
 
 	handler.SetK8sClient(mgr.GetClient())
 	handler.SetK8sLog(ctrl.Log.WithName("domain handler"))
-	entity.SetK8sScheme(mgr.GetScheme())
+	handler.SetK8sScheme(mgr.GetScheme())
 
 	if err = (&controllers.SQBDeploymentReconciler{
 		Client: mgr.GetClient(),
@@ -105,6 +107,15 @@ func main() {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ConfigMap")
+		os.Exit(1)
+	}
+
+	if err = (&controllers.DeploymentReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("Deployment"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Deployment")
 		os.Exit(1)
 	}
 
