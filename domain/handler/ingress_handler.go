@@ -175,7 +175,7 @@ func (h *ingressHandler) DeleteForSqbdeployment() error {
 
 func (h *ingressHandler) Handle() error {
 	if h.sqbapplication != nil {
-		if IsExplicitDelete(h.sqbapplication) {
+		if deleted, _ := IsDeleted(h.sqbapplication); deleted {
 			return h.DeleteForSqbapplication()
 		}
 		if !IsIngressOpen(h.sqbapplication) {
@@ -184,7 +184,7 @@ func (h *ingressHandler) Handle() error {
 		return h.CreateOrUpdateForSqbapplication()
 	}
 	if h.sqbdeployment != nil {
-		if IsExplicitDelete(h.sqbdeployment) {
+		if deleted, _ := IsDeleted(h.sqbdeployment); deleted {
 			return h.DeleteForSqbdeployment()
 		}
 		if h.sqbdeployment.Annotations[entity.PublicEntryAnnotationKey] != "true" {

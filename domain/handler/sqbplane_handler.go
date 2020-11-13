@@ -5,7 +5,6 @@ import (
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type sqbPlaneHandler struct {
@@ -29,7 +28,6 @@ func (h *sqbPlaneHandler) IsInitialized(obj runtimeObj) (bool, error) {
 	if in.Annotations[entity.InitializeAnnotationKey] == "true" {
 		return true, nil
 	}
-	controllerutil.AddFinalizer(in, entity.Finalizer)
 	if len(in.Annotations) == 0 {
 		in.Annotations = make(map[string]string)
 	}
@@ -40,21 +38,24 @@ func (h *sqbPlaneHandler) IsInitialized(obj runtimeObj) (bool, error) {
 // 正常处理逻辑
 func (h *sqbPlaneHandler) Operate(obj runtimeObj) error {
 	in := obj.(*qav1alpha1.SQBPlane)
+	deleted, err := IsDeleted(in)
+	if err != nil {
+		return err
+	}
 
 	handlers := []SQBHandler{
-		NewSqbDeploymentListHandler(nil, in, h.ctx),
-		NewDeploymentListHandler(nil, in, h.ctx),
+		NewSqbDeploymentListHandlerForSqbplane(in, h.ctx),
+		NewDeploymentListHandlerForSqbplane(in, h.ctx),
 	}
 
 	for _, handler := range handlers {
-		if err := handler.Handle(); err != nil {
+		if err = handler.Handle(); err != nil {
 			return err
 		}
 	}
 
-	if !in.DeletionTimestamp.IsZero() {
-		controllerutil.RemoveFinalizer(in, entity.Finalizer)
-		return CreateOrUpdate(h.ctx, in)
+	if deleted {
+		return Delete(h.ctx, in)
 	} else if in.Status.ErrorInfo != "" {
 		in.Status.ErrorInfo = ""
 		return UpdateStatus(h.ctx, in)

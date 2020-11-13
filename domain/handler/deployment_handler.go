@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
 	appv1 "k8s.io/api/apps/v1"
@@ -152,7 +151,7 @@ func (h *deploymentHandler) Delete() error {
 }
 
 func (h *deploymentHandler) Handle() error {
-	if IsExplicitDelete(h.sqbdeployment) {
+	if deleted, _ := IsDeleted(h.sqbdeployment); deleted {
 		return h.Delete()
 	}
 	if !h.sqbdeployment.DeletionTimestamp.IsZero() {
@@ -201,9 +200,6 @@ func (h *deploymentHandler) Operate(obj runtimeObj) error {
 				return err
 			}
 		} else {
-			if sqbapplication.Annotations[entity.InitializeAnnotationKey] != "true" {
-				return errors.New("sqbapplication not initialized")
-			}
 			if sqbapplication.DeletionTimestamp.IsZero() {
 				sqbapplication.Status.Planes = planes
 				sqbapplication.Status.Mirrors = mirrors
@@ -236,9 +232,6 @@ func (h *deploymentHandler) Operate(obj runtimeObj) error {
 				return err
 			}
 		} else {
-			if sqbplane.Annotations[entity.InitializeAnnotationKey] != "true" {
-				return errors.New("sqbplane not initialized")
-			}
 			if sqbplane.DeletionTimestamp.IsZero() {
 				sqbplane.Status.Mirrors = mirrors
 				sqbplane.Status.ErrorInfo = ""

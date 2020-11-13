@@ -49,7 +49,7 @@ func (h *specialVirtualServiceHandler) CreateOrUpdate() error {
 	}
 
 	deployment := &appv1.Deployment{}
-	if err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: h.sqbdeployment.Namespace, Name: h.sqbdeployment.Name}, deployment); err != nil {
+	if err = k8sclient.Get(h.ctx, client.ObjectKey{Namespace: h.sqbdeployment.Namespace, Name: h.sqbdeployment.Name}, deployment); err != nil {
 		return err
 	}
 	_ = controllerutil.SetControllerReference(deployment, specialvirtualservice, k8sScheme)

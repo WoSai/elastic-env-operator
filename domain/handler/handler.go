@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-logr/logr"
 	"github.com/wosai/elastic-env-operator/domain/entity"
 	"github.com/wosai/elastic-env-operator/domain/util"
@@ -12,7 +13,6 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"time"
 )
 
@@ -128,12 +128,13 @@ func DeleteAllOf(ctx context.Context, obj runtimeObj, namespace string, labelMap
 	return err
 }
 
-func IsExplicitDelete(obj runtimeObj) bool {
-	deleteCheckSum, ok := obj.GetAnnotations()[entity.ExplicitDeleteAnnotationKey]
-	if obj.GetDeletionTimestamp() != nil && !obj.GetDeletionTimestamp().Time.IsZero() && ok &&
-		deleteCheckSum == util.GetDeleteCheckSum(obj.GetName()) &&
-		controllerutil.ContainsFinalizer(obj, entity.Finalizer) {
-		return true
+func IsDeleted(obj runtimeObj) (bool, error) {
+	if deleteCheckSum, ok := obj.GetAnnotations()[entity.ExplicitDeleteAnnotationKey]; ok {
+		if deleteCheckSum == util.GetDeleteCheckSum(obj.GetName()) {
+			return true, nil
+		} else {
+			return false, fmt.Errorf("delete annotation %s is wrong", deleteCheckSum)
+		}
 	}
-	return false
+	return false, nil
 }

@@ -45,7 +45,7 @@ func (h *serviceHandler) Delete() error {
 }
 
 func (h *serviceHandler) Handle() error {
-	if IsExplicitDelete(h.sqbapplication) {
+	if deleted, _ := IsDeleted(h.sqbapplication); deleted {
 		return h.Delete()
 	}
 	return h.CreateOrUpdate()

@@ -7,7 +7,6 @@ import (
 	"github.com/wosai/elastic-env-operator/domain/util"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type sqbDeploymentHandler struct {
@@ -42,7 +41,6 @@ func (h *sqbDeploymentHandler) IsInitialized(obj runtimeObj) (bool, error) {
 	newSQBDeployment.Labels = sqbapplication.Labels
 
 	in.Merge(newSQBDeployment)
-	controllerutil.AddFinalizer(in, entity.Finalizer)
 	in.Labels = util.MergeStringMap(in.Labels, map[string]string{
 		entity.AppKey:   in.Spec.Selector.App,
 		entity.PlaneKey: in.Spec.Selector.Plane,
@@ -57,6 +55,10 @@ func (h *sqbDeploymentHandler) IsInitialized(obj runtimeObj) (bool, error) {
 // 正常处理逻辑
 func (h *sqbDeploymentHandler) Operate(obj runtimeObj) error {
 	in := obj.(*qav1alpha1.SQBDeployment)
+	deleted, err := IsDeleted(in)
+	if err != nil {
+		return err
+	}
 
 	handlers := []SQBHandler{
 		NewDeploymentHandler(in, h.ctx),
@@ -65,14 +67,13 @@ func (h *sqbDeploymentHandler) Operate(obj runtimeObj) error {
 	}
 
 	for _, handler := range handlers {
-		if err := handler.Handle(); err != nil {
+		if err = handler.Handle(); err != nil {
 			return err
 		}
 	}
 
-	if !in.DeletionTimestamp.IsZero() {
-		controllerutil.RemoveFinalizer(in, entity.Finalizer)
-		return CreateOrUpdate(h.ctx, in)
+	if deleted {
+		return Delete(h.ctx, in)
 	} else if in.Status.ErrorInfo != "" {
 		in.Status.ErrorInfo = ""
 		return UpdateStatus(h.ctx, in)

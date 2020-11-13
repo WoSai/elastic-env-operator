@@ -63,7 +63,7 @@ func (h *virtualServiceHandler) Handle() error {
 	if !entity.ConfigMapData.IstioEnable() {
 		return nil
 	}
-	if IsExplicitDelete(h.sqbapplication) {
+	if deleted, _ := IsDeleted(h.sqbapplication); deleted {
 		return h.Delete()
 	}
 	if IsIstioInject(h.sqbapplication) {

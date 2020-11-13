@@ -47,7 +47,7 @@ func (h *serviceMonitorHandler) Handle() error {
 	if !entity.ConfigMapData.IsServiceMonitorEnable() {
 		return nil
 	}
-	if IsExplicitDelete(h.sqbapplication) || len(h.sqbapplication.Spec.Monitors) == 0 {
+	if deleted, _ := IsDeleted(h.sqbapplication); deleted || len(h.sqbapplication.Spec.Monitors) == 0 {
 		return h.Delete()
 	}
 	if IsServiceMonitorOpen(h.sqbapplication) {

@@ -51,7 +51,6 @@ var _ = Describe("Controller", func() {
 		err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: planeName}, instance)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(instance.Annotations[entity.InitializeAnnotationKey]).To(Equal("true"))
-		Expect(util.ContainString(instance.Finalizers, entity.Finalizer)).To(BeTrue())
 		err = k8sClient.Delete(ctx, sqbplane)
 		Expect(err).NotTo(HaveOccurred())
 		time.Sleep(time.Second)
@@ -86,7 +85,6 @@ var _ = Describe("Controller", func() {
 		instance := &qav1alpha1.SQBApplication{}
 		err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, instance)
 		Expect(instance.Annotations[entity.InitializeAnnotationKey]).To(Equal("true"))
-		Expect(util.ContainString(instance.Finalizers, entity.Finalizer)).To(BeTrue())
 		// 会创建base plane和sqbdeployment
 		basePlane := &qav1alpha1.SQBPlane{}
 		err := k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: planeName}, basePlane)
@@ -95,7 +93,6 @@ var _ = Describe("Controller", func() {
 		err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: deploymentName}, sqbdeployment)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(sqbdeployment.Annotations[entity.InitializeAnnotationKey]).To(Equal("true"))
-		Expect(util.ContainString(sqbdeployment.Finalizers, entity.Finalizer)).To(BeTrue())
 		deployment := &appv1.Deployment{}
 		err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: deploymentName}, deployment)
 		Expect(err).NotTo(HaveOccurred())

@@ -13,16 +13,34 @@ type deploymentListHandler struct {
 	ctx            context.Context
 }
 
-func NewDeploymentListHandler(sqbapplication *qav1alpha1.SQBApplication, sqbplane *qav1alpha1.SQBPlane, ctx context.Context) *deploymentListHandler {
-	return &deploymentListHandler{sqbapplication: sqbapplication, sqbplane: sqbplane, ctx: ctx}
+func NewDeploymentListHandlerForSqbapplication(sqbapplication *qav1alpha1.SQBApplication, ctx context.Context) *deploymentListHandler {
+	return &deploymentListHandler{sqbapplication: sqbapplication, ctx: ctx}
+}
+
+func NewDeploymentListHandlerForSqbplane(sqbplane *qav1alpha1.SQBPlane, ctx context.Context) *deploymentListHandler {
+	return &deploymentListHandler{sqbplane: sqbplane, ctx: ctx}
+}
+
+func (h *deploymentListHandler) DeleteForSqbapplication() error {
+	if deleted, _ := IsDeleted(h.sqbapplication); deleted {
+		return DeleteAllOf(h.ctx, &appv1.Deployment{}, h.sqbapplication.Namespace, map[string]string{entity.AppKey: h.sqbapplication.Name})
+	}
+	return nil
+}
+
+func (h *deploymentListHandler) DeleteForSqbplane() error {
+	if deleted, _ := IsDeleted(h.sqbplane); deleted {
+		return DeleteAllOf(h.ctx, &appv1.Deployment{}, h.sqbplane.Namespace, map[string]string{entity.PlaneKey: h.sqbplane.Name})
+	}
+	return nil
 }
 
 func (h *deploymentListHandler) Handle() error {
-	if h.sqbapplication != nil && IsExplicitDelete(h.sqbapplication) {
-		return DeleteAllOf(h.ctx, &appv1.Deployment{}, h.sqbapplication.Namespace, map[string]string{entity.AppKey: h.sqbapplication.Name})
+	if h.sqbapplication != nil {
+		return h.DeleteForSqbapplication()
 	}
-	if h.sqbplane != nil && IsExplicitDelete(h.sqbplane) {
-		return DeleteAllOf(h.ctx, &appv1.Deployment{}, h.sqbplane.Namespace, map[string]string{entity.PlaneKey: h.sqbplane.Name})
+	if h.sqbplane != nil {
+		return h.DeleteForSqbplane()
 	}
 	return nil
 }

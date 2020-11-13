@@ -11,7 +11,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type sqbApplicationHandler struct {
@@ -43,7 +42,6 @@ func (h *sqbApplicationHandler) IsInitialized(obj runtimeObj) (bool, error) {
 			in.Spec.DeploySpec = deploy
 		}
 	}
-	controllerutil.AddFinalizer(in, entity.Finalizer)
 	if len(in.Spec.Domains) == 0 {
 		for k,v := range entity.ConfigMapData.GetDomainNames(in.Name) {
 			in.Spec.Domains = append(in.Spec.Domains, qav1alpha1.Domain{Class: k, Host: v})
@@ -58,7 +56,11 @@ func (h *sqbApplicationHandler) IsInitialized(obj runtimeObj) (bool, error) {
 
 func (h *sqbApplicationHandler) Operate(obj runtimeObj) error {
 	in := obj.(*qav1alpha1.SQBApplication)
-	if in.DeletionTimestamp.IsZero() && len(in.Status.Planes) == 0 {
+	deleted, err := IsDeleted(in)
+	if err != nil {
+		return err
+	}
+	if !deleted && len(in.Status.Planes) == 0 {
 		return h.CreateBase(in)
 	}
 
@@ -68,8 +70,8 @@ func (h *sqbApplicationHandler) Operate(obj runtimeObj) error {
 		NewDestinationRuleHandler(in, h.ctx),
 		NewVirtualServiceHandler(in, h.ctx),
 		NewServiceMonitorHandler(in, h.ctx),
-		NewSqbDeploymentListHandler(in, nil, h.ctx),
-		NewDeploymentListHandler(in, nil, h.ctx),
+		NewSqbDeploymentListHandlerForSqbapplication(in, h.ctx),
+		NewDeploymentListHandlerForSqbapplication(in, h.ctx),
 	}
 
 	for _, handler := range handlers {
@@ -78,9 +80,8 @@ func (h *sqbApplicationHandler) Operate(obj runtimeObj) error {
 		}
 	}
 
-	if !in.DeletionTimestamp.IsZero() {
-		controllerutil.RemoveFinalizer(in, entity.Finalizer)
-		return CreateOrUpdate(h.ctx, in)
+	if deleted {
+		return Delete(h.ctx, in)
 	} else if in.Status.ErrorInfo != "" {
 		in.Status.ErrorInfo = ""
 		return UpdateStatus(h.ctx, in)
