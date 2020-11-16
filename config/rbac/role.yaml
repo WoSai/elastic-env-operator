@@ -20,6 +20,7 @@ rules:
   - sqbplanes
   - persistentvolumeclaims
   - customresourcedefinitions
+  - servicemonitors
   - sqbapplications/status
   - sqbdeployments/status
   - sqbplanes/status
