@@ -832,7 +832,7 @@ spec:
                 type: array
               nodeAffinity:
                 properties:
-                  prefered:
+                  prefer:
                     items:
                       properties:
                         key:
@@ -864,7 +864,7 @@ spec:
                       - weight
                       type: object
                     type: array
-                  required:
+                  require:
                     items:
                       properties:
                         key:
@@ -896,9 +896,6 @@ spec:
                       - weight
                       type: object
                     type: array
-                required:
-                - prefered
-                - required
                 type: object
               ports:
                 items:
