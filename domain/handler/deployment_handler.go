@@ -105,9 +105,9 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 		affinity := &corev1.Affinity{
 			NodeAffinity: &corev1.NodeAffinity{},
 		}
-		if len(deploy.NodeAffinity.Required) != 0 {
+		if len(deploy.NodeAffinity.Require) != 0 {
 			nodeSelectorTerms := make([]corev1.NodeSelectorTerm, 0)
-			for _, item := range deploy.NodeAffinity.Required {
+			for _, item := range deploy.NodeAffinity.Require {
 				nodeSelectorTerms = append(nodeSelectorTerms, corev1.NodeSelectorTerm{
 					MatchExpressions: []corev1.NodeSelectorRequirement{
 						{
@@ -122,9 +122,9 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 				NodeSelectorTerms: nodeSelectorTerms,
 			}
 		}
-		if len(deploy.NodeAffinity.Preferred) != 0 {
+		if len(deploy.NodeAffinity.Prefer) != 0 {
 			preferredTerms := make([]corev1.PreferredSchedulingTerm, 0)
-			for _, item := range deploy.NodeAffinity.Preferred {
+			for _, item := range deploy.NodeAffinity.Prefer {
 				preferredTerms = append(preferredTerms, corev1.PreferredSchedulingTerm{
 					Weight: item.Weight,
 					Preference: corev1.NodeSelectorTerm{
