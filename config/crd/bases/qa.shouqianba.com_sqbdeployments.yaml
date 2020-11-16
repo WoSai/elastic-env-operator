@@ -485,7 +485,7 @@ spec:
                 type: object
               nodeAffinity:
                 properties:
-                  prefered:
+                  prefer:
                     items:
                       properties:
                         key:
@@ -517,7 +517,7 @@ spec:
                       - weight
                       type: object
                     type: array
-                  required:
+                  require:
                     items:
                       properties:
                         key:
@@ -549,9 +549,6 @@ spec:
                       - weight
                       type: object
                     type: array
-                required:
-                - prefered
-                - required
                 type: object
               replicas:
                 format: int32
