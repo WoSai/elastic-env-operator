@@ -77,8 +77,8 @@ type DeploySpec struct {
 }
 
 type NodeAffinity struct {
-	Require  []NodeSelector `json:"require,omitempty"`
-	Prefer []NodeSelector `json:"prefer,omitempty"`
+	Require []NodeSelector `json:"require,omitempty"`
+	Prefer  []NodeSelector `json:"prefer,omitempty"`
 }
 
 type NodeSelector struct {

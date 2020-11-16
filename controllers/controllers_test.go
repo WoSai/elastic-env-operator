@@ -207,7 +207,7 @@ var _ = Describe("Controller", func() {
 						FailureThreshold:    1,
 					},
 					NodeAffinity: &qav1alpha1.NodeAffinity{
-						Preferred: []qav1alpha1.NodeSelector{
+						Prefer: []qav1alpha1.NodeSelector{
 							{
 								Weight: 100,
 								NodeSelectorRequirement: corev1.NodeSelectorRequirement{
@@ -217,7 +217,7 @@ var _ = Describe("Controller", func() {
 								},
 							},
 						},
-						Required: []qav1alpha1.NodeSelector{
+						Require: []qav1alpha1.NodeSelector{
 							{
 								Weight: 100,
 								NodeSelectorRequirement: corev1.NodeSelectorRequirement{
