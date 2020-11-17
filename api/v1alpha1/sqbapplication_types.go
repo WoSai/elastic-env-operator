@@ -18,8 +18,8 @@ package v1alpha1
 
 import (
 	"encoding/json"
-	prometheus "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 	jsonpatch "github.com/evanphx/json-patch"
+	prometheus "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/wosai/elastic-env-operator/domain/util"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -44,9 +44,9 @@ type IngressSpec struct {
 }
 
 type Domain struct {
-	Class      string `json:"class"`
-	Annotation string `json:"annotation,omitempty"`
-	Host       string `json:"host,omitempty"`
+	Class      string            `json:"class"`
+	Annotation map[string]string `json:"annotation,omitempty"`
+	Host       string            `json:"host,omitempty"`
 }
 
 type Subpath struct {

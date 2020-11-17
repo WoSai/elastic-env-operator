@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
 	"github.com/wosai/elastic-env-operator/domain/util"
@@ -90,8 +89,8 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 			entity.AppKey:   h.sqbapplication.Name,
 			entity.GroupKey: h.sqbapplication.Labels[entity.GroupKey],
 		})
-		if anno := domain.Annotation; anno != "" {
-			_ = json.Unmarshal([]byte(anno), &ingress.Annotations)
+		if len(domain.Annotation) != 0 {
+			ingress.Annotations = domain.Annotation
 		} else {
 			ingress.Annotations = nil
 		}
