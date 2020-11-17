@@ -2,7 +2,7 @@ package handler
 
 import (
 	"context"
-	prometheus "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
+	prometheus "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
