@@ -48,7 +48,9 @@ spec:
                 items:
                   properties:
                     annotation:
-                      type: string
+                      additionalProperties:
+                        type: string
+                      type: object
                     class:
                       type: string
                     host:

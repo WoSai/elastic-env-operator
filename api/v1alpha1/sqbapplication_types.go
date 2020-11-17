@@ -45,7 +45,7 @@ type IngressSpec struct {
 
 type Domain struct {
 	Class      string `json:"class"`
-	Annotation string `json:"annotation,omitempty"`
+	Annotation map[string]string `json:"annotation,omitempty"`
 	Host       string `json:"host,omitempty"`
 }
 

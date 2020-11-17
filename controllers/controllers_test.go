@@ -361,7 +361,9 @@ var _ = Describe("Controller", func() {
 			sqbapplication.Annotations[entity.ServiceAnnotationKey] = `{"type":"service"}`
 			sqbapplication.Annotations[entity.IngressOpenAnnotationKey] = "true"
 			for i, domain := range sqbapplication.Spec.Domains {
-				domain.Annotation = `{"type":"ingress"}`
+				domain.Annotation = map[string]string{
+					"type": "ingress",
+				}
 				sqbapplication.Spec.Domains[i] = domain
 			}
 			err = k8sClient.Update(ctx, sqbapplication)
