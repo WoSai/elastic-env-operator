@@ -44,9 +44,9 @@ type IngressSpec struct {
 }
 
 type Domain struct {
-	Class      string `json:"class"`
+	Class      string            `json:"class"`
 	Annotation map[string]string `json:"annotation,omitempty"`
-	Host       string `json:"host,omitempty"`
+	Host       string            `json:"host,omitempty"`
 }
 
 type Subpath struct {
