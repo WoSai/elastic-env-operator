@@ -93,8 +93,11 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 		})
 		if len(domain.Annotation) != 0 {
 			ingress.Annotations = domain.Annotation
+			ingress.Annotations[entity.IngressClassAnnotationKey] = domain.Class
 		} else {
-			ingress.Annotations = nil
+			ingress.Annotations = map[string]string{
+				entity.IngressClassAnnotationKey: domain.Class,
+			}
 		}
 		if err = CreateOrUpdate(h.ctx, ingress); err != nil {
 			return err

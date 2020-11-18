@@ -19,4 +19,5 @@ const (
 	DestinationRuleAnnotationKey = "qa.shouqianba.com/passthrough-destinationrule"
 	VirtualServiceAnnotationKey  = "qa.shouqianba.com/passthrough-virtualservice"
 	InitializeAnnotationKey      = "qa.shouqianba.com/initialized"
+	IngressClassAnnotationKey    = "kubernetes.io/ingress.class"
 )
