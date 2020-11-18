@@ -104,7 +104,7 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 		}
 	}
 
-	// 如果ingress的host没有包含在domainHosts中，则删除该ingress
+	// 如果ingress的host没有包含在domainHosts中，且ingress的name的是sqbapplication.Name-<domain.class>，则删除该ingress
 	ingressList := &v1beta1.IngressList{}
 	err := k8sclient.List(h.ctx, ingressList, &client.ListOptions{
 		Namespace:     h.sqbapplication.Namespace,
@@ -120,6 +120,9 @@ loopIngress:
 			if util.ContainString(domainHosts, rule.Host) {
 				continue loopIngress
 			}
+		}
+		if ingress.Name != h.sqbapplication.Name + "-" + h.sqbapplication.Annotations[entity.IngressClassAnnotationKey] {
+			continue loopIngress
 		}
 		if err = Delete(h.ctx, &ingress); err != nil {
 			return err
