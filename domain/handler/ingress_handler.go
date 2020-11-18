@@ -101,6 +101,7 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 		}
 	}
 
+	// 如果ingress的host没有包含在domainHosts中，则删除该ingress
 	ingressList := &v1beta1.IngressList{}
 	err := k8sclient.List(h.ctx, ingressList, &client.ListOptions{
 		Namespace:     h.sqbapplication.Namespace,
@@ -110,7 +111,7 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 		return err
 	}
 
-	loopIngress:
+loopIngress:
 	for _, ingress := range ingressList.Items {
 		for _, rule := range ingress.Spec.Rules {
 			if util.ContainString(domainHosts, rule.Host) {
