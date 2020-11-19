@@ -43,3 +43,13 @@ func GetSubsetName(service, plane string) string {
 	serviceName := strings.Split(service, ".")[0]
 	return serviceName + "-" + plane
 }
+
+func IgnoreInvalidError(err error) error {
+	if err == nil {
+		return nil
+	}
+	if strings.Contains(err.Error(), "invalid") || strings.Contains(err.Error(), "Invalid") {
+		return nil
+	}
+	return err
+}

@@ -193,9 +193,11 @@ func (h *deploymentHandler) Operate(obj runtimeObj) error {
 		planes := make(map[string]int)
 		mirrors := make(map[string]int)
 		for _, deployment := range deployments.Items {
-			mirrors[deployment.Name] = 1
-			if p, ok := deployment.Labels[entity.PlaneKey]; ok {
-				planes[p] = 1
+			if deployment.DeletionTimestamp.IsZero() {
+				mirrors[deployment.Name] = 1
+				if p, ok := deployment.Labels[entity.PlaneKey]; ok {
+					planes[p] = 1
+				}
 			}
 		}
 		sqbapplication := &qav1alpha1.SQBApplication{}
@@ -227,9 +229,10 @@ func (h *deploymentHandler) Operate(obj runtimeObj) error {
 		}
 		mirrors := make(map[string]int)
 		for _, deployment := range deployments.Items {
-			mirrors[deployment.Name] = 1
+			if deployment.DeletionTimestamp.IsZero() {
+				mirrors[deployment.Name] = 1
+			}
 		}
-
 		sqbplane := &qav1alpha1.SQBPlane{}
 		err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: in.Namespace, Name: plane}, sqbplane)
 		if err != nil {
@@ -253,23 +256,6 @@ func (h *deploymentHandler) Operate(obj runtimeObj) error {
 	return nil
 }
 
-func (h *deploymentHandler) ReconcileFail(obj runtimeObj, err error) {
-	in := obj.(*appv1.Deployment)
-	recorded := false
-	for i:=0; i<len(in.Status.Conditions); i++ {
-		if in.Status.Conditions[i].Type == appv1.DeploymentProgressing {
-			in.Status.Conditions[i].Message = err.Error()
-			in.Status.Conditions[i].LastUpdateTime = metav1.Now()
-			recorded = true
-			break
-		}
-	}
-	if !recorded {
-		in.Status.Conditions = append(in.Status.Conditions, appv1.DeploymentCondition{
-			Type: appv1.DeploymentProgressing,
-			Message: err.Error(),
-			LastUpdateTime: metav1.Now(),
-		})
-	}
-	_ = UpdateStatus(h.ctx, in)
+func (h *deploymentHandler) ReconcileFail(_ runtimeObj, _ error) {
+	return
 }

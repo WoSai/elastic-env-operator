@@ -62,7 +62,7 @@ func HandleReconcile(r SQBReconciler) (ctrl.Result, error) {
 			return ctrl.Result{}, nil
 		} else {
 			r.ReconcileFail(obj, err)
-			return ctrl.Result{}, err
+			return ctrl.Result{}, util.IgnoreInvalidError(err)
 		}
 	}
 
@@ -70,7 +70,7 @@ func HandleReconcile(r SQBReconciler) (ctrl.Result, error) {
 	if yes, err := r.IsInitialized(obj); !yes {
 		if err != nil {
 			r.ReconcileFail(obj, err)
-			return ctrl.Result{}, err
+			return ctrl.Result{}, util.IgnoreInvalidError(err)
 		}
 		if generation != obj.GetGeneration() {
 			return ctrl.Result{}, nil
@@ -80,8 +80,9 @@ func HandleReconcile(r SQBReconciler) (ctrl.Result, error) {
 	err = r.Operate(obj)
 	if err != nil {
 		r.ReconcileFail(obj, err)
+		return ctrl.Result{}, util.IgnoreInvalidError(err)
 	}
-	return ctrl.Result{}, err
+	return ctrl.Result{}, nil
 }
 
 func CreateOrUpdate(ctx context.Context, obj runtimeObj) error {
