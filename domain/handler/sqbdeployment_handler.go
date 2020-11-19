@@ -36,11 +36,12 @@ func (h *sqbDeploymentHandler) IsInitialized(obj runtimeObj) (bool, error) {
 		return false, err
 	}
 
-	newSQBDeployment := &qav1alpha1.SQBDeployment{}
-	newSQBDeployment.Spec.DeploySpec = sqbapplication.Spec.DeploySpec
-	newSQBDeployment.Labels = sqbapplication.Labels
+	defaultSQBDeployment := &qav1alpha1.SQBDeployment{}
+	defaultSQBDeployment.Spec.DeploySpec = sqbapplication.Spec.DeploySpec
+	defaultSQBDeployment.Labels = sqbapplication.Labels
+	defaultSQBDeployment.Merge(in)
 
-	in.Merge(newSQBDeployment)
+	in.Merge(defaultSQBDeployment)
 	in.Labels = util.MergeStringMap(in.Labels, map[string]string{
 		entity.AppKey:   in.Spec.Selector.App,
 		entity.PlaneKey: in.Spec.Selector.Plane,
