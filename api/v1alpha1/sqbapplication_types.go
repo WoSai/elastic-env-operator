@@ -17,8 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"encoding/json"
-	jsonpatch "github.com/evanphx/json-patch"
 	prometheus "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/wosai/elastic-env-operator/domain/util"
 	corev1 "k8s.io/api/core/v1"
@@ -143,56 +141,82 @@ func (old *SQBApplication) Merge(news *SQBApplication) {
 }
 
 func (old *DeploySpec) merge(news *DeploySpec) {
-	// 先做merge patch
-	originOld := old.DeepCopy()
-	deployByte, _ := json.Marshal(news)
-	oldDeployByte, _ := json.Marshal(old)
-	mergeDeployByte, _ := jsonpatch.MergePatch(oldDeployByte, deployByte)
-	_ = json.Unmarshal(mergeDeployByte, &old)
+	if news.Replicas != nil {
+		old.Replicas = news.Replicas
+	}
+	if news.Image != "" {
+		old.Image = news.Image
+	}
+	if len(news.Command) != 0 {
+		old.Command = news.Command
+	}
+	if len(news.Args) != 0 {
+		old.Args = news.Args
+	}
 	// hostalias根据ip去重
-	hostaliases := append(originOld.HostAlias, old.HostAlias...)
-	hostaliasMap := make(map[string]corev1.HostAlias)
-	for _, hostalias := range hostaliases {
-		hostaliasMap[hostalias.IP] = hostalias
+	if len(news.HostAlias) != 0 {
+		hostaliases := append(old.HostAlias, news.HostAlias...)
+		hostaliasMap := make(map[string]corev1.HostAlias)
+		for _, hostalias := range hostaliases {
+			hostaliasMap[hostalias.IP] = hostalias
+		}
+		hostaliases = make([]corev1.HostAlias, 0)
+		for _, hostalias := range hostaliasMap {
+			hostaliases = append(hostaliases, hostalias)
+		}
+		old.HostAlias = hostaliases
 	}
-	hostaliases = make([]corev1.HostAlias, 0)
-	for _, hostalias := range hostaliasMap {
-		hostaliases = append(hostaliases, hostalias)
+	if news.Resources != nil {
+		old.Resources = news.Resources
 	}
-	old.HostAlias = hostaliases
-	// env根据name去重
-	envs := append(originOld.Env, old.Env...)
-	envMap := make(map[string]corev1.EnvVar)
-	for _, env := range envs {
-		envMap[env.Name] = env
+	if len(news.Env) != 0 {
+		// env根据name去重
+		envs := append(old.Env, news.Env...)
+		envMap := make(map[string]corev1.EnvVar)
+		for _, env := range envs {
+			envMap[env.Name] = env
+		}
+		envs = make([]corev1.EnvVar, 0)
+		for _, env := range envMap {
+			envs = append(envs, env)
+		}
+		old.Env = envs
 	}
-	envs = make([]corev1.EnvVar, 0)
-	for _, env := range envMap {
-		envs = append(envs, env)
+	if news.HealthCheck != nil {
+		old.HealthCheck = news.HealthCheck
 	}
-	old.Env = envs
-	// volumes根据name去重
-	volumes := append(originOld.Volumes, old.Volumes...)
-	volumeMap := make(map[string]corev1.Volume)
-	for _, volume := range volumes {
-		volumeMap[volume.Name] = volume
+	if len(news.Volumes) != 0 {
+		// volumes根据name去重
+		volumes := append(old.Volumes, news.Volumes...)
+		volumeMap := make(map[string]corev1.Volume)
+		for _, volume := range volumes {
+			volumeMap[volume.Name] = volume
+		}
+		volumes = make([]corev1.Volume, 0)
+		for _, volume := range volumeMap {
+			volumes = append(volumes, volume)
+		}
+		old.Volumes = volumes
 	}
-	volumes = make([]corev1.Volume, 0)
-	for _, volume := range volumeMap {
-		volumes = append(volumes, volume)
+	if len(news.VolumeMounts) != 0 {
+		// volumeMounts根据name去重
+		volumeMounts := append(old.VolumeMounts, news.VolumeMounts...)
+		volumeMountsMap := make(map[string]corev1.VolumeMount)
+		for _, volumeMount := range volumeMounts {
+			volumeMountsMap[volumeMount.Name] = volumeMount
+		}
+		volumeMounts = make([]corev1.VolumeMount, 0)
+		for _, volumeMount := range volumeMountsMap {
+			volumeMounts = append(volumeMounts, volumeMount)
+		}
+		old.VolumeMounts = volumeMounts
 	}
-	old.Volumes = volumes
-	// volumeMounts根据name去重
-	volumeMounts := append(originOld.VolumeMounts, old.VolumeMounts...)
-	volumeMountsMap := make(map[string]corev1.VolumeMount)
-	for _, volumeMount := range volumeMounts {
-		volumeMountsMap[volumeMount.Name] = volumeMount
+	if news.NodeAffinity != nil {
+		old.NodeAffinity = news.NodeAffinity
 	}
-	volumeMounts = make([]corev1.VolumeMount, 0)
-	for _, volumeMount := range volumeMountsMap {
-		volumeMounts = append(volumeMounts, volumeMount)
+	if news.Lifecycle != nil {
+		old.Lifecycle = news.Lifecycle
 	}
-	old.VolumeMounts = volumeMounts
 }
 
 func init() {

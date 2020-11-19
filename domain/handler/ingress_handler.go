@@ -121,7 +121,7 @@ loopIngress:
 				continue loopIngress
 			}
 		}
-		if ingress.Name != h.sqbapplication.Name + "-" + h.sqbapplication.Annotations[entity.IngressClassAnnotationKey] {
+		if ingress.Name != h.sqbapplication.Name+"-"+h.sqbapplication.Annotations[entity.IngressClassAnnotationKey] {
 			continue loopIngress
 		}
 		if err = Delete(h.ctx, &ingress); err != nil {
