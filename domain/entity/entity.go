@@ -6,7 +6,7 @@ const (
 	PlaneKey                     = "version"
 	TeamKey                      = "team"
 	GroupKey                     = "group"
-	FINALIZER                    = "ELASTICENVOPERATOR"
+	FINALIZER                    = "operator"
 	ExplicitDeleteAnnotationKey  = "qa.shouqianba.com/delete"
 	IstioInjectAnnotationKey     = "qa.shouqianba.com/istio-inject"
 	IngressOpenAnnotationKey     = "qa.shouqianba.com/ingress-open"
