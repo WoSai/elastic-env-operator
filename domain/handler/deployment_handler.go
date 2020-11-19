@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"github.com/gogo/protobuf/proto"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
 	appv1 "k8s.io/api/apps/v1"
@@ -72,6 +73,8 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 	deployment.Spec.Template.Spec.HostAliases = deploy.HostAlias
 	deployment.Spec.Template.Spec.Containers = []corev1.Container{container}
 	deployment.Spec.Template.Spec.ImagePullSecrets = entity.ConfigMapData.GetImagePullSecrets()
+	deployment.Spec.Template.Spec.TerminationGracePeriodSeconds = proto.Int64(300)
+	deployment.Spec.Template.Spec.EnableServiceLinks = proto.Bool(false)
 
 	if anno, ok := h.sqbdeployment.Annotations[entity.PodAnnotationKey]; ok {
 		_ = json.Unmarshal([]byte(anno), &deployment.Spec.Template.Annotations)

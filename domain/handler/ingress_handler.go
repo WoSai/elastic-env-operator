@@ -28,6 +28,7 @@ func NewSqbdeploymentIngressHandler(sqbdeployment *qav1alpha1.SQBDeployment, ctx
 }
 
 func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
+	domainHosts := make([]string, 0)
 	for _, domain := range h.sqbapplication.Spec.Domains {
 		ingress := &v1beta1.Ingress{ObjectMeta: metav1.ObjectMeta{Namespace: h.sqbapplication.Namespace, Name: h.sqbapplication.Name + "-" + domain.Class}}
 		err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: ingress.Namespace, Name: ingress.Name}, ingress)
@@ -65,6 +66,7 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 			paths = append(paths, path)
 		}
 		host := domain.Host
+		domainHosts = append(domainHosts, host)
 		if host == "" {
 			host = entity.ConfigMapData.GetDomainNameByClass(h.sqbapplication.Name, domain.Class)
 		}
@@ -91,10 +93,38 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 		})
 		if len(domain.Annotation) != 0 {
 			ingress.Annotations = domain.Annotation
+			ingress.Annotations[entity.IngressClassAnnotationKey] = domain.Class
 		} else {
-			ingress.Annotations = nil
+			ingress.Annotations = map[string]string{
+				entity.IngressClassAnnotationKey: domain.Class,
+			}
 		}
 		if err = CreateOrUpdate(h.ctx, ingress); err != nil {
+			return err
+		}
+	}
+
+	// 如果ingress的host没有包含在domainHosts中，且ingress的name的是sqbapplication.Name-<domain.class>，则删除该ingress
+	ingressList := &v1beta1.IngressList{}
+	err := k8sclient.List(h.ctx, ingressList, &client.ListOptions{
+		Namespace:     h.sqbapplication.Namespace,
+		LabelSelector: labels.SelectorFromSet(map[string]string{entity.AppKey: h.sqbapplication.Name}),
+	})
+	if err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+
+loopIngress:
+	for _, ingress := range ingressList.Items {
+		for _, rule := range ingress.Spec.Rules {
+			if util.ContainString(domainHosts, rule.Host) {
+				continue loopIngress
+			}
+		}
+		if ingress.Name != h.sqbapplication.Name+"-"+h.sqbapplication.Annotations[entity.IngressClassAnnotationKey] {
+			continue loopIngress
+		}
+		if err = Delete(h.ctx, &ingress); err != nil {
 			return err
 		}
 	}
@@ -178,7 +208,7 @@ func (h *ingressHandler) DeleteForSqbdeployment() error {
 
 func (h *ingressHandler) Handle() error {
 	if h.sqbapplication != nil {
-		if deleted, _ := IsDeleted(h.sqbapplication); deleted {
+		if deleted, _ := IsDeleted(h.sqbapplication); deleted || len(h.sqbapplication.Spec.Domains) == 0 {
 			return h.DeleteForSqbapplication()
 		}
 		if !IsIngressOpen(h.sqbapplication) {

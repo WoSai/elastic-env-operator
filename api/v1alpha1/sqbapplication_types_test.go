@@ -158,6 +158,48 @@ func TestEnv2(t *testing.T) {
 	assert.Equal(t, old.Spec.Env[0].Value, "2")
 }
 
+func TestVolume(t *testing.T) {
+	old := &SQBApplication{
+		Spec: SQBApplicationSpec{
+			DeploySpec: DeploySpec{
+				Volumes: []v1.Volume{
+					{
+						Name: "volume1",
+						VolumeSource: v1.VolumeSource{
+							HostPath: &v1.HostPathVolumeSource{
+								Path: "/test",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	news := &SQBApplication{
+		Spec: SQBApplicationSpec{
+			DeploySpec: DeploySpec{
+				Volumes: []v1.Volume{
+					{
+						Name: "volume1",
+						VolumeSource: v1.VolumeSource{
+							ConfigMap: &v1.ConfigMapVolumeSource{
+								LocalObjectReference: v1.LocalObjectReference{
+									Name: "configmap",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	old.Merge(news)
+	assert.Equal(t, old.Spec.Volumes[0].Name, "volume1")
+	assert.Equal(t, old.Spec.Volumes[0].ConfigMap.Name, "configmap")
+	var hostpath *v1.HostPathVolumeSource
+	assert.Equal(t, old.Spec.Volumes[0].HostPath, hostpath)
+}
+
 func TestPorts(t *testing.T) {
 	old := &SQBApplication{
 		Spec: SQBApplicationSpec{
