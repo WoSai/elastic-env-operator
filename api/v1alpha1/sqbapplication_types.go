@@ -185,6 +185,21 @@ func (old *DeploySpec) merge(news *DeploySpec) {
 	if news.HealthCheck != nil {
 		old.HealthCheck = news.HealthCheck
 	}
+	volumeNames := make([]string, 0)
+	if len(news.VolumeMounts) != 0 {
+		// volumeMounts根据mountPath去重
+		volumeMounts := append(old.VolumeMounts, news.VolumeMounts...)
+		volumeMountsMap := make(map[string]corev1.VolumeMount)
+		for _, volumeMount := range volumeMounts {
+			volumeMountsMap[volumeMount.MountPath] = volumeMount
+		}
+		volumeMounts = make([]corev1.VolumeMount, 0)
+		for _, volumeMount := range volumeMountsMap {
+			volumeMounts = append(volumeMounts, volumeMount)
+			volumeNames = append(volumeNames, volumeMount.Name)
+		}
+		old.VolumeMounts = volumeMounts
+	}
 	if len(news.Volumes) != 0 {
 		// volumes根据name去重
 		volumes := append(old.Volumes, news.Volumes...)
@@ -194,22 +209,12 @@ func (old *DeploySpec) merge(news *DeploySpec) {
 		}
 		volumes = make([]corev1.Volume, 0)
 		for _, volume := range volumeMap {
-			volumes = append(volumes, volume)
+			// volume.Name在volumeNames中才保留
+			if util.ContainString(volumeNames, volume.Name) {
+				volumes = append(volumes, volume)
+			}
 		}
 		old.Volumes = volumes
-	}
-	if len(news.VolumeMounts) != 0 {
-		// volumeMounts根据name去重
-		volumeMounts := append(old.VolumeMounts, news.VolumeMounts...)
-		volumeMountsMap := make(map[string]corev1.VolumeMount)
-		for _, volumeMount := range volumeMounts {
-			volumeMountsMap[volumeMount.Name] = volumeMount
-		}
-		volumeMounts = make([]corev1.VolumeMount, 0)
-		for _, volumeMount := range volumeMountsMap {
-			volumeMounts = append(volumeMounts, volumeMount)
-		}
-		old.VolumeMounts = volumeMounts
 	}
 	if news.NodeAffinity != nil {
 		old.NodeAffinity = news.NodeAffinity
