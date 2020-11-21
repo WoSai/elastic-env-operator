@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 type deploymentHandler struct {
@@ -145,6 +146,7 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 		}
 		deployment.Spec.Template.Spec.Affinity = affinity
 	}
+	controllerutil.AddFinalizer(deployment, entity.FINALIZER)
 	return CreateOrUpdate(h.ctx, deployment)
 }
 
@@ -191,9 +193,11 @@ func (h *deploymentHandler) Operate(obj runtimeObj) error {
 		planes := make(map[string]int)
 		mirrors := make(map[string]int)
 		for _, deployment := range deployments.Items {
-			mirrors[deployment.Name] = 1
-			if p, ok := deployment.Labels[entity.PlaneKey]; ok {
-				planes[p] = 1
+			if deployment.DeletionTimestamp.IsZero() {
+				mirrors[deployment.Name] = 1
+				if p, ok := deployment.Labels[entity.PlaneKey]; ok {
+					planes[p] = 1
+				}
 			}
 		}
 		sqbapplication := &qav1alpha1.SQBApplication{}
@@ -225,9 +229,10 @@ func (h *deploymentHandler) Operate(obj runtimeObj) error {
 		}
 		mirrors := make(map[string]int)
 		for _, deployment := range deployments.Items {
-			mirrors[deployment.Name] = 1
+			if deployment.DeletionTimestamp.IsZero() {
+				mirrors[deployment.Name] = 1
+			}
 		}
-
 		sqbplane := &qav1alpha1.SQBPlane{}
 		err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: in.Namespace, Name: plane}, sqbplane)
 		if err != nil {
@@ -243,6 +248,10 @@ func (h *deploymentHandler) Operate(obj runtimeObj) error {
 				}
 			}
 		}
+	}
+	if !in.DeletionTimestamp.IsZero() {
+		controllerutil.RemoveFinalizer(in, entity.FINALIZER)
+		return CreateOrUpdate(h.ctx, in)
 	}
 	return nil
 }

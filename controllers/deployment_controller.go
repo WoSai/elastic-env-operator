@@ -48,6 +48,9 @@ func (r *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v12.Deployment{}, builder.WithPredicates(predicate.Funcs{
 			UpdateFunc: func(event event.UpdateEvent) bool {
+				if event.MetaOld.GetDeletionTimestamp().IsZero() && !event.MetaNew.GetDeletionTimestamp().IsZero() {
+					return true
+				}
 				return false
 			},
 			GenericFunc: func(event event.GenericEvent) bool {

@@ -33,7 +33,7 @@ metadata:
   annotations:
     qa.shouqianba.com/istio-inject: "false" # 是否开启istio注入
     qa.shouqianba.com/ingress-open: "false" # 是否打开ingress
-    qa.shouqianba.com/service-monitor: "false"
+    qa.shouqianba.com/service-monitor: "false" # 是否创建servicemonitor
     qa.shouqianba.com/delete: "xxx"  # md5(metadata.name+salt)得到,salt保存在secret,表示明确删除
     qa.shouqianba.com/passthrough-service: # 透传到Service的annotation,下同
     qa.shouqianba.com/passthrough-destinationrule:
@@ -128,13 +128,13 @@ spec:
   - name: ""
     mountPath: ""
   nodeAffinity: # 亲和性，只根据node的label选择,key表示node的label key
-    required:
+    require:
     - key: "role"
       operator: "In" # In,NotIn,Exists,DoesNotExist,Gt,Lt
       values:
       - "qa"
       - "crm"
-    prefered:
+    prefer:
     - weight: 100
       key: "role"
       operator: "In" # In,NotIn,Exists,DoesNotExist,Gt,Lt
