@@ -248,6 +248,8 @@ data:
     {"nginx-internal":"*.beta.iwosai.com","nginx":"*.iwosai.com"}
   globalDefaultDeploy: |   # 存放默认的SQBApplication的deploy的值
     {"key": "value"}
+  deploymentSpec: |  # deployment的spec的一些默认配置
+    {"key": "value"}
   imagePullSecrets: "reg-wosai"
   istioTimeout: "30" # istio超时时间，单位秒
   istioGateways: | # istio的virtualservice的gateways配置
