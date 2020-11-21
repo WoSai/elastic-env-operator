@@ -162,42 +162,49 @@ func TestVolume(t *testing.T) {
 	old := &SQBApplication{
 		Spec: SQBApplicationSpec{
 			DeploySpec: DeploySpec{
-				Volumes: []v1.Volume{
+				Volumes: []*VolumeSpec{
 					{
-						Name: "volume1",
-						VolumeSource: v1.VolumeSource{
-							HostPath: &v1.HostPathVolumeSource{
-								Path: "/test",
-							},
-						},
+						MountPath: "/path1",
+						ConfigMap: "configmap1",
 					},
 				},
 			},
 		},
 	}
+
 	news := &SQBApplication{
 		Spec: SQBApplicationSpec{
 			DeploySpec: DeploySpec{
-				Volumes: []v1.Volume{
+				Volumes: []*VolumeSpec{
 					{
-						Name: "volume1",
-						VolumeSource: v1.VolumeSource{
-							ConfigMap: &v1.ConfigMapVolumeSource{
-								LocalObjectReference: v1.LocalObjectReference{
-									Name: "configmap",
-								},
-							},
-						},
+						MountPath: "/path1",
+						HostPath:  "/host1",
 					},
 				},
 			},
 		},
 	}
 	old.Merge(news)
-	assert.Equal(t, old.Spec.Volumes[0].Name, "volume1")
-	assert.Equal(t, old.Spec.Volumes[0].ConfigMap.Name, "configmap")
-	var hostpath *v1.HostPathVolumeSource
-	assert.Equal(t, old.Spec.Volumes[0].HostPath, hostpath)
+	assert.Equal(t, len(old.Spec.Volumes), 1)
+	assert.Equal(t, old.Spec.Volumes[0].MountPath, "/path1")
+	assert.Equal(t, old.Spec.Volumes[0].ConfigMap, "")
+	assert.Equal(t, old.Spec.Volumes[0].HostPath, "/host1")
+
+	news = &SQBApplication{
+		Spec: SQBApplicationSpec{
+			DeploySpec: DeploySpec{
+				Volumes: []*VolumeSpec{
+					{
+						MountPath:                 "/path2",
+						PersistentVolumeClaim:     true,
+						PersistentVolumeClaimName: "claim2",
+					},
+				},
+			},
+		},
+	}
+	old.Merge(news)
+	assert.Equal(t, len(old.Spec.Volumes), 2)
 }
 
 func TestPorts(t *testing.T) {

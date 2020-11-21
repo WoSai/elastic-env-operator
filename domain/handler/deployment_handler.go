@@ -3,7 +3,8 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"github.com/gogo/protobuf/proto"
+	"fmt"
+	"github.com/imdario/mergo"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
 	appv1 "k8s.io/api/apps/v1"
@@ -38,11 +39,12 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 	}
 
 	deploy := h.sqbdeployment.Spec.DeploySpec
+	volumes, volumeMounts := h.getVolumeAndVolumeMounts(deploy.Volumes)
 	container := corev1.Container{
 		Name:           h.sqbdeployment.Name,
 		Image:          deploy.Image,
 		Env:            deploy.Env,
-		VolumeMounts:   deploy.VolumeMounts,
+		VolumeMounts:   volumeMounts,
 		LivenessProbe:  deploy.HealthCheck,
 		ReadinessProbe: deploy.HealthCheck,
 		Command:        deploy.Command,
@@ -70,12 +72,10 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 		},
 	}
 	deployment.Spec.Template.ObjectMeta.Labels = deployment.Labels
-	deployment.Spec.Template.Spec.Volumes = deploy.Volumes
+	deployment.Spec.Template.Spec.Volumes = volumes
 	deployment.Spec.Template.Spec.HostAliases = deploy.HostAlias
 	deployment.Spec.Template.Spec.Containers = []corev1.Container{container}
 	deployment.Spec.Template.Spec.ImagePullSecrets = entity.ConfigMapData.GetImagePullSecrets()
-	deployment.Spec.Template.Spec.TerminationGracePeriodSeconds = proto.Int64(300)
-	deployment.Spec.Template.Spec.EnableServiceLinks = proto.Bool(false)
 
 	if anno, ok := h.sqbdeployment.Annotations[entity.PodAnnotationKey]; ok {
 		_ = json.Unmarshal([]byte(anno), &deployment.Spec.Template.Annotations)
@@ -100,7 +100,7 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 			Image:        image,
 			Command:      init.Exec.Command,
 			Env:          deploy.Env,
-			VolumeMounts: deploy.VolumeMounts,
+			VolumeMounts: volumeMounts,
 		}
 		deployment.Spec.Template.Spec.InitContainers = []corev1.Container{initContainer}
 	}
@@ -147,7 +147,89 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 		deployment.Spec.Template.Spec.Affinity = affinity
 	}
 	controllerutil.AddFinalizer(deployment, entity.FINALIZER)
+	if specString := entity.ConfigMapData.DeploymentSpec(); specString != "" {
+		if err = h.merge(deployment, specString); err != nil {
+			return err
+		}
+	}
 	return CreateOrUpdate(h.ctx, deployment)
+}
+
+func (h *deploymentHandler) merge(deployment *appv1.Deployment, specString string) error {
+	spec := &appv1.DeploymentSpec{}
+	if err := json.Unmarshal([]byte(specString), spec); err != nil {
+		return err
+	}
+	if err := mergo.Merge(&deployment.Spec, spec); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (h *deploymentHandler) getVolumeAndVolumeMounts(volumemap []*qav1alpha1.VolumeSpec) (volumes []corev1.Volume, volumeMounts []corev1.VolumeMount) {
+	for i, volumeSpec := range volumemap {
+		volumeName := fmt.Sprintf("volume-%d", i)
+		volumeMounts = append(volumeMounts, corev1.VolumeMount{
+			Name:      volumeName,
+			MountPath: volumeSpec.MountPath,
+		})
+		if volumeSpec.EmptyDir {
+			volumes = append(volumes, corev1.Volume{
+				Name: volumeName,
+				VolumeSource: corev1.VolumeSource{
+					EmptyDir: &corev1.EmptyDirVolumeSource{},
+				},
+			})
+			continue
+		}
+		if volumeSpec.HostPath != "" {
+			volumes = append(volumes, corev1.Volume{
+				Name: volumeName,
+				VolumeSource: corev1.VolumeSource{
+					HostPath: &corev1.HostPathVolumeSource{
+						Path: volumeSpec.HostPath,
+					},
+				},
+			})
+			continue
+		}
+		if volumeSpec.ConfigMap != "" {
+			volumes = append(volumes, corev1.Volume{
+				Name: volumeName,
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: volumeSpec.ConfigMap,
+						},
+					},
+				},
+			})
+			continue
+		}
+		if volumeSpec.Secret != "" {
+			volumes = append(volumes, corev1.Volume{
+				Name: volumeName,
+				VolumeSource: corev1.VolumeSource{
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: volumeSpec.Secret,
+					},
+				},
+			})
+			continue
+		}
+		if volumeSpec.PersistentVolumeClaimName != "" {
+			volumes = append(volumes, corev1.Volume{
+				Name: volumeName,
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: volumeSpec.PersistentVolumeClaimName,
+					},
+				},
+			})
+			continue
+		}
+	}
+	return
 }
 
 func (h *deploymentHandler) Delete() error {

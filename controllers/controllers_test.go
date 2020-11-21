@@ -244,18 +244,10 @@ var _ = Describe("Controller", func() {
 							},
 						},
 					},
-					Volumes: []corev1.Volume{
+					Volumes: []*qav1alpha1.VolumeSpec{
 						{
-							Name: "volume1",
-							VolumeSource: corev1.VolumeSource{
-								HostPath: &corev1.HostPathVolumeSource{Path: "/tmp"},
-							},
-						},
-					},
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      "volume1",
 							MountPath: "/tmp",
+							HostPath:  "/tmp",
 						},
 					},
 				},
@@ -293,7 +285,7 @@ var _ = Describe("Controller", func() {
 			initContainer := deployment.Spec.Template.Spec.InitContainers[0]
 			Expect(initContainer.Image).To(Equal("busybox"))
 			Expect(initContainer.Command).To(Equal([]string{"sleep", "1"}))
-			Expect(container.VolumeMounts[0].Name).To(Equal("volume1"))
+			Expect(container.VolumeMounts[0].Name).To(Equal("volume-0"))
 			Expect(container.VolumeMounts[0].MountPath).To(Equal("/tmp"))
 			required := deployment.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
 			Expect(required.NodeSelectorTerms[0].MatchExpressions[0].Key).To(Equal("node"))
@@ -303,7 +295,7 @@ var _ = Describe("Controller", func() {
 			Expect(preferred.Preference.MatchExpressions[0].Key).To(Equal("node"))
 			Expect(preferred.Preference.MatchExpressions[0].Values[0]).To(Equal("qa"))
 			Expect(preferred.Weight).To(Equal(int32(100)))
-			Expect(deployment.Spec.Template.Spec.Volumes[0].Name).To(Equal("volume1"))
+			Expect(deployment.Spec.Template.Spec.Volumes[0].Name).To(Equal("volume-0"))
 			Expect(deployment.Spec.Template.Spec.Volumes[0].HostPath.Path).To(Equal("/tmp"))
 		})
 
