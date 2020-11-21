@@ -68,6 +68,7 @@ func (h *pvcHandler) CreateOrUpdate() error {
 				},
 				StorageClassName: proto.String("ack" + "-" + h.sqbdeployment.Labels[entity.GroupKey]),
 			}
+			pvc.Labels = h.sqbdeployment.Labels
 			if err = CreateOrUpdate(h.ctx, pvc); err != nil {
 				return err
 			}
