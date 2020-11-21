@@ -68,10 +68,19 @@ type DeploySpec struct {
 	Resources    *corev1.ResourceRequirements `json:"resources,omitempty"`
 	Env          []corev1.EnvVar              `json:"env,omitempty"`
 	HealthCheck  *corev1.Probe                `json:"healthCheck,omitempty"`
-	Volumes      []corev1.Volume              `json:"volumes,omitempty"`
-	VolumeMounts []corev1.VolumeMount         `json:"volumeMounts,omitempty"`
+	Volumes      []*VolumeSpec                `json:"volumes,omitempty"`
 	NodeAffinity *NodeAffinity                `json:"nodeAffinity,omitempty"`
 	Lifecycle    *Lifecycle                   `json:"lifecycle,omitempty"`
+}
+
+type VolumeSpec struct {
+	MountPath                 string `json:"mountPath"`
+	HostPath                  string `json:"hostPath,omitempty"`
+	ConfigMap                 string `json:"configMap,omitempty"`
+	Secret                    string `json:"secret,omitempty"`
+	EmptyDir                  bool   `json:"emptyDir,omitempty"`
+	PersistentVolumeClaim     bool   `json:"persistentVolumeClaim,omitempty"`
+	PersistentVolumeClaimName string `json:"persistentVolumeClaimName,omitempty"`
 }
 
 type NodeAffinity struct {
@@ -185,34 +194,16 @@ func (old *DeploySpec) merge(news *DeploySpec) {
 	if news.HealthCheck != nil {
 		old.HealthCheck = news.HealthCheck
 	}
-	volumeNames := make([]string, 0)
-	if len(news.VolumeMounts) != 0 {
-		// volumeMounts根据mountPath去重
-		volumeMounts := append(old.VolumeMounts, news.VolumeMounts...)
-		volumeMountsMap := make(map[string]corev1.VolumeMount)
-		for _, volumeMount := range volumeMounts {
-			volumeMountsMap[volumeMount.MountPath] = volumeMount
-		}
-		volumeMounts = make([]corev1.VolumeMount, 0)
-		for _, volumeMount := range volumeMountsMap {
-			volumeMounts = append(volumeMounts, volumeMount)
-			volumeNames = append(volumeNames, volumeMount.Name)
-		}
-		old.VolumeMounts = volumeMounts
-	}
+	// volume根据mountPath去重
 	if len(news.Volumes) != 0 {
-		// volumes根据name去重
 		volumes := append(old.Volumes, news.Volumes...)
-		volumeMap := make(map[string]corev1.Volume)
+		volumeMap := make(map[string]*VolumeSpec)
 		for _, volume := range volumes {
-			volumeMap[volume.Name] = volume
+			volumeMap[volume.MountPath] = volume
 		}
-		volumes = make([]corev1.Volume, 0)
+		volumes = make([]*VolumeSpec, 0)
 		for _, volume := range volumeMap {
-			// volume.Name在volumeNames中才保留
-			if util.ContainString(volumeNames, volume.Name) {
-				volumes = append(volumes, volume)
-			}
+			volumes = append(volumes, volume)
 		}
 		old.Volumes = volumes
 	}

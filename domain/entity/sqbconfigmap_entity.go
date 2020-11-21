@@ -21,6 +21,7 @@ type SQBConfigMapEntity struct {
 	istioTimeout                 int64
 	istioGateways                []string
 	specialVirtualServiceIngress string
+	deploymentSpec               string
 	Initialized                  bool
 }
 
@@ -60,7 +61,10 @@ func (sc *SQBConfigMapEntity) FromMap(data map[string]string) {
 	}
 	if specialVirtualServiceIngress, ok := data["specialVirtualServiceIngress"]; ok {
 		sc.specialVirtualServiceIngress = specialVirtualServiceIngress
+	} else {
+		sc.specialVirtualServiceIngress = "nginx"
 	}
+	sc.deploymentSpec = data["deploymentSpec"]
 	sc.Initialized = true
 }
 
@@ -125,4 +129,8 @@ func (sc *SQBConfigMapEntity) GlobalDeploy() (string, bool) {
 
 func (sc *SQBConfigMapEntity) SpecialVirtualServiceIngress() string {
 	return sc.specialVirtualServiceIngress
+}
+
+func (sc *SQBConfigMapEntity) DeploymentSpec() string {
+	return sc.deploymentSpec
 }

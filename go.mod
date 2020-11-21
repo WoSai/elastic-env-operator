@@ -6,9 +6,11 @@ require (
 	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/go-logr/logr v0.1.0
 	github.com/gogo/protobuf v1.3.1
+	github.com/imdario/mergo v0.3.9
 	github.com/onsi/ginkgo v1.12.1
 	github.com/onsi/gomega v1.10.1
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.43.0
+	github.com/stretchr/testify v1.4.0
 	gotest.tools v2.2.0+incompatible
 	istio.io/api v0.0.0-20200812202721-24be265d41c3
 	istio.io/client-go v0.0.0-20200814134724-bcbf0ed82b30

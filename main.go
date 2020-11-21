@@ -119,10 +119,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	if err = (&qav1alpha1.SQBDeployment{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "SQBDeployment")
-		os.Exit(1)
-	}
+	//if err = (&qav1alpha1.SQBDeployment{}).SetupWebhookWithManager(mgr); err != nil {
+	//	setupLog.Error(err, "unable to create webhook", "webhook", "SQBDeployment")
+	//	os.Exit(1)
+	//}
 
 	go func() {
 		timer := time.NewTimer(60 * time.Second)
