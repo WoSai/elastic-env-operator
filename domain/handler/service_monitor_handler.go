@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	prometheus "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
@@ -32,8 +33,12 @@ func (h *serviceMonitorHandler) CreateOrUpdate() error {
 		entity.GroupKey: h.sqbapplication.Labels[entity.GroupKey],
 	}
 	serviceMonitor.Spec.NamespaceSelector.MatchNames = []string{h.sqbapplication.Namespace}
-	serviceMonitor.Spec.Endpoints = h.sqbapplication.Spec.Monitors
 
+	endpoints := make([]prometheus.Endpoint, 0)
+	if err = json.Unmarshal([]byte(h.sqbapplication.Annotations[entity.ServiceMonitorAnnotationKey]), &endpoints); err != nil {
+		return err
+	}
+	serviceMonitor.Spec.Endpoints = endpoints
 	serviceMonitor.Labels = h.sqbapplication.Labels
 	return CreateOrUpdate(h.ctx, serviceMonitor)
 }
@@ -47,10 +52,11 @@ func (h *serviceMonitorHandler) Handle() error {
 	if !entity.ConfigMapData.IsServiceMonitorEnable() {
 		return nil
 	}
-	if deleted, _ := IsDeleted(h.sqbapplication); deleted || len(h.sqbapplication.Spec.Monitors) == 0 {
+	if deleted, _ := IsDeleted(h.sqbapplication); deleted {
 		return h.Delete()
 	}
-	if IsServiceMonitorOpen(h.sqbapplication) {
+
+	if h.sqbapplication.Annotations[entity.ServiceMonitorAnnotationKey] != "" {
 		return h.CreateOrUpdate()
 	}
 	return h.Delete()

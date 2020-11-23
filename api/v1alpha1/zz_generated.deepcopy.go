@@ -21,7 +21,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	monitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
@@ -550,13 +549,6 @@ func (in *ServiceSpec) DeepCopyInto(out *ServiceSpec) {
 	if in.Ports != nil {
 		in, out := &in.Ports, &out.Ports
 		*out = make([]v1.ServicePort, len(*in))
-		for i := range *in {
-			(*in)[i].DeepCopyInto(&(*out)[i])
-		}
-	}
-	if in.Monitors != nil {
-		in, out := &in.Monitors, &out.Monitors
-		*out = make([]monitoringv1.Endpoint, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
