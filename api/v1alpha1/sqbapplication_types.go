@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	prometheus "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	"github.com/wosai/elastic-env-operator/domain/util"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -55,8 +54,7 @@ type Subpath struct {
 }
 
 type ServiceSpec struct {
-	Ports    []corev1.ServicePort  `json:"ports"`
-	Monitors []prometheus.Endpoint `json:"monitors,omitempty"`
+	Ports []corev1.ServicePort `json:"ports"`
 }
 
 type DeploySpec struct {

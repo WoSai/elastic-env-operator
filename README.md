@@ -33,11 +33,12 @@ metadata:
   annotations:
     qa.shouqianba.com/istio-inject: "false" # 是否开启istio注入
     qa.shouqianba.com/ingress-open: "false" # 是否打开ingress
-    qa.shouqianba.com/service-monitor: "false" # 是否创建servicemonitor，还需要传入spec.monitors
     qa.shouqianba.com/delete: "xxx"  # md5(metadata.name+salt)得到,salt保存在secret,表示明确删除
     qa.shouqianba.com/passthrough-service: # 透传到Service的annotation,下同
     qa.shouqianba.com/passthrough-destinationrule:
     qa.shouqianba.com/passthrough-virtualservice:
+    qa.shouqianba.com/service-monitor: | # servicemonitor的endpoints
+      [{"port": "http-8080", "interval": "15s", "path": "/metrics"}]
 spec:
   # ingress相关配置
   subpaths:  # 没有启用istio注入，作用于ingress，启用istio注入，作用于virtualservice
@@ -58,10 +59,6 @@ spec:
     port: 80
     targetPort: 8080
     protocol: TCP  # k8s原生protocol
-  monitors:  # service monitor的endpoints
-  - interval: 15s
-    path: /metrics
-    port: http-8080
   # deployment相关配置
   replicas: 1  # 可选，副本数，默认1
   image: # 镜像，必选
