@@ -45,7 +45,6 @@ func (h *sqbPlaneHandler) Operate(obj runtimeObj) error {
 
 	handlers := []SQBHandler{
 		NewSqbDeploymentListHandlerForSqbplane(in, h.ctx),
-		NewDeploymentListHandlerForSqbplane(in, h.ctx),
 	}
 
 	for _, handler := range handlers {
