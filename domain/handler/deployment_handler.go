@@ -241,9 +241,6 @@ func (h *deploymentHandler) Handle() error {
 	if deleted, _ := IsDeleted(h.sqbdeployment); deleted {
 		return h.Delete()
 	}
-	if !h.sqbdeployment.DeletionTimestamp.IsZero() {
-		return nil
-	}
 	return h.CreateOrUpdate()
 }
 
