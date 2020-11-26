@@ -65,11 +65,12 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 			}
 			paths = append(paths, path)
 		}
+		// 一个domain只能有一个host
 		host := domain.Host
-		domainHosts = append(domainHosts, host)
 		if host == "" {
 			host = entity.ConfigMapData.GetDomainNameByClass(h.sqbapplication.Name, domain.Class)
 		}
+		domainHosts = append(domainHosts, host)
 		newrule := v1beta1.IngressRule{
 			Host: host,
 			IngressRuleValue: v1beta1.IngressRuleValue{
@@ -104,7 +105,7 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 		}
 	}
 
-	// 如果ingress的host没有包含在domainHosts中，且ingress的name的是sqbapplication.Name-<domain.class>，则删除该ingress
+	// 如果ingress的host没有包含在domainHosts中，且ingress的name是sqbapplication.Name-<domain.class>格式，则删除该ingress
 	ingressList := &v1beta1.IngressList{}
 	err := k8sclient.List(h.ctx, ingressList, &client.ListOptions{
 		Namespace:     h.sqbapplication.Namespace,
@@ -121,7 +122,7 @@ loopIngress:
 				continue loopIngress
 			}
 		}
-		if ingress.Name != h.sqbapplication.Name+"-"+h.sqbapplication.Annotations[entity.IngressClassAnnotationKey] {
+		if ingress.Name != h.sqbapplication.Name+"-"+ingress.Annotations[entity.IngressClassAnnotationKey] {
 			continue loopIngress
 		}
 		if err = Delete(h.ctx, &ingress); err != nil {
