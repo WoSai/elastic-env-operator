@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"github.com/imdario/mergo"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
 	"github.com/wosai/elastic-env-operator/domain/util"
@@ -36,12 +37,10 @@ func (h *sqbDeploymentHandler) IsInitialized(obj runtimeObj) (bool, error) {
 		return false, err
 	}
 
-	defaultSQBDeployment := &qav1alpha1.SQBDeployment{}
-	defaultSQBDeployment.Spec.DeploySpec = sqbapplication.Spec.DeploySpec
-	defaultSQBDeployment.Labels = sqbapplication.Labels
-	defaultSQBDeployment.Merge(in)
+	if err := mergo.Merge(&in.Spec.DeploySpec, sqbapplication.Spec.DeploySpec); err != nil {
+		return false, err
+	}
 
-	in.Merge(defaultSQBDeployment)
 	in.Labels = util.MergeStringMap(in.Labels, map[string]string{
 		entity.AppKey:   in.Spec.Selector.App,
 		entity.PlaneKey: in.Spec.Selector.Plane,

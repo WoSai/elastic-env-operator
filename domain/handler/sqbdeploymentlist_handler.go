@@ -4,6 +4,10 @@ import (
 	"context"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
+	"github.com/wosai/elastic-env-operator/domain/util"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/labels"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type sqbDeploymentListHandler struct {
@@ -21,19 +25,32 @@ func NewSqbDeploymentListHandlerForSqbplane(sqbplane *qav1alpha1.SQBPlane, ctx c
 }
 
 func (h *sqbDeploymentListHandler) DeleteForSqbapplication() error {
-	deleted, err := IsDeleted(h.sqbapplication)
-	if err != nil {
-		return err
-	}
-	if deleted {
-		return DeleteAllOf(h.ctx, &qav1alpha1.SQBDeployment{}, h.sqbapplication.Namespace, map[string]string{entity.AppKey: h.sqbapplication.Name})
+	if deleted, _ := IsDeleted(h.sqbapplication); deleted {
+		return h.deleteByLabel(map[string]string{entity.AppKey: h.sqbapplication.Name})
 	}
 	return nil
 }
 
 func (h *sqbDeploymentListHandler) DeleteForSqbplane() error {
 	if deleted, _ := IsDeleted(h.sqbplane); deleted {
-		return DeleteAllOf(h.ctx, &qav1alpha1.SQBDeployment{}, h.sqbplane.Namespace, map[string]string{entity.PlaneKey: h.sqbplane.Name})
+		return h.deleteByLabel(map[string]string{entity.PlaneKey: h.sqbplane.Name})
+	}
+	return nil
+}
+
+func (h *sqbDeploymentListHandler) deleteByLabel(label map[string]string) error {
+	sqbdeploymentList := &qav1alpha1.SQBDeploymentList{}
+	err := k8sclient.List(h.ctx, sqbdeploymentList, &client.ListOptions{
+		LabelSelector: labels.SelectorFromSet(label),
+	})
+	if err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+	for _, sqbdeployment := range sqbdeploymentList.Items {
+		sqbdeployment.Annotations[entity.ExplicitDeleteAnnotationKey] = util.GetDeleteCheckSum(sqbdeployment.Name)
+		if err = CreateOrUpdate(h.ctx, &sqbdeployment); err != nil {
+			return err
+		}
 	}
 	return nil
 }

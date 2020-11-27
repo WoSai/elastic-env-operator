@@ -8,7 +8,6 @@ import (
 	"github.com/wosai/elastic-env-operator/domain/util"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -113,20 +112,6 @@ func Delete(ctx context.Context, obj runtimeObj) error {
 	log.Info("delete obj", "kind", kind,
 		"namespace", obj.GetNamespace(), "name", obj.GetName(), "error", err)
 	return client.IgnoreNotFound(err)
-}
-
-// DeleteAllOf 根据namespace和label删除某种类型的所有资源
-func DeleteAllOf(ctx context.Context, obj runtimeObj, namespace string, labelMap map[string]string) error {
-	err := k8sclient.DeleteAllOf(ctx, obj, &client.DeleteAllOfOptions{
-		ListOptions: client.ListOptions{
-			Namespace:     namespace,
-			LabelSelector: labels.SelectorFromSet(labelMap),
-		},
-	})
-	kind, _ := apiutil.GVKForObject(obj, k8sScheme)
-	log.Info("delete all obj", "kind", kind,
-		"namespace", namespace, "label", labelMap, "error", err)
-	return err
 }
 
 func IsDeleted(obj runtimeObj) (bool, error) {

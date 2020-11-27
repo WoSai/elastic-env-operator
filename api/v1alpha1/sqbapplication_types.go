@@ -160,57 +160,23 @@ func (old *DeploySpec) merge(news *DeploySpec) {
 	if len(news.Args) != 0 {
 		old.Args = news.Args
 	}
-	// hostalias根据ip去重
 	if len(news.HostAlias) != 0 {
-		hostaliases := append(old.HostAlias, news.HostAlias...)
-		hostaliasMap := make(map[string]corev1.HostAlias)
-		for _, hostalias := range hostaliases {
-			hostaliasMap[hostalias.IP] = hostalias
-		}
-		hostaliases = make([]corev1.HostAlias, 0)
-		for _, hostalias := range hostaliasMap {
-			hostaliases = append(hostaliases, hostalias)
-		}
-		old.HostAlias = hostaliases
+		old.HostAlias = news.HostAlias
 	}
 	if news.Resources != nil {
 		old.Resources = news.Resources
 	}
 	if len(news.Env) != 0 {
-		// env根据name去重
-		envs := append(old.Env, news.Env...)
-		envMap := make(map[string]corev1.EnvVar)
-		for _, env := range envs {
-			envMap[env.Name] = env
-		}
-		envs = make([]corev1.EnvVar, 0)
-		for _, env := range envMap {
-			envs = append(envs, env)
-		}
-		old.Env = envs
+		old.Env = news.Env
 	}
-	if news.HealthCheck != nil {
-		old.HealthCheck = news.HealthCheck
-	}
-	// volume根据mountPath去重
+	old.HealthCheck = news.HealthCheck
 	if len(news.Volumes) != 0 {
-		volumes := append(old.Volumes, news.Volumes...)
-		volumeMap := make(map[string]*VolumeSpec)
-		for _, volume := range volumes {
-			volumeMap[volume.MountPath] = volume
-		}
-		volumes = make([]*VolumeSpec, 0)
-		for _, volume := range volumeMap {
-			volumes = append(volumes, volume)
-		}
-		old.Volumes = volumes
+		old.Volumes = news.Volumes
 	}
 	if news.NodeAffinity != nil {
 		old.NodeAffinity = news.NodeAffinity
 	}
-	if news.Lifecycle != nil {
-		old.Lifecycle = news.Lifecycle
-	}
+	old.Lifecycle = news.Lifecycle
 }
 
 func init() {

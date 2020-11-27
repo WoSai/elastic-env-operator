@@ -125,36 +125,8 @@ func TestEnv(t *testing.T) {
 		},
 	}
 	old.Merge(news)
-	assert.Equal(t, len(old.Spec.Env), 2)
-}
-
-func TestEnv2(t *testing.T) {
-	old := &SQBApplication{
-		Spec: SQBApplicationSpec{
-			DeploySpec: DeploySpec{
-				Env: []v1.EnvVar{
-					{
-						Name:  "a",
-						Value: "1",
-					},
-				},
-			},
-		},
-	}
-	news := &SQBApplication{
-		Spec: SQBApplicationSpec{
-			DeploySpec: DeploySpec{
-				Env: []v1.EnvVar{
-					{
-						Name:  "a",
-						Value: "2",
-					},
-				},
-			},
-		},
-	}
-	old.Merge(news)
 	assert.Equal(t, len(old.Spec.Env), 1)
+	assert.Equal(t, old.Spec.Env[0].Name, "b")
 	assert.Equal(t, old.Spec.Env[0].Value, "2")
 }
 
@@ -177,8 +149,8 @@ func TestVolume(t *testing.T) {
 			DeploySpec: DeploySpec{
 				Volumes: []*VolumeSpec{
 					{
-						MountPath: "/path1",
-						HostPath:  "/host1",
+						MountPath: "/path2",
+						HostPath:  "/host2",
 					},
 				},
 			},
@@ -186,25 +158,10 @@ func TestVolume(t *testing.T) {
 	}
 	old.Merge(news)
 	assert.Equal(t, len(old.Spec.Volumes), 1)
-	assert.Equal(t, old.Spec.Volumes[0].MountPath, "/path1")
+	assert.Equal(t, old.Spec.Volumes[0].MountPath, "/path2")
 	assert.Equal(t, old.Spec.Volumes[0].ConfigMap, "")
-	assert.Equal(t, old.Spec.Volumes[0].HostPath, "/host1")
+	assert.Equal(t, old.Spec.Volumes[0].HostPath, "/host2")
 
-	news = &SQBApplication{
-		Spec: SQBApplicationSpec{
-			DeploySpec: DeploySpec{
-				Volumes: []*VolumeSpec{
-					{
-						MountPath:                 "/path2",
-						PersistentVolumeClaim:     true,
-						PersistentVolumeClaimName: "claim2",
-					},
-				},
-			},
-		},
-	}
-	old.Merge(news)
-	assert.Equal(t, len(old.Spec.Volumes), 2)
 }
 
 func TestPorts(t *testing.T) {

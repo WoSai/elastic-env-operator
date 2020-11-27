@@ -48,7 +48,8 @@ func IgnoreInvalidError(err error) error {
 	if err == nil {
 		return nil
 	}
-	if strings.Contains(err.Error(), "invalid") || strings.Contains(err.Error(), "Invalid") {
+	if strings.Contains(err.Error(), "invalid") || strings.Contains(err.Error(), "Invalid") ||
+		strings.Contains(err.Error(), "cannot unmarshal") {
 		return nil
 	}
 	return err
