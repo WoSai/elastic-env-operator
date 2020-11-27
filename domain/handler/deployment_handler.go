@@ -15,6 +15,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"time"
 )
 
 type deploymentHandler struct {
@@ -246,6 +247,7 @@ func (h *deploymentHandler) Handle() error {
 
 func (h *deploymentHandler) GetInstance() (runtimeObj, error) {
 	in := &appv1.Deployment{}
+	time.Sleep(200 * time.Millisecond) // 很奇怪，predicate过滤的是有deletionTimestamp的，但是取出来的deployment确没有，等200ms之后取出来才有
 	err := k8sclient.Get(h.ctx, h.req.NamespacedName, in)
 	return in, err
 }

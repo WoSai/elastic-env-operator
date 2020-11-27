@@ -59,6 +59,9 @@ func (r *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 				}
 				return false
 			},
+			DeleteFunc: func(deleteEvent event.DeleteEvent) bool {
+				return false
+			},
 		})).
 		Complete(r)
 }

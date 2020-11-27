@@ -185,7 +185,7 @@ var _ = BeforeSuite(func(done Done) {
 		"ingressOpen":                  "true",
 		"istioInject":                  "true",
 		"istioEnable":                  "true",
-		"domainPostfix":                "{\"nginx-internal\":\"*.beta.iwosai.com\",\"nginx\":\"*.iwosai.com\"}",
+		"domainPostfix":                "{\"nginx-vpc\":\"*.beta.iwosai.com\",\"nginx\":\"*.iwosai.com\"}",
 		"istioGateways":                "[\"istio-system/ingressgateway\",\"mesh\"]",
 		"specialVirtualServiceIngress": "nginx",
 	})
