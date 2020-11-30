@@ -6,11 +6,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
-	"github.com/wosai/elastic-env-operator/domain/util"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type sqbApplicationHandler struct {
@@ -60,9 +56,6 @@ func (h *sqbApplicationHandler) Operate(obj runtimeObj) error {
 	if err != nil {
 		return err
 	}
-	if !deleted && len(in.Status.Planes) == 0 {
-		return h.CreateBase(in)
-	}
 
 	handlers := []SQBHandler{
 		NewServiceHandler(in, h.ctx),
@@ -92,47 +85,6 @@ func (h *sqbApplicationHandler) ReconcileFail(obj runtimeObj, err error) {
 	in := obj.(*qav1alpha1.SQBApplication)
 	in.Status.ErrorInfo = err.Error()
 	_ = UpdateStatus(h.ctx, in)
-}
-
-func (h *sqbApplicationHandler) CreateBase(sqbapplication *qav1alpha1.SQBApplication) error {
-	if sqbapplication.Spec.Image != "" {
-		// 创建对应的base环境服务
-		sqbplane := &qav1alpha1.SQBPlane{
-			ObjectMeta: metav1.ObjectMeta{Namespace: sqbapplication.Namespace, Name: "base"},
-		}
-		err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: sqbplane.Namespace, Name: sqbplane.Name}, sqbplane)
-		if err != nil && !apierrors.IsNotFound(err) {
-			return err
-		}
-		sqbplane.Spec = qav1alpha1.SQBPlaneSpec{
-			Description: "base",
-		}
-		if err = CreateOrUpdate(h.ctx, sqbplane); err != nil {
-			return err
-		}
-
-		sqbdeployment := &qav1alpha1.SQBDeployment{
-			ObjectMeta: metav1.ObjectMeta{Namespace: sqbapplication.Namespace, Name: util.GetSubsetName(sqbapplication.Name, sqbplane.Name)},
-		}
-		err = k8sclient.Get(h.ctx, client.ObjectKey{Namespace: sqbdeployment.Namespace, Name: sqbdeployment.Name}, sqbdeployment)
-		if err != nil && !apierrors.IsNotFound(err) {
-			return err
-		}
-
-		sqbdeployment.Spec = qav1alpha1.SQBDeploymentSpec{
-			Selector: qav1alpha1.Selector{
-				App:   sqbapplication.Name,
-				Plane: sqbplane.Name,
-			},
-		}
-		if err = CreateOrUpdate(h.ctx, sqbdeployment); err != nil {
-			return err
-		}
-	} else if sqbapplication.Status.ErrorInfo != "" {
-		sqbapplication.Status.ErrorInfo = ""
-		return UpdateStatus(h.ctx, sqbapplication)
-	}
-	return nil
 }
 
 // 判断应用是否启用istio逻辑：
