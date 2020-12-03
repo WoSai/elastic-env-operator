@@ -60,13 +60,14 @@ func main() {
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New(zap.UseDevMode(true)))
-
+	var syncPeriod time.Duration = 0
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: metricsAddr,
 		Port:               9443,
 		LeaderElection:     enableLeaderElection,
 		LeaderElectionID:   "7bea0070.shouqianba.com",
+		SyncPeriod: &syncPeriod,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
