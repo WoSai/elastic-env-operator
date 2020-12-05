@@ -161,7 +161,7 @@ func (h *deploymentHandler) merge(deployment *appv1.Deployment, specString strin
 	if err := json.Unmarshal([]byte(specString), spec); err != nil {
 		return err
 	}
-	if err := mergo.Merge(&deployment.Spec, spec); err != nil {
+	if err := mergo.Merge(&deployment.Spec, spec, mergo.WithOverride); err != nil {
 		return err
 	}
 	return nil
