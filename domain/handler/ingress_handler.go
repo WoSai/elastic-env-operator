@@ -67,9 +67,6 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 		}
 		// 一个domain只能有一个host
 		host := domain.Host
-		if host == "" {
-			host = entity.ConfigMapData.GetDomainNameByClass(h.sqbapplication.Name, domain.Class)
-		}
 		domainHosts = append(domainHosts, host)
 		newrule := v1beta1.IngressRule{
 			Host: host,

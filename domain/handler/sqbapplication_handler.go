@@ -38,11 +38,14 @@ func (h *sqbApplicationHandler) IsInitialized(obj runtimeObj) (bool, error) {
 			in.Spec.DeploySpec = deploy
 		}
 	}
-	if len(in.Spec.Domains) == 0 {
-		for k, v := range entity.ConfigMapData.GetDomainNames(in.Name) {
-			in.Spec.Domains = append(in.Spec.Domains, qav1alpha1.Domain{Class: k, Host: v})
+
+	for i, domain := range in.Spec.Domains {
+		if domain.Host == "" {
+			domain.Host = entity.ConfigMapData.GetDomainNameByClass(in.Name, domain.Class)
+			in.Spec.Domains[i] = domain
 		}
 	}
+
 	if len(in.Annotations) == 0 {
 		in.Annotations = make(map[string]string)
 	}
