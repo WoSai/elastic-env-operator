@@ -240,7 +240,7 @@ func generateBaseHttpRoute(host, path string) *istioapi.HTTPRoute {
 func getIngressHosts(sqbapplication *qav1alpha1.SQBApplication) []string {
 	hosts := make([]string, 0)
 	for _, domain := range sqbapplication.Spec.Domains {
-		hosts  = append(hosts, domain.Host)
+		hosts = append(hosts, domain.Host)
 	}
 	return hosts
 }
