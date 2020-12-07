@@ -464,6 +464,16 @@ var _ = Describe("Controller", func() {
 					},
 				},
 				Spec: qav1alpha1.SQBApplicationSpec{
+					IngressSpec: qav1alpha1.IngressSpec{
+						Domains: []qav1alpha1.Domain{
+							{
+								Class: "nginx",
+							},
+							{
+								Class: "nginx-vpc",
+							},
+						},
+					},
 					ServiceSpec: qav1alpha1.ServiceSpec{
 						Ports: []corev1.ServicePort{
 							{
@@ -702,6 +712,34 @@ var _ = Describe("Controller", func() {
 			_, ok := sqbapplication.Status.Planes["base"]
 			Expect(ok).To(BeTrue())
 			_, ok = sqbapplication.Status.Planes["test"]
+		})
+
+		It("tcp service port", func() {
+			_, err := controllerutil.CreateOrUpdate(ctx, k8sClient, sqbapplication, func() error {
+				sqbapplication.Spec.Ports = []corev1.ServicePort{
+					{
+						Name:       "tcp-3306",
+						Port:       int32(3306),
+						TargetPort: intstr.FromInt(3306),
+						Protocol:   "TCP",
+					},
+				}
+				return nil
+			})
+			Expect(err).NotTo(HaveOccurred())
+			time.Sleep(time.Second)
+			service := &corev1.Service{}
+			err = k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: applicationName}, service)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(service.Spec.Ports)).To(Equal(1))
+			Expect(service.Spec.Ports[0].Name).To(Equal("tcp-3306"))
+			Expect(service.Spec.Ports[0].Port).To(Equal(int32(3306)))
+
+			virtualservice := &istio.VirtualService{}
+			err = k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: applicationName}, virtualservice)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(len(virtualservice.Spec.Http)).To(Equal(1))
+			Expect(len(virtualservice.Spec.Tcp)).To(Equal(1))
 		})
 
 		It("delete sqbapplication with password", func() {
