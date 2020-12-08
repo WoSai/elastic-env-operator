@@ -16,7 +16,6 @@ type SQBConfigMapEntity struct {
 	istioEnable                  bool
 	serviceMonitorEnable         bool
 	domainPostfix                map[string]string // {"ingress class":"host"}
-	globalDefaultDeploy          string
 	imagePullSecrets             string
 	istioTimeout                 int64
 	istioGateways                []string
@@ -49,7 +48,6 @@ func (sc *SQBConfigMapEntity) FromMap(data map[string]string) {
 		_ = json.Unmarshal([]byte(domainPostfix), &domains)
 		sc.domainPostfix = domains
 	}
-	sc.globalDefaultDeploy = data["globalDefaultDeploy"]
 	sc.imagePullSecrets = data["imagePullSecrets"]
 	if istioGateways, ok := data["istioGateways"]; ok {
 		gateways := make([]string, 0)
@@ -117,14 +115,6 @@ func (sc *SQBConfigMapEntity) IstioInject() bool {
 
 func (sc *SQBConfigMapEntity) IsServiceMonitorEnable() bool {
 	return sc.serviceMonitorEnable
-}
-
-func (sc *SQBConfigMapEntity) GlobalDeploy() (string, bool) {
-	enable := false
-	if sc.globalDefaultDeploy != "" {
-		enable = true
-	}
-	return sc.globalDefaultDeploy, enable
 }
 
 func (sc *SQBConfigMapEntity) SpecialVirtualServiceIngress() string {

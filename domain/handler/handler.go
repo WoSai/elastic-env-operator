@@ -29,6 +29,7 @@ type (
 
 	SQBReconciler interface {
 		GetInstance() (runtimeObj, error)
+		// IsInitialized 第一次创建后需要执行的操作
 		IsInitialized(runtimeObj) (bool, error)
 		Operate(runtimeObj) error
 		ReconcileFail(runtimeObj, error)
@@ -76,8 +77,7 @@ func HandleReconcile(r SQBReconciler) (ctrl.Result, error) {
 		}
 	}
 
-	err = r.Operate(obj)
-	if err != nil {
+	if err = r.Operate(obj); err != nil {
 		r.ReconcileFail(obj, err)
 		return ctrl.Result{}, util.IgnoreInvalidError(err)
 	}

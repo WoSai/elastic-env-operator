@@ -2,8 +2,6 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
-	jsonpatch "github.com/evanphx/json-patch"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -25,32 +23,7 @@ func (h *sqbApplicationHandler) GetInstance() (runtimeObj, error) {
 }
 
 func (h *sqbApplicationHandler) IsInitialized(obj runtimeObj) (bool, error) {
-	in := obj.(*qav1alpha1.SQBApplication)
-	if in.Annotations[entity.InitializeAnnotationKey] == "true" {
-		return true, nil
-	}
-
-	if globalDefaultDeploy, ok := entity.ConfigMapData.GlobalDeploy(); ok {
-		applicationDeploy, _ := json.Marshal(in.Spec.DeploySpec)
-		applicationDeploy, _ = jsonpatch.MergePatch([]byte(globalDefaultDeploy), applicationDeploy)
-		deploy := qav1alpha1.DeploySpec{}
-		if err := json.Unmarshal(applicationDeploy, &deploy); err == nil {
-			in.Spec.DeploySpec = deploy
-		}
-	}
-
-	for i, domain := range in.Spec.Domains {
-		if domain.Host == "" {
-			domain.Host = entity.ConfigMapData.GetDomainNameByClass(in.Name, domain.Class)
-			in.Spec.Domains[i] = domain
-		}
-	}
-
-	if len(in.Annotations) == 0 {
-		in.Annotations = make(map[string]string)
-	}
-	in.Annotations[entity.InitializeAnnotationKey] = "true"
-	return false, CreateOrUpdate(h.ctx, in)
+	return true, nil
 }
 
 func (h *sqbApplicationHandler) Operate(obj runtimeObj) error {
@@ -58,6 +31,13 @@ func (h *sqbApplicationHandler) Operate(obj runtimeObj) error {
 	deleted, err := IsDeleted(in)
 	if err != nil {
 		return err
+	}
+	// 补充默认值
+	for i, domain := range in.Spec.Domains {
+		if domain.Host == "" {
+			domain.Host = entity.ConfigMapData.GetDomainNameByClass(in.Name, domain.Class)
+			in.Spec.Domains[i] = domain
+		}
 	}
 
 	handlers := []SQBHandler{

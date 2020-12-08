@@ -31,15 +31,6 @@ func (h *sqbDeploymentHandler) IsInitialized(obj runtimeObj) (bool, error) {
 	if in.Annotations[entity.InitializeAnnotationKey] == "true" {
 		return true, nil
 	}
-	sqbapplication := &qav1alpha1.SQBApplication{}
-	if err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: in.Namespace, Name: in.Spec.Selector.App},
-		sqbapplication); err != nil {
-		return false, err
-	}
-
-	if err := mergo.Merge(&in.Spec.DeploySpec, sqbapplication.Spec.DeploySpec); err != nil {
-		return false, err
-	}
 
 	in.Labels = util.MergeStringMap(in.Labels, map[string]string{
 		entity.AppKey:   in.Spec.Selector.App,
@@ -57,6 +48,16 @@ func (h *sqbDeploymentHandler) Operate(obj runtimeObj) error {
 	in := obj.(*qav1alpha1.SQBDeployment)
 	deleted, err := IsDeleted(in)
 	if err != nil {
+		return err
+	}
+	// 补充默认值
+	sqbapplication := &qav1alpha1.SQBApplication{}
+	if err = k8sclient.Get(h.ctx, client.ObjectKey{Namespace: in.Namespace, Name: in.Spec.Selector.App},
+		sqbapplication); err != nil {
+		return err
+	}
+
+	if err = mergo.Merge(&in.Spec.DeploySpec, sqbapplication.Spec.DeploySpec); err != nil {
 		return err
 	}
 

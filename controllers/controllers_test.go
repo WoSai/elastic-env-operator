@@ -2,6 +2,8 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -51,7 +53,6 @@ var _ = Describe("Controller", func() {
 		instance := &qav1alpha1.SQBPlane{}
 		err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: planeName}, instance)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(instance.Annotations[entity.InitializeAnnotationKey]).To(Equal("true"))
 		err = k8sClient.Delete(ctx, sqbplane)
 		Expect(err).NotTo(HaveOccurred())
 		time.Sleep(time.Second)
@@ -85,7 +86,6 @@ var _ = Describe("Controller", func() {
 		Expect(err).NotTo(HaveOccurred())
 		instance := &qav1alpha1.SQBApplication{}
 		err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, instance)
-		Expect(instance.Annotations[entity.InitializeAnnotationKey]).To(Equal("true"))
 		// service success
 		service := &corev1.Service{}
 		err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, service)
@@ -116,6 +116,16 @@ var _ = Describe("Controller", func() {
 					},
 				},
 				Spec: qav1alpha1.SQBApplicationSpec{
+					IngressSpec: qav1alpha1.IngressSpec{
+						Domains: []qav1alpha1.Domain{
+							{
+								Class: "nginx",
+							},
+							{
+								Class: "nginx-vpc",
+							},
+						},
+					},
 					ServiceSpec: qav1alpha1.ServiceSpec{
 						Ports: []corev1.ServicePort{
 							{
@@ -347,6 +357,9 @@ var _ = Describe("Controller", func() {
 		})
 
 		It("pass deployment annotation,pod annotation", func() {
+			if sqbdeployment.Annotations == nil {
+				sqbdeployment.Annotations = make(map[string]string)
+			}
 			sqbdeployment.Annotations[entity.DeploymentAnnotationKey] = `{"type":"deployment"}`
 			sqbdeployment.Annotations[entity.PodAnnotationKey] = `{"type":"pod"}`
 			err = k8sClient.Update(ctx, sqbdeployment)
@@ -438,6 +451,8 @@ var _ = Describe("Controller", func() {
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, sqbapplication)
 			Expect(err).To(HaveOccurred())
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: deploymentName}, sqbdeployment)
+			b, _ := json.Marshal(sqbdeployment)
+			fmt.Println(string(b))
 			Expect(err).To(HaveOccurred())
 			// deployment,ingress和service被删除
 			deployment := &appv1.Deployment{}
@@ -581,15 +596,17 @@ var _ = Describe("Controller", func() {
 			for _, domain := range sqbapplication.Spec.Domains {
 				ingress := &v1beta1.Ingress{}
 				err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName + "-" + domain.Class}, ingress)
-				Expect(ingress.Spec.Rules[0].Host).To(Equal(domain.Host))
+				Expect(ingress.Spec.Rules[0].Host).To(Equal(entity.ConfigMapData.GetDomainNameByClass(applicationName, domain.Class)))
 				Expect(ingress.Spec.Rules[0].HTTP.Paths[0].Backend.ServiceName).To(Equal("istio-ingressgateway-" + namespace))
 				Expect(ingress.Spec.Rules[0].HTTP.Paths[0].Backend.ServicePort).To(Equal(intstr.FromInt(80)))
 			}
-
 		})
 
 		It("public entry", func() {
 			_, err = controllerutil.CreateOrUpdate(ctx, k8sClient, sqbdeployment, func() error {
+				if sqbdeployment.Annotations == nil {
+					sqbdeployment.Annotations = make(map[string]string)
+				}
 				sqbdeployment.Annotations[entity.PublicEntryAnnotationKey] = "true"
 				return nil
 			})
