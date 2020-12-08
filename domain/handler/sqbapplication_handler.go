@@ -22,7 +22,7 @@ func (h *sqbApplicationHandler) GetInstance() (runtimeObj, error) {
 	return in, err
 }
 
-func (h *sqbApplicationHandler) IsInitialized(obj runtimeObj) (bool, error) {
+func (h *sqbApplicationHandler) IsInitialized(_ runtimeObj) (bool, error) {
 	return true, nil
 }
 

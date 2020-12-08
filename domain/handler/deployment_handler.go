@@ -54,7 +54,7 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 	if deploy.Resources != nil {
 		container.Resources = corev1.ResourceRequirements{
 			Requests: deploy.Resources.Requests,
-			Limits: deploy.Resources.Limits,
+			Limits:   deploy.Resources.Limits,
 		}
 	}
 	if deploy.Lifecycle != nil {
