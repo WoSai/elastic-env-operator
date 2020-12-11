@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
-	"github.com/wosai/elastic-env-operator/domain/entity"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -24,15 +23,7 @@ func (h *sqbPlaneHandler) GetInstance() (runtimeObj, error) {
 
 // 初始化逻辑
 func (h *sqbPlaneHandler) IsInitialized(obj runtimeObj) (bool, error) {
-	in := obj.(*qav1alpha1.SQBPlane)
-	if in.Annotations[entity.InitializeAnnotationKey] == "true" {
-		return true, nil
-	}
-	if len(in.Annotations) == 0 {
-		in.Annotations = make(map[string]string)
-	}
-	in.Annotations[entity.InitializeAnnotationKey] = "true"
-	return false, CreateOrUpdate(h.ctx, in)
+	return true, nil
 }
 
 // 正常处理逻辑

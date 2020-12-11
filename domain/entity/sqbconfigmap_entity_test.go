@@ -42,12 +42,6 @@ func TestConfigMap(t *testing.T) {
 		assert.Equal(t, domains["nginx"], "test.iwosai.com")
 	})
 
-	t.Run("global deploy", func(t *testing.T) {
-		deploy, enable := configmap.GlobalDeploy()
-		assert.Equal(t, deploy, mapdata["globalDefaultDeploy"])
-		assert.Equal(t, enable, true)
-	})
-
 	t.Run("image pull secrets", func(t *testing.T) {
 		secrets := configmap.GetImagePullSecrets()
 		assert.Equal(t, len(secrets), 1)

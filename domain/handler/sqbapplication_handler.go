@@ -2,15 +2,9 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
-	jsonpatch "github.com/evanphx/json-patch"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
-	"github.com/wosai/elastic-env-operator/domain/util"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type sqbApplicationHandler struct {
@@ -28,30 +22,8 @@ func (h *sqbApplicationHandler) GetInstance() (runtimeObj, error) {
 	return in, err
 }
 
-func (h *sqbApplicationHandler) IsInitialized(obj runtimeObj) (bool, error) {
-	in := obj.(*qav1alpha1.SQBApplication)
-	if in.Annotations[entity.InitializeAnnotationKey] == "true" {
-		return true, nil
-	}
-
-	if globalDefaultDeploy, ok := entity.ConfigMapData.GlobalDeploy(); ok {
-		applicationDeploy, _ := json.Marshal(in.Spec.DeploySpec)
-		applicationDeploy, _ = jsonpatch.MergePatch([]byte(globalDefaultDeploy), applicationDeploy)
-		deploy := qav1alpha1.DeploySpec{}
-		if err := json.Unmarshal(applicationDeploy, &deploy); err == nil {
-			in.Spec.DeploySpec = deploy
-		}
-	}
-	if len(in.Spec.Domains) == 0 {
-		for k, v := range entity.ConfigMapData.GetDomainNames(in.Name) {
-			in.Spec.Domains = append(in.Spec.Domains, qav1alpha1.Domain{Class: k, Host: v})
-		}
-	}
-	if len(in.Annotations) == 0 {
-		in.Annotations = make(map[string]string)
-	}
-	in.Annotations[entity.InitializeAnnotationKey] = "true"
-	return false, CreateOrUpdate(h.ctx, in)
+func (h *sqbApplicationHandler) IsInitialized(_ runtimeObj) (bool, error) {
+	return true, nil
 }
 
 func (h *sqbApplicationHandler) Operate(obj runtimeObj) error {
@@ -60,8 +32,12 @@ func (h *sqbApplicationHandler) Operate(obj runtimeObj) error {
 	if err != nil {
 		return err
 	}
-	if !deleted && len(in.Status.Planes) == 0 {
-		return h.CreateBase(in)
+	// 补充默认值
+	for i, domain := range in.Spec.Domains {
+		if domain.Host == "" {
+			domain.Host = entity.ConfigMapData.GetDomainNameByClass(in.Name, domain.Class)
+			in.Spec.Domains[i] = domain
+		}
 	}
 
 	handlers := []SQBHandler{
@@ -92,47 +68,6 @@ func (h *sqbApplicationHandler) ReconcileFail(obj runtimeObj, err error) {
 	in := obj.(*qav1alpha1.SQBApplication)
 	in.Status.ErrorInfo = err.Error()
 	_ = UpdateStatus(h.ctx, in)
-}
-
-func (h *sqbApplicationHandler) CreateBase(sqbapplication *qav1alpha1.SQBApplication) error {
-	if sqbapplication.Spec.Image != "" {
-		// 创建对应的base环境服务
-		sqbplane := &qav1alpha1.SQBPlane{
-			ObjectMeta: metav1.ObjectMeta{Namespace: sqbapplication.Namespace, Name: "base"},
-		}
-		err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: sqbplane.Namespace, Name: sqbplane.Name}, sqbplane)
-		if err != nil && !apierrors.IsNotFound(err) {
-			return err
-		}
-		sqbplane.Spec = qav1alpha1.SQBPlaneSpec{
-			Description: "base",
-		}
-		if err = CreateOrUpdate(h.ctx, sqbplane); err != nil {
-			return err
-		}
-
-		sqbdeployment := &qav1alpha1.SQBDeployment{
-			ObjectMeta: metav1.ObjectMeta{Namespace: sqbapplication.Namespace, Name: util.GetSubsetName(sqbapplication.Name, sqbplane.Name)},
-		}
-		err = k8sclient.Get(h.ctx, client.ObjectKey{Namespace: sqbdeployment.Namespace, Name: sqbdeployment.Name}, sqbdeployment)
-		if err != nil && !apierrors.IsNotFound(err) {
-			return err
-		}
-
-		sqbdeployment.Spec = qav1alpha1.SQBDeploymentSpec{
-			Selector: qav1alpha1.Selector{
-				App:   sqbapplication.Name,
-				Plane: sqbplane.Name,
-			},
-		}
-		if err = CreateOrUpdate(h.ctx, sqbdeployment); err != nil {
-			return err
-		}
-	} else if sqbapplication.Status.ErrorInfo != "" {
-		sqbapplication.Status.ErrorInfo = ""
-		return UpdateStatus(h.ctx, sqbapplication)
-	}
-	return nil
 }
 
 // 判断应用是否启用istio逻辑：

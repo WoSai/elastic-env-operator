@@ -86,13 +86,6 @@ func (h *virtualServiceHandler) getOrGenerateHttpRoutes(httpRoutes []*istioapi.H
 	for plane := range planes {
 		// 处理subpath
 		for _, subpath := range subpaths {
-			// 查找httproute,用户有可能手动修改route,所以保留原route
-			found, route := findRoute(HTTPRoutes(httpRoutes), subpath.ServiceName, plane)
-			if found {
-				httpRoute := istioapi.HTTPRoute(route.(HTTPRoute))
-				resultHttpRoutes = append(resultHttpRoutes, &httpRoute)
-				continue
-			}
 			// 生成httproute
 			httpRoute := generatePlaneHttpRoute(subpath.ServiceName, plane, subpath.Path)
 			resultHttpRoutes = append(resultHttpRoutes, httpRoute)
@@ -105,17 +98,18 @@ func (h *virtualServiceHandler) getOrGenerateHttpRoutes(httpRoutes []*istioapi.H
 	if ok {
 		planes["base"] = 1
 		for _, subpath := range subpaths {
-			found, route := findRoute(HTTPRoutes(httpRoutes), subpath.ServiceName, "base")
-			if found {
-				httpRoute := istioapi.HTTPRoute(route.(HTTPRoute))
-				resultHttpRoutes = append(resultHttpRoutes, &httpRoute)
-				continue
-			}
 			httpRoute := generateBaseHttpRoute(subpath.ServiceName, subpath.Path)
 			resultHttpRoutes = append(resultHttpRoutes, httpRoute)
 		}
-		httpRoute := generateBaseHttpRoute(h.sqbapplication.Name, "/")
-		resultHttpRoutes = append(resultHttpRoutes, httpRoute)
+
+		found, route := findRoute(HTTPRoutes(httpRoutes), h.sqbapplication.Name, "base")
+		if found {
+			httpRoute := istioapi.HTTPRoute(route.(HTTPRoute))
+			resultHttpRoutes = append(resultHttpRoutes, &httpRoute)
+		} else {
+			httpRoute := generateBaseHttpRoute(h.sqbapplication.Name, "/")
+			resultHttpRoutes = append(resultHttpRoutes, httpRoute)
+		}
 	}
 	return resultHttpRoutes
 }
@@ -129,13 +123,6 @@ func (h *virtualServiceHandler) getOrGenerateTcpRoutes(tcpRoutes []*istioapi.TCP
 	}
 	// 处理特性环境
 	for plane := range planes {
-		// 查找匹配的tcproute
-		found, route := findRoute(TCPRoutes(tcpRoutes), h.sqbapplication.Name, plane)
-		if found {
-			tcpRoute := istioapi.TCPRoute(route.(TCPRoute))
-			resultTcpRoutes = append(resultTcpRoutes, &tcpRoute)
-			continue
-		}
 		// 生成tcproute
 		tcpRoute := &istioapi.TCPRoute{
 			Route: []*istioapi.RouteDestination{
@@ -239,17 +226,7 @@ func generateBaseHttpRoute(host, path string) *istioapi.HTTPRoute {
 
 func getIngressHosts(sqbapplication *qav1alpha1.SQBApplication) []string {
 	hosts := make([]string, 0)
-	if len(sqbapplication.Spec.Domains) == 0 {
-		for _, v := range entity.ConfigMapData.GetDomainNames(sqbapplication.Name) {
-			hosts = append(hosts, v)
-		}
-		return hosts
-	}
 	for _, domain := range sqbapplication.Spec.Domains {
-		host := domain.Host
-		if host == "" {
-			host = entity.ConfigMapData.GetDomainNameByClass(sqbapplication.Name, domain.Class)
-		}
 		hosts = append(hosts, domain.Host)
 	}
 	return hosts

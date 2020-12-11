@@ -52,7 +52,10 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 		Args:           deploy.Args,
 	}
 	if deploy.Resources != nil {
-		container.Resources = *deploy.Resources
+		container.Resources = corev1.ResourceRequirements{
+			Requests: deploy.Resources.Requests,
+			Limits:   deploy.Resources.Limits,
+		}
 	}
 	if deploy.Lifecycle != nil {
 		var lifecycle corev1.Lifecycle
