@@ -18,22 +18,26 @@ package main
 
 import (
 	"flag"
-	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
-	"github.com/wosai/elastic-env-operator/controllers"
-	"github.com/wosai/elastic-env-operator/domain/entity"
-	"github.com/wosai/elastic-env-operator/domain/handler"
+	webhook2 "github.com/wosai/elastic-env-operator/webhook"
+	"os"
+	"sigs.k8s.io/controller-runtime/pkg/webhook"
+	"time"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
-	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	"time"
+
+	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
+	"github.com/wosai/elastic-env-operator/controllers"
+	"github.com/wosai/elastic-env-operator/domain/entity"
+	"github.com/wosai/elastic-env-operator/domain/handler"
 
 	prometheus "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	istio "istio.io/client-go/pkg/apis/networking/v1beta1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 var (
@@ -141,6 +145,7 @@ func main() {
 		}
 	}()
 
+	mgr.GetWebhookServer().Register("/mutate-v1-pod", &webhook.Admission{Handler: &webhook2.PodMutator{}})
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")

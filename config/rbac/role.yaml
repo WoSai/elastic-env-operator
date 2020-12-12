@@ -9,6 +9,7 @@ rules:
 - apiGroups:
   - '*'
   resources:
+  - pods
   - services
   - deployments
   - virtualservices

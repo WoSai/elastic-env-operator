@@ -1,0 +1,7 @@
+apiVersion: qa.shouqianba.com/v1alpha1
+kind: Pod
+metadata:
+  name: pod-sample
+spec:
+  # Add fields here
+  foo: bar
