@@ -14,6 +14,9 @@ webhooks:
       path: /mutate-v1-pod
   failurePolicy: Fail
   name: mpod.kb.io
+  namespaceSelector:
+    matchLabels:
+      istio-injection: enabled
   rules:
   - apiGroups:
     - ""
