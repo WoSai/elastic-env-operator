@@ -17,6 +17,7 @@ webhooks:
   namespaceSelector:
     matchLabels:
       istio-injection: enabled
+  reinvocationPolicy: IfNeeded
   rules:
   - apiGroups:
     - ""

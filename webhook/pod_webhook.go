@@ -39,8 +39,12 @@ func (a *PodMutator) Handle(ctx context.Context, req admission.Request) admissio
 
 	// mutate the fields in pod
 	for i, container := range pod.Spec.Containers {
-		if container.Name == "istio-proxy" {
-			container.Lifecycle.PostStart.HTTPGet = container.ReadinessProbe.HTTPGet
+		if container.Name == "istio-proxy" && container.ReadinessProbe != nil && container.ReadinessProbe.HTTPGet != nil {
+			container.Lifecycle = &corev1.Lifecycle{
+				PostStart: &corev1.Handler{
+					HTTPGet: container.ReadinessProbe.HTTPGet,
+				},
+			}
 			pod.Spec.Containers[i] = pod.Spec.Containers[0]
 			pod.Spec.Containers[0] = container
 			break
