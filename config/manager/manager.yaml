@@ -27,7 +27,7 @@ spec:
           requiredDuringSchedulingIgnoredDuringExecution:
             nodeSelectorTerms:
               - matchExpressions:
-                  - key: kubernetes.io/role
+                  - key: group
                     operator: In
                     values:
                       - sys
