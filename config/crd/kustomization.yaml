@@ -5,7 +5,7 @@ resources:
 - bases/qa.shouqianba.com_sqbdeployments.yaml
 - bases/qa.shouqianba.com_sqbplanes.yaml
 - bases/qa.shouqianba.com_sqbapplications.yaml
-- bases/qa.shouqianba.com_pods.yaml
+#- bases/qa.shouqianba.com_pods.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:
