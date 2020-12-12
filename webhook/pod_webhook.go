@@ -58,4 +58,3 @@ func (a *PodMutator) InjectDecoder(d *admission.Decoder) error {
 	a.decoder = d
 	return nil
 }
-
