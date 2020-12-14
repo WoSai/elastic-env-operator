@@ -28,24 +28,35 @@ func (h *specialVirtualServiceHandler) CreateOrUpdate() error {
 		return err
 	}
 
+	sqbapplication := &qav1alpha1.SQBApplication{}
+	err = k8sclient.Get(h.ctx, client.ObjectKey{Namespace: specialvirtualservice.Namespace, Name: h.sqbdeployment.Spec.Selector.App}, sqbapplication)
+	if err != nil {
+		return err
+	}
+
 	virtualserviceHosts := []string{entity.ConfigMapData.GetDomainNameByClass(h.sqbdeployment.Name, SpecialVirtualServiceIngress(h.sqbdeployment))}
 	specialvirtualservice.Spec.Hosts = virtualserviceHosts
 	specialvirtualservice.Spec.Gateways = entity.ConfigMapData.IstioGateways()
-	specialvirtualservice.Spec.Http = []*istioapi.HTTPRoute{
-		{
-			Route: []*istioapi.HTTPRouteDestination{
-				{Destination: &istioapi.Destination{
-					Host:   h.sqbdeployment.Labels[entity.AppKey],
-					Subset: h.sqbdeployment.Name,
-				}},
-			},
-			Timeout: &types2.Duration{Seconds: entity.ConfigMapData.IstioTimeout()},
-			Headers: &istioapi.Headers{
-				Request: &istioapi.Headers_HeaderOperations{Set: map[string]string{entity.XEnvFlag: h.sqbdeployment.Labels[entity.PlaneKey]}},
-			},
-		},
-	}
 
+	httproutes := make([]*istioapi.HTTPRoute, 0)
+
+	for _, path := range sqbapplication.Spec.Subpaths {
+		httproutes = append(httproutes, generatePlaneHttpRoute(path.ServiceName, h.sqbdeployment.Spec.Selector.Plane, path.Path))
+	}
+	httproutes = append(httproutes, &istioapi.HTTPRoute{
+		Route: []*istioapi.HTTPRouteDestination{
+			{Destination: &istioapi.Destination{
+				Host:   h.sqbdeployment.Labels[entity.AppKey],
+				Subset: h.sqbdeployment.Name,
+			}},
+		},
+		Timeout: &types2.Duration{Seconds: entity.ConfigMapData.IstioTimeout()},
+		Headers: &istioapi.Headers{
+			Request: &istioapi.Headers_HeaderOperations{Set: map[string]string{entity.XEnvFlag: h.sqbdeployment.Labels[entity.PlaneKey]}},
+		},
+	})
+
+	specialvirtualservice.Spec.Http = httproutes
 	return CreateOrUpdate(h.ctx, specialvirtualservice)
 }
 
