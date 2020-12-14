@@ -72,7 +72,7 @@ func (h *specialVirtualServiceHandler) CreateOrUpdate() error {
 		},
 		Timeout: &types2.Duration{Seconds: entity.ConfigMapData.IstioTimeout()},
 		Headers: &istioapi.Headers{
-			Request: &istioapi.Headers_HeaderOperations{Set: map[string]string{entity.XEnvFlag: h.sqbdeployment.Labels[entity.PlaneKey]}},
+			Request: &istioapi.Headers_HeaderOperations{Set: map[string]string{entity.XEnvFlag: h.sqbdeployment.Spec.Selector.Plane}},
 		},
 	})
 
