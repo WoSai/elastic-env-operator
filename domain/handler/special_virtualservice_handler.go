@@ -56,6 +56,9 @@ func (h *specialVirtualServiceHandler) CreateOrUpdate() error {
 					Subset: util.GetSubsetName(path.ServiceName, h.sqbdeployment.Spec.Selector.Plane),
 				}},
 			},
+			Headers: &istioapi.Headers{
+				Request: &istioapi.Headers_HeaderOperations{Set: map[string]string{entity.XEnvFlag: h.sqbdeployment.Spec.Selector.Plane}},
+			},
 			Timeout: &types2.Duration{Seconds: entity.ConfigMapData.IstioTimeout()},
 		}
 		httproutes = append(httproutes, httpRoute)
