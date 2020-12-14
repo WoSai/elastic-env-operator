@@ -5,6 +5,7 @@ import (
 	types2 "github.com/gogo/protobuf/types"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
+	"github.com/wosai/elastic-env-operator/domain/util"
 	istioapi "istio.io/api/networking/v1beta1"
 	istio "istio.io/client-go/pkg/apis/networking/v1beta1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -41,12 +42,28 @@ func (h *specialVirtualServiceHandler) CreateOrUpdate() error {
 	httproutes := make([]*istioapi.HTTPRoute, 0)
 
 	for _, path := range sqbapplication.Spec.Subpaths {
-		httproutes = append(httproutes, generatePlaneHttpRoute(path.ServiceName, h.sqbdeployment.Spec.Selector.Plane, path.Path))
+		httpRoute := &istioapi.HTTPRoute{
+			Match: []*istioapi.HTTPMatchRequest{
+				{
+					Uri: &istioapi.StringMatch{
+						MatchType: &istioapi.StringMatch_Prefix{Prefix: path.Path},
+					},
+				},
+			},
+			Route: []*istioapi.HTTPRouteDestination{
+				{Destination: &istioapi.Destination{
+					Host:   path.ServiceName,
+					Subset: util.GetSubsetName(path.ServiceName, h.sqbdeployment.Spec.Selector.Plane),
+				}},
+			},
+			Timeout: &types2.Duration{Seconds: entity.ConfigMapData.IstioTimeout()},
+		}
+		httproutes = append(httproutes, httpRoute)
 	}
 	httproutes = append(httproutes, &istioapi.HTTPRoute{
 		Route: []*istioapi.HTTPRouteDestination{
 			{Destination: &istioapi.Destination{
-				Host:   h.sqbdeployment.Labels[entity.AppKey],
+				Host:   h.sqbdeployment.Spec.Selector.App,
 				Subset: h.sqbdeployment.Name,
 			}},
 		},
