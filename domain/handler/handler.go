@@ -56,6 +56,11 @@ func HandleReconcile(r SQBReconciler) (ctrl.Result, error) {
 	if !entity.ConfigMapData.Initialized {
 		return ctrl.Result{RequeueAfter: time.Second}, nil
 	}
+
+	if !entity.ConfigMapData.Ready {
+		return ctrl.Result{}, nil
+	}
+
 	obj, err := r.GetInstance()
 	if err != nil {
 		if apierrors.IsNotFound(err) {

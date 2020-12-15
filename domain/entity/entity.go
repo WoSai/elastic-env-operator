@@ -21,4 +21,5 @@ const (
 	VirtualServiceAnnotationKey  = "qa.shouqianba.com/passthrough-virtualservice"
 	InitializeAnnotationKey      = "qa.shouqianba.com/initialized"
 	IngressClassAnnotationKey    = "kubernetes.io/ingress.class"
+	IstioSidecarInjectKey        = "sidecar.istio.io/inject"
 )

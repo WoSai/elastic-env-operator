@@ -2,8 +2,6 @@ package controllers
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"github.com/gogo/protobuf/proto"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -451,8 +449,6 @@ var _ = Describe("Controller", func() {
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, sqbapplication)
 			Expect(err).To(HaveOccurred())
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: deploymentName}, sqbdeployment)
-			b, _ := json.Marshal(sqbdeployment)
-			fmt.Println(string(b))
 			Expect(err).To(HaveOccurred())
 			// deployment,ingress和service被删除
 			deployment := &appv1.Deployment{}
@@ -773,6 +769,24 @@ var _ = Describe("Controller", func() {
 			destinationrule := &istio.DestinationRule{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, destinationrule)
 			Expect(err).To(HaveOccurred())
+		})
+
+		It("istio open then close", func() {
+			err = k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: deploymentName}, sqbdeployment)
+			Expect(err).To(BeNil())
+			Expect(sqbdeployment.Annotations[entity.PodAnnotationKey]).To(Equal(`{"sidecar.istio.io/inject":"true"}`))
+
+			_, err = controllerutil.CreateOrUpdate(ctx, k8sClient, sqbapplication, func() error {
+				sqbapplication.Annotations[entity.IstioInjectAnnotationKey] = "false"
+				return nil
+			})
+			Expect(err).NotTo(HaveOccurred())
+			time.Sleep(time.Second)
+
+			err = k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: deploymentName}, sqbdeployment)
+			Expect(err).To(BeNil())
+			Expect(sqbdeployment.Annotations[entity.PodAnnotationKey]).To(Equal(`{"sidecar.istio.io/inject":"false"}`))
+
 		})
 
 	})

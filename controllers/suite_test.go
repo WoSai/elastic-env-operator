@@ -61,7 +61,7 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(done Done) {
-	logf.SetLogger(zap.LoggerTo(GinkgoWriter, true))
+	logf.SetLogger(zap.LoggerTo(GinkgoWriter, false))
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
@@ -185,9 +185,10 @@ var _ = BeforeSuite(func(done Done) {
 		"ingressOpen":                  "true",
 		"istioInject":                  "true",
 		"istioEnable":                  "true",
-		"domainPostfix":                "{\"nginx-vpc\":\"*.beta.iwosai.com\",\"nginx\":\"*.iwosai.com\"}",
-		"istioGateways":                "[\"istio-system/ingressgateway\",\"mesh\"]",
+		"domainPostfix":                `{"nginx-vpc":"*.beta.iwosai.com","nginx":"*.iwosai.com"}`,
+		"istioGateways":                `["istio-system/ingressgateway","mesh"]`,
 		"specialVirtualServiceIngress": "nginx",
+		"operatorDelay":                "0",
 	})
 
 	close(done)
