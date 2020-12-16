@@ -32,6 +32,9 @@ func (h *sqbDeploymentListHandler) CreateOrUpdateForSqbapplication() error {
 	}
 
 	for _, sqbdeployment := range sqbdeployments {
+		if sqbdeployment.Annotations[entity.InitializeAnnotationKey] != "true" {
+			continue
+		}
 		if IsIstioInject(h.sqbapplication) {
 			sqbdeployment.Annotations[entity.IstioInjectAnnotationKey] = "true"
 		} else {
