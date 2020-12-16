@@ -51,6 +51,11 @@ func (h *sqbDeploymentHandler) IsInitialized(obj runtimeObj) (bool, error) {
 		in.Annotations = make(map[string]string)
 	}
 	in.Annotations[entity.InitializeAnnotationKey] = "true"
+	if IsIstioInject(sqbapplication) {
+		in.Annotations[entity.IstioInjectAnnotationKey] = "true"
+	} else {
+		in.Annotations[entity.IstioInjectAnnotationKey] = "false"
+	}
 	return false, CreateOrUpdate(h.ctx, in)
 }
 

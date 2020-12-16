@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
 	"github.com/wosai/elastic-env-operator/domain/util"
@@ -31,28 +30,13 @@ func (h *sqbDeploymentListHandler) CreateOrUpdateForSqbapplication() error {
 	if err != nil {
 		return err
 	}
-	sidecarInject := make(map[string]string)
-	if IsIstioInject(h.sqbapplication) {
-		sidecarInject[entity.IstioSidecarInjectKey] = "true"
-	} else {
-		sidecarInject[entity.IstioSidecarInjectKey] = "false"
-	}
 
 	for _, sqbdeployment := range sqbdeployments {
-		anno := make(map[string]string)
-		if podanno, ok := sqbdeployment.Annotations[entity.PodAnnotationKey]; ok {
-			if err = json.Unmarshal([]byte(podanno), &anno); err != nil {
-				return err
-			}
-			anno = util.MergeStringMap(anno, sidecarInject)
+		if IsIstioInject(h.sqbapplication) {
+			sqbdeployment.Annotations[entity.IstioInjectAnnotationKey] = "true"
 		} else {
-			anno = sidecarInject
+			sqbdeployment.Annotations[entity.IstioInjectAnnotationKey] = "false"
 		}
-		passanno, err := json.Marshal(anno)
-		if err != nil {
-			return err
-		}
-		sqbdeployment.Annotations[entity.PodAnnotationKey] = string(passanno)
 		if err = CreateOrUpdate(h.ctx, &sqbdeployment); err != nil {
 			return err
 		}

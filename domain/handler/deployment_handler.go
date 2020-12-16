@@ -7,6 +7,7 @@ import (
 	"github.com/imdario/mergo"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
+	"github.com/wosai/elastic-env-operator/domain/util"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -83,14 +84,13 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 
 	if anno, ok := h.sqbdeployment.Annotations[entity.PodAnnotationKey]; ok {
 		_ = json.Unmarshal([]byte(anno), &deployment.Spec.Template.Annotations)
-	} else {
-		deployment.Spec.Template.Annotations = nil
 	}
+
+	deployment.Spec.Template.Annotations = util.MergeStringMap(deployment.Spec.Template.Annotations,
+		map[string]string{entity.IstioSidecarInjectKey: h.sqbdeployment.Annotations[entity.IstioInjectAnnotationKey]})
 
 	if anno, ok := h.sqbdeployment.Annotations[entity.DeploymentAnnotationKey]; ok {
 		_ = json.Unmarshal([]byte(anno), &deployment.Annotations)
-	} else {
-		deployment.Annotations = nil
 	}
 	// init lifecycle
 	if deploy.Lifecycle != nil && deploy.Lifecycle.Init != nil {
