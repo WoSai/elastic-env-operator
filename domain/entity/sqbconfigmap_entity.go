@@ -5,23 +5,25 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var ConfigMapData = &SQBConfigMapEntity{}
 
 // operator相关的业务配置实体
 type SQBConfigMapEntity struct {
-	ingressOpen                  bool
-	istioInject                  bool
-	istioEnable                  bool
-	serviceMonitorEnable         bool
-	domainPostfix                map[string]string // {"ingress class":"host"}
-	imagePullSecrets             string
-	istioTimeout                 int64
-	istioGateways                []string
-	specialVirtualServiceIngress string
-	deploymentSpec               string
-	Initialized                  bool
+	ingressOpen                  bool              // 默认是否开启ingress
+	istioInject                  bool              // 默认是否启用istio
+	istioEnable                  bool              // 集群是否安装istio
+	serviceMonitorEnable         bool              // 集群是否安装prometheus
+	domainPostfix                map[string]string // 默认的域名后缀{"ingress class":"host"}
+	imagePullSecrets             string            // 默认的image pull secret名称
+	istioTimeout                 int64             // istio连接超时时间
+	istioGateways                []string          // virtualservice应用的gateway
+	specialVirtualServiceIngress string            // 特性入口的域名对应的ingress class
+	deploymentSpec               string            // 默认的deployment全局配置
+	Initialized                  bool              // 是否初始化，初始化后才开始接收event，初始化之前的event requeue
+	Ready                        bool              // 是否已就绪，就绪后才真正开始处理event，Initialized到Ready状态之间的event直接忽略
 }
 
 func (sc *SQBConfigMapEntity) FromMap(data map[string]string) {
@@ -63,7 +65,18 @@ func (sc *SQBConfigMapEntity) FromMap(data map[string]string) {
 		sc.specialVirtualServiceIngress = "nginx"
 	}
 	sc.deploymentSpec = data["deploymentSpec"]
+	operatorDeplay, err := strconv.Atoi(data["operatorDelay"])
+	if err != nil {
+		operatorDeplay = 30
+	}
 	sc.Initialized = true
+	if !sc.Ready {
+		go func() {
+			timer := time.NewTimer(time.Duration(operatorDeplay) * time.Second)
+			<-timer.C
+			sc.Ready = true
+		}()
+	}
 }
 
 func (sc *SQBConfigMapEntity) GetDomainNames(prefix string) map[string]string {

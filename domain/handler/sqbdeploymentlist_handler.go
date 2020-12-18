@@ -24,29 +24,54 @@ func NewSqbDeploymentListHandlerForSqbplane(sqbplane *qav1alpha1.SQBPlane, ctx c
 	return &sqbDeploymentListHandler{sqbplane: sqbplane, ctx: ctx}
 }
 
-func (h *sqbDeploymentListHandler) DeleteForSqbapplication() error {
-	if deleted, _ := IsDeleted(h.sqbapplication); deleted {
-		return h.deleteByLabel(map[string]string{entity.AppKey: h.sqbapplication.Name})
+func (h *sqbDeploymentListHandler) CreateOrUpdateForSqbapplication() error {
+	// 判断是否需要注入sidecar
+	sqbdeployments, err := h.listByLabel(map[string]string{entity.AppKey: h.sqbapplication.Name})
+	if err != nil {
+		return err
+	}
+
+	for _, sqbdeployment := range sqbdeployments {
+		if sqbdeployment.Annotations[entity.InitializeAnnotationKey] != "true" {
+			continue
+		}
+		if IsIstioInject(h.sqbapplication) {
+			sqbdeployment.Annotations[entity.IstioInjectAnnotationKey] = "true"
+		} else {
+			sqbdeployment.Annotations[entity.IstioInjectAnnotationKey] = "false"
+		}
+		if err = CreateOrUpdate(h.ctx, &sqbdeployment); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+func (h *sqbDeploymentListHandler) DeleteForSqbapplication() error {
+	return h.deleteByLabel(map[string]string{entity.AppKey: h.sqbapplication.Name})
 }
 
 func (h *sqbDeploymentListHandler) DeleteForSqbplane() error {
-	if deleted, _ := IsDeleted(h.sqbplane); deleted {
-		return h.deleteByLabel(map[string]string{entity.PlaneKey: h.sqbplane.Name})
-	}
-	return nil
+	return h.deleteByLabel(map[string]string{entity.PlaneKey: h.sqbplane.Name})
 }
 
-func (h *sqbDeploymentListHandler) deleteByLabel(label map[string]string) error {
+func (h *sqbDeploymentListHandler) listByLabel(label map[string]string) ([]qav1alpha1.SQBDeployment, error) {
 	sqbdeploymentList := &qav1alpha1.SQBDeploymentList{}
 	err := k8sclient.List(h.ctx, sqbdeploymentList, &client.ListOptions{
 		LabelSelector: labels.SelectorFromSet(label),
 	})
 	if err != nil && !apierrors.IsNotFound(err) {
+		return nil, err
+	}
+	return sqbdeploymentList.Items, nil
+}
+
+func (h *sqbDeploymentListHandler) deleteByLabel(label map[string]string) error {
+	sqbdeployments, err := h.listByLabel(label)
+	if err != nil {
 		return err
 	}
-	for _, sqbdeployment := range sqbdeploymentList.Items {
+	for _, sqbdeployment := range sqbdeployments {
 		sqbdeployment.Annotations[entity.ExplicitDeleteAnnotationKey] = util.GetDeleteCheckSum(sqbdeployment.Name)
 		if err = CreateOrUpdate(h.ctx, &sqbdeployment); err != nil {
 			return err
@@ -57,10 +82,15 @@ func (h *sqbDeploymentListHandler) deleteByLabel(label map[string]string) error 
 
 func (h *sqbDeploymentListHandler) Handle() error {
 	if h.sqbapplication != nil {
-		return h.DeleteForSqbapplication()
+		if deleted, _ := IsDeleted(h.sqbapplication); deleted {
+			return h.DeleteForSqbapplication()
+		}
+		return h.CreateOrUpdateForSqbapplication()
 	}
 	if h.sqbplane != nil {
-		return h.DeleteForSqbplane()
+		if deleted, _ := IsDeleted(h.sqbplane); deleted {
+			return h.DeleteForSqbplane()
+		}
 	}
 	return nil
 }
