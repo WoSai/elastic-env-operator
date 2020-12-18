@@ -186,6 +186,7 @@ metadata:
     qa.shouqianba.com/public-entry: "true" #是否开启外网入口，默认不开启
     qa.shouqianba.com/init-container-image: "registry.wosai-inc.com/xxx" # 初始化容器镜像，默认为busybox
     qa.shouqianba.com/special-virtualservice-ingressclass: "nginx" # 特性环境入口host作用于哪个ingress
+    qa.shouqianba.com/statefulset: "true" # 此sqbdeployment是否是statefulset，默认为deployment
     qa.shouqianba.com/passthrough-deployment: # 透传到下游deployment的annotation
     qa.shouqianba.com/passthrough-pod:
 spec:
