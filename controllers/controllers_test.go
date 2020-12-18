@@ -774,7 +774,11 @@ var _ = Describe("Controller", func() {
 		It("istio open then close", func() {
 			err = k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: deploymentName}, sqbdeployment)
 			Expect(err).To(BeNil())
-			Expect(sqbdeployment.Annotations[entity.PodAnnotationKey]).To(Equal(`{"sidecar.istio.io/inject":"true"}`))
+			Expect(sqbdeployment.Annotations[entity.IstioInjectAnnotationKey]).To(Equal("true"))
+			deployment := &appv1.Deployment{}
+			err = k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: deploymentName}, deployment)
+			Expect(err).To(BeNil())
+			Expect(deployment.Spec.Template.Annotations[entity.IstioSidecarInjectKey]).To(Equal("true"))
 
 			_, err = controllerutil.CreateOrUpdate(ctx, k8sClient, sqbapplication, func() error {
 				sqbapplication.Annotations[entity.IstioInjectAnnotationKey] = "false"
@@ -785,7 +789,11 @@ var _ = Describe("Controller", func() {
 
 			err = k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: deploymentName}, sqbdeployment)
 			Expect(err).To(BeNil())
-			Expect(sqbdeployment.Annotations[entity.PodAnnotationKey]).To(Equal(`{"sidecar.istio.io/inject":"false"}`))
+			Expect(sqbdeployment.Annotations[entity.IstioInjectAnnotationKey]).To(Equal("false"))
+
+			err = k8sClient.Get(ctx, client.ObjectKey{Namespace: namespace, Name: deploymentName}, deployment)
+			Expect(err).To(BeNil())
+			Expect(deployment.Spec.Template.Annotations[entity.IstioSidecarInjectKey]).To(Equal("false"))
 
 		})
 
