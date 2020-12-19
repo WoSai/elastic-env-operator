@@ -120,6 +120,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&controllers.StatefulsetReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("Statefulset"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Statefulset")
+		os.Exit(1)
+	}
+
 	if err = (&qav1alpha1.SQBDeployment{}).SetupWebhookWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create webhook", "webhook", "SQBDeployment")
 		os.Exit(1)

@@ -22,6 +22,7 @@ type SQBConfigMapEntity struct {
 	istioGateways                []string          // virtualservice应用的gateway
 	specialVirtualServiceIngress string            // 特性入口的域名对应的ingress class
 	deploymentSpec               string            // 默认的deployment全局配置
+	statefulsetSpec              string            //
 	Initialized                  bool              // 是否初始化，初始化后才开始接收event，初始化之前的event requeue
 	Ready                        bool              // 是否已就绪，就绪后才真正开始处理event，Initialized到Ready状态之间的event直接忽略
 }
@@ -65,6 +66,7 @@ func (sc *SQBConfigMapEntity) FromMap(data map[string]string) {
 		sc.specialVirtualServiceIngress = "nginx"
 	}
 	sc.deploymentSpec = data["deploymentSpec"]
+	sc.deploymentSpec = data["statefulsetSpec"]
 	operatorDeplay, err := strconv.Atoi(data["operatorDelay"])
 	if err != nil {
 		operatorDeplay = 30
@@ -136,4 +138,8 @@ func (sc *SQBConfigMapEntity) SpecialVirtualServiceIngress() string {
 
 func (sc *SQBConfigMapEntity) DeploymentSpec() string {
 	return sc.deploymentSpec
+}
+
+func (sc *SQBConfigMapEntity) StatefulsetSpec() string {
+	return sc.statefulsetSpec
 }

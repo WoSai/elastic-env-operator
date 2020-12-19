@@ -70,6 +70,7 @@ func (h *sqbDeploymentHandler) Operate(obj runtimeObj) error {
 	handlers := []SQBHandler{
 		NewPVCHandler(in, h.ctx),
 		NewDeploymentHandler(in, h.ctx),
+		NewStatefulsetHandler(in, h.ctx),
 		NewSqbdeploymentIngressHandler(in, h.ctx),
 		NewSpecialVirtualServiceHandler(in, h.ctx),
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/gogo/protobuf/proto"
 	"github.com/imdario/mergo"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
@@ -11,6 +12,7 @@ import (
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -19,29 +21,29 @@ import (
 	"time"
 )
 
-type deploymentHandler struct {
+type statefulsetHandler struct {
 	sqbdeployment *qav1alpha1.SQBDeployment
 	ctx           context.Context
 	req           ctrl.Request
 }
 
-func NewDeploymentHandler(sqbdeployment *qav1alpha1.SQBDeployment, ctx context.Context) *deploymentHandler {
-	return &deploymentHandler{sqbdeployment: sqbdeployment, ctx: ctx}
+func NewStatefulsetHandler(sqbdeployment *qav1alpha1.SQBDeployment, ctx context.Context) *statefulsetHandler {
+	return &statefulsetHandler{sqbdeployment: sqbdeployment, ctx: ctx}
 }
 
-func NewDeploymentHandlerWithReq(req ctrl.Request, ctx context.Context) *deploymentHandler {
-	return &deploymentHandler{req: req, ctx: ctx}
+func NewStatefulsetHandlerWithReq(req ctrl.Request, ctx context.Context) *statefulsetHandler {
+	return &statefulsetHandler{req: req, ctx: ctx}
 }
 
-func (h *deploymentHandler) CreateOrUpdate() error {
-	deployment := &appv1.Deployment{ObjectMeta: metav1.ObjectMeta{Namespace: h.sqbdeployment.Namespace, Name: h.sqbdeployment.Name}}
-	err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: deployment.Namespace, Name: deployment.Name}, deployment)
+func (h *statefulsetHandler) CreateOrUpdate() error {
+	statefulset := &appv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{Namespace: h.sqbdeployment.Namespace, Name: h.sqbdeployment.Name}}
+	err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: statefulset.Namespace, Name: statefulset.Name}, statefulset)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
 
 	deploy := h.sqbdeployment.Spec.DeploySpec
-	volumes, volumeMounts := h.getVolumeAndVolumeMounts(deploy.Volumes)
+	volumes, pvcs, volumeMounts := h.getVolumeAndPvctempAndVolumeMounts(deploy.Volumes)
 	container := corev1.Container{
 		Name:           h.sqbdeployment.Name,
 		Image:          deploy.Image,
@@ -69,29 +71,27 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 		container.Lifecycle = &lifecycle
 	}
 
-	deployment.Labels = h.sqbdeployment.Labels
-	deployment.Spec.Replicas = deploy.Replicas
-	deployment.Spec.Selector = &metav1.LabelSelector{
+	statefulset.Labels = h.sqbdeployment.Labels
+	statefulset.Spec.Replicas = deploy.Replicas
+	statefulset.Spec.Selector = &metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			entity.AppKey: h.sqbdeployment.Spec.Selector.App,
 		},
 	}
-	deployment.Spec.Template.ObjectMeta.Labels = deployment.Labels
-	deployment.Spec.Template.Spec.Volumes = volumes
-	deployment.Spec.Template.Spec.HostAliases = deploy.HostAlias
-	deployment.Spec.Template.Spec.Containers = []corev1.Container{container}
-	deployment.Spec.Template.Spec.ImagePullSecrets = entity.ConfigMapData.GetImagePullSecrets()
+	statefulset.Spec.VolumeClaimTemplates = pvcs
+	statefulset.Spec.Template.ObjectMeta.Labels = statefulset.Labels
+	statefulset.Spec.Template.Spec.Volumes = volumes
+	statefulset.Spec.Template.Spec.HostAliases = deploy.HostAlias
+	statefulset.Spec.Template.Spec.Containers = []corev1.Container{container}
+	statefulset.Spec.Template.Spec.ImagePullSecrets = entity.ConfigMapData.GetImagePullSecrets()
 
 	if anno, ok := h.sqbdeployment.Annotations[entity.PodAnnotationKey]; ok {
-		_ = json.Unmarshal([]byte(anno), &deployment.Spec.Template.Annotations)
+		_ = json.Unmarshal([]byte(anno), &statefulset.Spec.Template.Annotations)
 	}
 
-	deployment.Spec.Template.Annotations = util.MergeStringMap(deployment.Spec.Template.Annotations,
+	statefulset.Spec.Template.Annotations = util.MergeStringMap(statefulset.Spec.Template.Annotations,
 		map[string]string{entity.IstioSidecarInjectKey: h.sqbdeployment.Annotations[entity.IstioInjectAnnotationKey]})
 
-	if anno, ok := h.sqbdeployment.Annotations[entity.DeploymentAnnotationKey]; ok {
-		_ = json.Unmarshal([]byte(anno), &deployment.Annotations)
-	}
 	// init lifecycle
 	if deploy.Lifecycle != nil && deploy.Lifecycle.Init != nil {
 		init := deploy.Lifecycle.Init
@@ -106,7 +106,7 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 			Env:          deploy.Env,
 			VolumeMounts: volumeMounts,
 		}
-		deployment.Spec.Template.Spec.InitContainers = []corev1.Container{initContainer}
+		statefulset.Spec.Template.Spec.InitContainers = []corev1.Container{initContainer}
 	}
 	// NodeAffinity
 	if deploy.NodeAffinity != nil {
@@ -148,31 +148,55 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 			}
 			affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = preferredTerms
 		}
-		deployment.Spec.Template.Spec.Affinity = affinity
+		statefulset.Spec.Template.Spec.Affinity = affinity
 	}
-	controllerutil.AddFinalizer(deployment, entity.FINALIZER)
-	if specString := entity.ConfigMapData.DeploymentSpec(); specString != "" {
-		if err = h.merge(deployment, specString); err != nil {
+	controllerutil.AddFinalizer(statefulset, entity.FINALIZER)
+	if specString := entity.ConfigMapData.StatefulsetSpec(); specString != "" {
+		if err = h.merge(statefulset, specString); err != nil {
 			return err
 		}
 	}
-	return CreateOrUpdate(h.ctx, deployment)
+	return CreateOrUpdate(h.ctx, statefulset)
 }
 
-func (h *deploymentHandler) merge(deployment *appv1.Deployment, specString string) error {
-	spec := &appv1.DeploymentSpec{}
+func (h *statefulsetHandler) merge(statefulset *appv1.StatefulSet, specString string) error {
+	spec := &appv1.StatefulSetSpec{}
 	if err := json.Unmarshal([]byte(specString), spec); err != nil {
 		return err
 	}
-	if err := mergo.Merge(&deployment.Spec, spec); err != nil {
+	if err := mergo.Merge(&statefulset.Spec, spec); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (h *deploymentHandler) getVolumeAndVolumeMounts(volumemap []*qav1alpha1.VolumeSpec) (volumes []corev1.Volume, volumeMounts []corev1.VolumeMount) {
+func (h *statefulsetHandler) getVolumeAndPvctempAndVolumeMounts(volumemap []*qav1alpha1.VolumeSpec) (volumes []corev1.Volume, pvcs []corev1.PersistentVolumeClaim, volumeMounts []corev1.VolumeMount) {
 	for i, volumeSpec := range volumemap {
 		volumeName := fmt.Sprintf("volume-%d", i)
+
+		if volumeSpec.PersistentVolumeClaim {
+			pvcName := h.sqbdeployment.Name + "-" + volumeName
+			pvcs = append(pvcs, corev1.PersistentVolumeClaim{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: pvcName,
+				},
+				Spec: corev1.PersistentVolumeClaimSpec{
+					AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany},
+					Resources: corev1.ResourceRequirements{
+						Requests: corev1.ResourceList{
+							corev1.ResourceStorage: resource.MustParse("2Gi"),
+						},
+					},
+					StorageClassName: proto.String("ack" + "-" + h.sqbdeployment.Labels[entity.GroupKey]),
+				},
+			})
+			volumeMounts = append(volumeMounts, corev1.VolumeMount{
+				Name:      pvcName,
+				MountPath: volumeSpec.MountPath,
+			})
+			continue
+		}
+
 		volumeMounts = append(volumeMounts, corev1.VolumeMount{
 			Name:      volumeName,
 			MountPath: volumeSpec.MountPath,
@@ -221,28 +245,17 @@ func (h *deploymentHandler) getVolumeAndVolumeMounts(volumemap []*qav1alpha1.Vol
 			})
 			continue
 		}
-		if volumeSpec.PersistentVolumeClaimName != "" {
-			volumes = append(volumes, corev1.Volume{
-				Name: volumeName,
-				VolumeSource: corev1.VolumeSource{
-					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: volumeSpec.PersistentVolumeClaimName,
-					},
-				},
-			})
-			continue
-		}
 	}
 	return
 }
 
-func (h *deploymentHandler) Delete() error {
-	deployment := &appv1.Deployment{ObjectMeta: metav1.ObjectMeta{Namespace: h.sqbdeployment.Namespace, Name: h.sqbdeployment.Name}}
-	return Delete(h.ctx, deployment)
+func (h *statefulsetHandler) Delete() error {
+	statefulset := &appv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{Namespace: h.sqbdeployment.Namespace, Name: h.sqbdeployment.Name}}
+	return Delete(h.ctx, statefulset)
 }
 
-func (h *deploymentHandler) Handle() error {
-	if h.sqbdeployment.Annotations[entity.StatefulsetAnnotationKey] == "true" {
+func (h *statefulsetHandler) Handle() error {
+	if h.sqbdeployment.Annotations[entity.StatefulsetAnnotationKey] != "true" {
 		return h.Delete()
 	}
 	if deleted, _ := IsDeleted(h.sqbdeployment); deleted {
@@ -251,25 +264,25 @@ func (h *deploymentHandler) Handle() error {
 	return h.CreateOrUpdate()
 }
 
-func (h *deploymentHandler) GetInstance() (runtimeObj, error) {
-	in := &appv1.Deployment{}
-	time.Sleep(200 * time.Millisecond) // 很奇怪，predicate过滤的是有deletionTimestamp的，但是取出来的deployment确没有，等200ms之后取出来才有
+func (h *statefulsetHandler) GetInstance() (runtimeObj, error) {
+	in := &appv1.StatefulSet{}
+	time.Sleep(200 * time.Millisecond)
 	err := k8sclient.Get(h.ctx, h.req.NamespacedName, in)
 	return in, err
 }
 
-func (h *deploymentHandler) IsInitialized(_ runtimeObj) (bool, error) {
+func (h *statefulsetHandler) IsInitialized(_ runtimeObj) (bool, error) {
 	return true, nil
 }
 
-func (h *deploymentHandler) Operate(obj runtimeObj) error {
-	in := obj.(*appv1.Deployment)
+func (h *statefulsetHandler) Operate(obj runtimeObj) error {
+	in := obj.(*appv1.StatefulSet)
 	app := in.Labels[entity.AppKey]
 	plane := in.Labels[entity.PlaneKey]
 	// 更新sqbapplication的status
-	deployments := &appv1.DeploymentList{}
+	statefulsets := &appv1.StatefulSetList{}
 	if app != "" {
-		if err := k8sclient.List(h.ctx, deployments,
+		if err := k8sclient.List(h.ctx, statefulsets,
 			&client.ListOptions{
 				Namespace:     in.Namespace,
 				LabelSelector: labels.SelectorFromSet(map[string]string{entity.AppKey: app}),
@@ -279,10 +292,10 @@ func (h *deploymentHandler) Operate(obj runtimeObj) error {
 		}
 		planes := make(map[string]int)
 		mirrors := make(map[string]int)
-		for _, deployment := range deployments.Items {
-			if deployment.DeletionTimestamp.IsZero() {
-				mirrors[deployment.Name] = 1
-				if p, ok := deployment.Labels[entity.PlaneKey]; ok {
+		for _, statefulset := range statefulsets.Items {
+			if statefulset.DeletionTimestamp.IsZero() {
+				mirrors[statefulset.Name] = 1
+				if p, ok := statefulset.Labels[entity.PlaneKey]; ok {
 					planes[p] = 1
 				}
 			}
@@ -306,7 +319,7 @@ func (h *deploymentHandler) Operate(obj runtimeObj) error {
 	}
 	// 更新sqbplane的status
 	if plane != "" {
-		if err := k8sclient.List(h.ctx, deployments,
+		if err := k8sclient.List(h.ctx, statefulsets,
 			&client.ListOptions{
 				Namespace:     in.Namespace,
 				LabelSelector: labels.SelectorFromSet(map[string]string{entity.PlaneKey: plane}),
@@ -315,9 +328,9 @@ func (h *deploymentHandler) Operate(obj runtimeObj) error {
 			return err
 		}
 		mirrors := make(map[string]int)
-		for _, deployment := range deployments.Items {
-			if deployment.DeletionTimestamp.IsZero() {
-				mirrors[deployment.Name] = 1
+		for _, statefulset := range statefulsets.Items {
+			if statefulset.DeletionTimestamp.IsZero() {
+				mirrors[statefulset.Name] = 1
 			}
 		}
 		sqbplane := &qav1alpha1.SQBPlane{}
@@ -343,6 +356,6 @@ func (h *deploymentHandler) Operate(obj runtimeObj) error {
 	return nil
 }
 
-func (h *deploymentHandler) ReconcileFail(_ runtimeObj, _ error) {
+func (h *statefulsetHandler) ReconcileFail(_ runtimeObj, _ error) {
 	return
 }

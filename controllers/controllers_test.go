@@ -20,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"strings"
 	"time"
 )
 
@@ -186,6 +187,8 @@ var _ = Describe("Controller", func() {
 			_ = k8sClient.Delete(ctx, ingress)
 			deployment := &appv1.Deployment{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: deploymentName}}
 			_ = k8sClient.Delete(ctx, deployment)
+			statefulset := &appv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: deploymentName}}
+			_ = k8sClient.Delete(ctx, statefulset)
 			time.Sleep(time.Second)
 		})
 
@@ -316,6 +319,157 @@ var _ = Describe("Controller", func() {
 			Expect(preferred.Weight).To(Equal(int32(100)))
 			Expect(deployment.Spec.Template.Spec.Volumes[0].Name).To(Equal("volume-0"))
 			Expect(deployment.Spec.Template.Spec.Volumes[0].HostPath.Path).To(Equal("/tmp"))
+		})
+
+		It("statefulset reconcile success", func() {
+			sqbdeployment.Annotations = util.MergeStringMap(sqbdeployment.Annotations, map[string]string{
+				entity.StatefulsetAnnotationKey: "true",
+			})
+			sqbdeployment.Labels = util.MergeStringMap(sqbdeployment.Labels, map[string]string{
+				entity.GroupKey: "qa",
+			})
+			sqbdeployment.Spec = qav1alpha1.SQBDeploymentSpec{
+				Selector: qav1alpha1.Selector{
+					App:   applicationName,
+					Plane: planeName,
+				},
+				DeploySpec: qav1alpha1.DeploySpec{
+					Replicas: proto.Int32(2),
+					Image:    image,
+					Resources: &corev1.ResourceRequirements{
+						Limits: corev1.ResourceList{
+							corev1.ResourceCPU: *resource.NewQuantity(2, resource.DecimalSI),
+						},
+						Requests: corev1.ResourceList{
+							corev1.ResourceCPU: *resource.NewQuantity(1, resource.DecimalSI),
+						},
+					},
+					Env: []corev1.EnvVar{
+						{
+							Name:  "env1",
+							Value: "value1",
+						},
+					},
+					HealthCheck: &corev1.Probe{
+						Handler: corev1.Handler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Port: intstr.FromInt(8080),
+								Path: "/healthy",
+							},
+						},
+						InitialDelaySeconds: 10,
+						TimeoutSeconds:      10,
+						PeriodSeconds:       10,
+						SuccessThreshold:    1,
+						FailureThreshold:    1,
+					},
+					NodeAffinity: &qav1alpha1.NodeAffinity{
+						Prefer: []qav1alpha1.NodeSelector{
+							{
+								Weight: 100,
+								NodeSelectorRequirement: corev1.NodeSelectorRequirement{
+									Key:      "node",
+									Operator: corev1.NodeSelectorOpIn,
+									Values:   []string{"qa"},
+								},
+							},
+						},
+						Require: []qav1alpha1.NodeSelector{
+							{
+								Weight: 100,
+								NodeSelectorRequirement: corev1.NodeSelectorRequirement{
+									Key:      "node",
+									Operator: corev1.NodeSelectorOpIn,
+									Values:   []string{"qa"},
+								},
+							},
+						},
+					},
+					Lifecycle: &qav1alpha1.Lifecycle{
+						Init: &qav1alpha1.InitHandler{Exec: &corev1.ExecAction{Command: []string{"sleep", "1"}}},
+						Lifecycle: corev1.Lifecycle{
+							PostStart: &corev1.Handler{
+								HTTPGet: &corev1.HTTPGetAction{
+									Port: intstr.FromInt(8080),
+									Path: "/poststart",
+								},
+							},
+							PreStop: &corev1.Handler{
+								TCPSocket: &corev1.TCPSocketAction{
+									Port: intstr.FromInt(8080),
+								},
+							},
+						},
+					},
+					Volumes: []*qav1alpha1.VolumeSpec{
+						{
+							MountPath: "/tmp",
+							HostPath:  "/tmp",
+						},
+						{
+							MountPath: "/pvc",
+							PersistentVolumeClaim: true,
+						},
+					},
+				},
+			}
+			err = k8sClient.Update(ctx, sqbdeployment)
+			Expect(err).NotTo(HaveOccurred())
+			time.Sleep(time.Second)
+
+			deployment := &appv1.Deployment{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: deploymentName}, deployment)
+			Expect(err).To(HaveOccurred())
+
+			statefulset := &appv1.StatefulSet{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: deploymentName}, statefulset)
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(statefulset.Spec.Template.Spec.Containers[0].Image).To(Equal(image))
+			Expect(statefulset.Labels[entity.AppKey]).To(Equal(applicationName))
+			Expect(statefulset.Labels[entity.PlaneKey]).To(Equal(planeName))
+			Expect(statefulset.Spec.Template.Labels[entity.AppKey]).To(Equal(applicationName))
+			Expect(statefulset.Spec.Template.Labels[entity.PlaneKey]).To(Equal(planeName))
+			Expect(statefulset.Spec.Selector.MatchLabels[entity.AppKey]).To(Equal(applicationName))
+			Expect(statefulset.Spec.Replicas).To(Equal(proto.Int32(2)))
+			container := statefulset.Spec.Template.Spec.Containers[0]
+			Expect(container.Resources.Limits.Cpu().String()).To(Equal("2"))
+			Expect(container.Resources.Requests.Cpu().String()).To(Equal("1"))
+			Expect(container.Env[0].Name).To(Equal("env1"))
+			Expect(container.Env[0].Value).To(Equal("value1"))
+			Expect(container.LivenessProbe.InitialDelaySeconds).To(Equal(int32(10)))
+			Expect(container.LivenessProbe.PeriodSeconds).To(Equal(int32(10)))
+			Expect(container.LivenessProbe.HTTPGet.Path).To(Equal("/healthy"))
+			Expect(container.LivenessProbe.HTTPGet.Port).To(Equal(intstr.FromInt(8080)))
+			Expect(container.ReadinessProbe.InitialDelaySeconds).To(Equal(int32(10)))
+			Expect(container.ReadinessProbe.PeriodSeconds).To(Equal(int32(10)))
+			Expect(container.ReadinessProbe.HTTPGet.Path).To(Equal("/healthy"))
+			Expect(container.ReadinessProbe.HTTPGet.Port).To(Equal(intstr.FromInt(8080)))
+			Expect(container.Lifecycle.PostStart.HTTPGet.Port).To(Equal(intstr.FromInt(8080)))
+			Expect(container.Lifecycle.PostStart.HTTPGet.Path).To(Equal("/poststart"))
+			Expect(container.Lifecycle.PreStop.TCPSocket.Port).To(Equal(intstr.FromInt(8080)))
+			Expect(len(container.VolumeMounts)).To(Equal(2))
+			Expect(container.VolumeMounts[0].Name).To(Equal("volume-0"))
+			Expect(container.VolumeMounts[0].MountPath).To(Equal("/tmp"))
+			Expect(container.VolumeMounts[1].Name).To(Equal(sqbdeployment.Name + "-" + "volume-1"))
+			Expect(container.VolumeMounts[1].MountPath).To(Equal("/pvc"))
+
+			initContainer := statefulset.Spec.Template.Spec.InitContainers[0]
+			Expect(initContainer.Image).To(Equal(image))
+			Expect(initContainer.Command).To(Equal([]string{"sleep", "1"}))
+			required := statefulset.Spec.Template.Spec.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution
+			Expect(required.NodeSelectorTerms[0].MatchExpressions[0].Key).To(Equal("node"))
+			Expect(required.NodeSelectorTerms[0].MatchExpressions[0].Values[0]).To(Equal("qa"))
+			preferred := statefulset.Spec.Template.Spec.Affinity.NodeAffinity.
+				PreferredDuringSchedulingIgnoredDuringExecution[0]
+			Expect(preferred.Preference.MatchExpressions[0].Key).To(Equal("node"))
+			Expect(preferred.Preference.MatchExpressions[0].Values[0]).To(Equal("qa"))
+			Expect(preferred.Weight).To(Equal(int32(100)))
+			Expect(len(statefulset.Spec.Template.Spec.Volumes)).To(Equal(1))
+			Expect(statefulset.Spec.Template.Spec.Volumes[0].Name).To(Equal("volume-0"))
+			Expect(statefulset.Spec.Template.Spec.Volumes[0].HostPath.Path).To(Equal("/tmp"))
+			Expect(len(statefulset.Spec.VolumeClaimTemplates)).To(Equal(1))
+			Expect(statefulset.Spec.VolumeClaimTemplates[0].Name).To(Equal(sqbdeployment.Name + "-" + "volume-1"))
 		})
 
 		It("ingress close", func() {
@@ -460,6 +614,42 @@ var _ = Describe("Controller", func() {
 			service := &corev1.Service{}
 			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: applicationName}, service)
 			Expect(err).To(HaveOccurred())
+		})
+
+		It("pvc created", func() {
+			sqbdeployment.Labels = util.MergeStringMap(sqbdeployment.Labels, map[string]string{
+				entity.GroupKey: "qa",
+			})
+			sqbdeployment.Spec = qav1alpha1.SQBDeploymentSpec{
+				Selector: qav1alpha1.Selector{
+					App:   applicationName,
+					Plane: planeName,
+				},
+				DeploySpec: qav1alpha1.DeploySpec{
+					Replicas: proto.Int32(2),
+					Image:    image,
+					Volumes: []*qav1alpha1.VolumeSpec{
+						{
+							MountPath: "/pvc",
+							PersistentVolumeClaim: true,
+						},
+					},
+				},
+			}
+			err = k8sClient.Update(ctx, sqbdeployment)
+			Expect(err).NotTo(HaveOccurred())
+			time.Sleep(time.Second)
+			deployment := &appv1.Deployment{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: deploymentName}, deployment)
+			Expect(err).NotTo(HaveOccurred())
+			volume1 := deployment.Spec.Template.Spec.Volumes[0]
+			Expect(volume1.Name).To(Equal("volume-0"))
+			Expect(strings.HasPrefix(volume1.PersistentVolumeClaim.ClaimName, sqbdeployment.Name)).To(Equal(true))
+
+			pvc := &corev1.PersistentVolumeClaim{}
+			err = k8sClient.Get(ctx, types.NamespacedName{Namespace: namespace, Name: volume1.PersistentVolumeClaim.ClaimName}, pvc)
+			Expect(err).NotTo(HaveOccurred())
+
 		})
 	})
 

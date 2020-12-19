@@ -22,4 +22,5 @@ const (
 	InitializeAnnotationKey      = "qa.shouqianba.com/initialized"
 	IngressClassAnnotationKey    = "kubernetes.io/ingress.class"
 	IstioSidecarInjectKey        = "sidecar.istio.io/inject"
+	StatefulsetAnnotationKey     = "qa.shouqianba.com/statefulset"
 )
