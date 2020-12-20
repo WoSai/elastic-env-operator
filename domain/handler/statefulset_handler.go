@@ -14,7 +14,6 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -280,26 +279,7 @@ func (h *statefulsetHandler) Operate(obj runtimeObj) error {
 	app := in.Labels[entity.AppKey]
 	plane := in.Labels[entity.PlaneKey]
 	// 更新sqbapplication的status
-	statefulsets := &appv1.StatefulSetList{}
 	if app != "" {
-		if err := k8sclient.List(h.ctx, statefulsets,
-			&client.ListOptions{
-				Namespace:     in.Namespace,
-				LabelSelector: labels.SelectorFromSet(map[string]string{entity.AppKey: app}),
-			},
-		); err != nil && !apierrors.IsNotFound(err) {
-			return err
-		}
-		planes := make(map[string]int)
-		mirrors := make(map[string]int)
-		for _, statefulset := range statefulsets.Items {
-			if statefulset.DeletionTimestamp.IsZero() {
-				mirrors[statefulset.Name] = 1
-				if p, ok := statefulset.Labels[entity.PlaneKey]; ok {
-					planes[p] = 1
-				}
-			}
-		}
 		sqbapplication := &qav1alpha1.SQBApplication{}
 		err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: in.Namespace, Name: app}, sqbapplication)
 		if err != nil {
@@ -308,8 +288,15 @@ func (h *statefulsetHandler) Operate(obj runtimeObj) error {
 			}
 		} else {
 			if sqbapplication.DeletionTimestamp.IsZero() {
-				sqbapplication.Status.Planes = planes
-				sqbapplication.Status.Mirrors = mirrors
+				if in.DeletionTimestamp.IsZero() {
+					sqbapplication.Status.Planes = util.MergeStringIntMap(sqbapplication.Status.Planes,
+						map[string]int{plane: 1})
+					sqbapplication.Status.Mirrors = util.MergeStringIntMap(sqbapplication.Status.Mirrors,
+						map[string]int{in.Name: 1})
+				} else {
+					delete(sqbapplication.Status.Planes, plane)
+					delete(sqbapplication.Status.Mirrors, in.Name)
+				}
 				sqbapplication.Status.ErrorInfo = ""
 				if err = UpdateStatus(h.ctx, sqbapplication); err != nil {
 					return err
@@ -319,20 +306,6 @@ func (h *statefulsetHandler) Operate(obj runtimeObj) error {
 	}
 	// 更新sqbplane的status
 	if plane != "" {
-		if err := k8sclient.List(h.ctx, statefulsets,
-			&client.ListOptions{
-				Namespace:     in.Namespace,
-				LabelSelector: labels.SelectorFromSet(map[string]string{entity.PlaneKey: plane}),
-			},
-		); err != nil && !apierrors.IsNotFound(err) {
-			return err
-		}
-		mirrors := make(map[string]int)
-		for _, statefulset := range statefulsets.Items {
-			if statefulset.DeletionTimestamp.IsZero() {
-				mirrors[statefulset.Name] = 1
-			}
-		}
 		sqbplane := &qav1alpha1.SQBPlane{}
 		err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: in.Namespace, Name: plane}, sqbplane)
 		if err != nil {
@@ -340,12 +313,15 @@ func (h *statefulsetHandler) Operate(obj runtimeObj) error {
 				return err
 			}
 		} else {
-			if sqbplane.DeletionTimestamp.IsZero() {
-				sqbplane.Status.Mirrors = mirrors
-				sqbplane.Status.ErrorInfo = ""
-				if err = UpdateStatus(h.ctx, sqbplane); err != nil {
-					return err
-				}
+			if in.DeletionTimestamp.IsZero() {
+				sqbplane.Status.Mirrors = util.MergeStringIntMap(sqbplane.Status.Mirrors,
+					map[string]int{in.Name: 1})
+			} else {
+				delete(sqbplane.Status.Mirrors, in.Name)
+			}
+			sqbplane.Status.ErrorInfo = ""
+			if err = UpdateStatus(h.ctx, sqbplane); err != nil {
+				return err
 			}
 		}
 	}

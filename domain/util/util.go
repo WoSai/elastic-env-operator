@@ -20,6 +20,18 @@ func MergeStringMap(base, toMerge map[string]string) map[string]string {
 }
 
 //
+func MergeStringIntMap(base, toMerge map[string]int) map[string]int {
+	result := make(map[string]int)
+	for k, v := range base {
+		result[k] = v
+	}
+	for k, v := range toMerge {
+		result[k] = v
+	}
+	return result
+}
+
+//
 func ContainString(list []string, item string) bool {
 	for _, i := range list {
 		if i == item {

@@ -407,7 +407,7 @@ var _ = Describe("Controller", func() {
 							HostPath:  "/tmp",
 						},
 						{
-							MountPath: "/pvc",
+							MountPath:             "/pvc",
 							PersistentVolumeClaim: true,
 						},
 					},
@@ -630,7 +630,7 @@ var _ = Describe("Controller", func() {
 					Image:    image,
 					Volumes: []*qav1alpha1.VolumeSpec{
 						{
-							MountPath: "/pvc",
+							MountPath:             "/pvc",
 							PersistentVolumeClaim: true,
 						},
 					},

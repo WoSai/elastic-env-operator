@@ -11,6 +11,7 @@ rules:
   resources:
   - services
   - deployments
+  - statefulsets
   - virtualservices
   - destinationrules
   - ingresses
