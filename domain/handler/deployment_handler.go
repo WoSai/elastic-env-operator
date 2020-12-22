@@ -105,6 +105,7 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 			Command:      init.Exec.Command,
 			Env:          deploy.Env,
 			VolumeMounts: volumeMounts,
+			ImagePullPolicy: corev1.PullIfNotPresent,
 		}
 		deployment.Spec.Template.Spec.InitContainers = []corev1.Container{initContainer}
 	}
