@@ -30,10 +30,6 @@ func NewStatefulsetHandler(sqbdeployment *qav1alpha1.SQBDeployment, ctx context.
 	return &statefulsetHandler{sqbdeployment: sqbdeployment, ctx: ctx}
 }
 
-func NewStatefulsetHandlerWithReq(req ctrl.Request, ctx context.Context) *statefulsetHandler {
-	return &statefulsetHandler{req: req, ctx: ctx}
-}
-
 func (h *statefulsetHandler) CreateOrUpdate() error {
 	statefulset := &appv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{Namespace: h.sqbdeployment.Namespace, Name: h.sqbdeployment.Name}}
 	err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: statefulset.Namespace, Name: statefulset.Name}, statefulset)
@@ -272,64 +268,6 @@ func (h *statefulsetHandler) GetInstance() (runtimeObj, error) {
 
 func (h *statefulsetHandler) IsInitialized(_ runtimeObj) (bool, error) {
 	return true, nil
-}
-
-func (h *statefulsetHandler) Operate(obj runtimeObj) error {
-	in := obj.(*appv1.StatefulSet)
-	app := in.Labels[entity.AppKey]
-	plane := in.Labels[entity.PlaneKey]
-	// 更新sqbapplication的status
-	if app != "" {
-		sqbapplication := &qav1alpha1.SQBApplication{}
-		err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: in.Namespace, Name: app}, sqbapplication)
-		if err != nil {
-			if !apierrors.IsNotFound(err) {
-				return err
-			}
-		} else {
-			if sqbapplication.DeletionTimestamp.IsZero() {
-				if in.DeletionTimestamp.IsZero() {
-					sqbapplication.Status.Planes = util.MergeStringIntMap(sqbapplication.Status.Planes,
-						map[string]int{plane: 1})
-					sqbapplication.Status.Mirrors = util.MergeStringIntMap(sqbapplication.Status.Mirrors,
-						map[string]int{in.Name: 1})
-				} else {
-					delete(sqbapplication.Status.Planes, plane)
-					delete(sqbapplication.Status.Mirrors, in.Name)
-				}
-				sqbapplication.Status.ErrorInfo = ""
-				if err = UpdateStatus(h.ctx, sqbapplication); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	// 更新sqbplane的status
-	if plane != "" {
-		sqbplane := &qav1alpha1.SQBPlane{}
-		err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: in.Namespace, Name: plane}, sqbplane)
-		if err != nil {
-			if !apierrors.IsNotFound(err) {
-				return err
-			}
-		} else {
-			if in.DeletionTimestamp.IsZero() {
-				sqbplane.Status.Mirrors = util.MergeStringIntMap(sqbplane.Status.Mirrors,
-					map[string]int{in.Name: 1})
-			} else {
-				delete(sqbplane.Status.Mirrors, in.Name)
-			}
-			sqbplane.Status.ErrorInfo = ""
-			if err = UpdateStatus(h.ctx, sqbplane); err != nil {
-				return err
-			}
-		}
-	}
-	if !in.DeletionTimestamp.IsZero() {
-		controllerutil.RemoveFinalizer(in, entity.FINALIZER)
-		return CreateOrUpdate(h.ctx, in)
-	}
-	return nil
 }
 
 func (h *statefulsetHandler) ReconcileFail(_ runtimeObj, _ error) {
