@@ -114,7 +114,7 @@ func (h *pvcHandler) getPVCList() (*corev1.PersistentVolumeClaimList, error) {
 }
 
 func (h *pvcHandler) getPVCName(mountPath string) string {
-	hash := md5.Sum([]byte(mountPath))
+	hash := md5.Sum([]byte(mountPath + h.sqbdeployment.CreationTimestamp.String()))
 	return h.sqbdeployment.Spec.Selector.App + "-" + h.sqbdeployment.Spec.Selector.Plane + "-" + fmt.Sprintf("%x", hash)
 }
 
