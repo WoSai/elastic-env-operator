@@ -49,7 +49,7 @@ func (r *ConfigMapReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 	data := instance.Data
 	entity.ConfigMapData.FromMap(data)
-	r.Log.Info("ConfigMap Value:", "json", entity.ConfigMapData.ToJson())
+	r.Log.Info("ConfigMap Value:", "json", entity.ConfigMapData.ToString())
 	return ctrl.Result{}, nil
 }
 

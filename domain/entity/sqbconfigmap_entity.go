@@ -86,7 +86,7 @@ func (sc *SQBConfigMapEntity) FromMap(data map[string]string) {
 }
 
 func (sc *SQBConfigMapEntity) ToString() string {
-	return fmt.Sprintf("ingressOpen: %v, istioInject: %v, istioEnable: %v, serviceMonitorEnable: %v, " +
+	return fmt.Sprintf("ingressOpen: %v, istioInject: %v, istioEnable: %v, serviceMonitorEnable: %v, "+
 		"victoriaMetricsEnable: %v", sc.ingressOpen, sc.istioInject, sc.istioEnable, sc.serviceMonitorEnable,
 		sc.victoriaMetricsEnable)
 }
