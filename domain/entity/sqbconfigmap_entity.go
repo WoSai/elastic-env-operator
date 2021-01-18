@@ -2,6 +2,7 @@ package entity
 
 import (
 	"encoding/json"
+	"fmt"
 	v1 "k8s.io/api/core/v1"
 	"strconv"
 	"strings"
@@ -16,6 +17,7 @@ type SQBConfigMapEntity struct {
 	istioInject                  bool              // 默认是否启用istio
 	istioEnable                  bool              // 集群是否安装istio
 	serviceMonitorEnable         bool              // 集群是否安装prometheus
+	victoriaMetricsEnable        bool              // 集群是否安装victoria metrics,serviceMonitorEnable和victoriaMetricsEnable互斥
 	domainPostfix                map[string]string // 默认的域名后缀{"ingress class":"host"}
 	imagePullSecrets             string            // 默认的image pull secret名称
 	istioTimeout                 int64             // istio连接超时时间
@@ -34,6 +36,10 @@ func (sc *SQBConfigMapEntity) FromMap(data map[string]string) {
 	sc.istioInject = data["istioInject"] == "true"
 	sc.istioEnable = data["istioEnable"] == "true"
 	sc.serviceMonitorEnable = data["serviceMonitorEnable"] == "true"
+	sc.victoriaMetricsEnable = data["victoriaMetricsEnable"] == "true"
+	if sc.serviceMonitorEnable && sc.victoriaMetricsEnable {
+		sc.victoriaMetricsEnable = false
+	}
 
 	if istioTimeout, ok := data["istioTimeout"]; ok {
 		timeout, err := strconv.Atoi(istioTimeout)
@@ -77,6 +83,12 @@ func (sc *SQBConfigMapEntity) FromMap(data map[string]string) {
 			sc.Ready = true
 		}()
 	}
+}
+
+func (sc *SQBConfigMapEntity) ToString() string {
+	return fmt.Sprintf("ingressOpen: %v, istioInject: %v, istioEnable: %v, serviceMonitorEnable: %v, "+
+		"victoriaMetricsEnable: %v", sc.ingressOpen, sc.istioInject, sc.istioEnable, sc.serviceMonitorEnable,
+		sc.victoriaMetricsEnable)
 }
 
 func (sc *SQBConfigMapEntity) GetDomainNames(prefix string) map[string]string {
@@ -128,6 +140,10 @@ func (sc *SQBConfigMapEntity) IstioInject() bool {
 
 func (sc *SQBConfigMapEntity) IsServiceMonitorEnable() bool {
 	return sc.serviceMonitorEnable
+}
+
+func (sc *SQBConfigMapEntity) IsVictoriaMetricsEnable() bool {
+	return sc.victoriaMetricsEnable
 }
 
 func (sc *SQBConfigMapEntity) SpecialVirtualServiceIngress() string {

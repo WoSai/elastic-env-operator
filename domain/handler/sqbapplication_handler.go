@@ -47,6 +47,7 @@ func (h *sqbApplicationHandler) Operate(obj runtimeObj) error {
 		NewVirtualServiceHandler(in, h.ctx),
 		NewServiceMonitorHandler(in, h.ctx),
 		NewSqbDeploymentListHandlerForSqbapplication(in, h.ctx),
+		NewVMServiceScrapeHandler(in, h.ctx),
 	}
 
 	for _, handler := range handlers {

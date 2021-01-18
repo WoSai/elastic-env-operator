@@ -97,14 +97,15 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 		init := deploy.Lifecycle.Init
 		image, ok := h.sqbdeployment.Annotations[entity.InitContainerAnnotationKey]
 		if !ok {
-			image = "busybox"
+			image = "busybox:1.32"
 		}
 		initContainer := corev1.Container{
-			Name:         "init-1",
-			Image:        image,
-			Command:      init.Exec.Command,
-			Env:          deploy.Env,
-			VolumeMounts: volumeMounts,
+			Name:            "init-1",
+			Image:           image,
+			Command:         init.Exec.Command,
+			Env:             deploy.Env,
+			VolumeMounts:    volumeMounts,
+			ImagePullPolicy: corev1.PullIfNotPresent,
 		}
 		deployment.Spec.Template.Spec.InitContainers = []corev1.Container{initContainer}
 	}
