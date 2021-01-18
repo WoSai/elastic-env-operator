@@ -245,6 +245,8 @@ data:
     ["istio-system/ingressgateway","mesh"]
   specialVirtualServiceIngress: "nginx"  # 特殊入口所在ingress,公网(nginx)、经典网络(nginx-internal)、vpc网络(nginx-vpc)
   operatorDelay: "30"  # 延迟处理时间
+  serviceMonitorEnable: "false"
+  victoriaMetricsEnable: "false"
 ```
 
 ### secret
