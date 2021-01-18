@@ -84,6 +84,14 @@ func (sc *SQBConfigMapEntity) FromMap(data map[string]string) {
 	}
 }
 
+func (sc *SQBConfigMapEntity) ToJson() string {
+	s, err := json.Marshal(sc)
+	if err != nil {
+		return ""
+	}
+	return string(s)
+}
+
 func (sc *SQBConfigMapEntity) GetDomainNames(prefix string) map[string]string {
 	domains := make(map[string]string)
 	for k, v := range sc.domainPostfix {

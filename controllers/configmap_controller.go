@@ -21,10 +21,8 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/wosai/elastic-env-operator/domain/entity"
 	corev1 "k8s.io/api/core/v1"
-	extv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/builder"
@@ -50,22 +48,9 @@ func (r *ConfigMapReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 	data := instance.Data
-	istio := &extv1.CustomResourceDefinition{}
-	err = r.Get(ctx, types.NamespacedName{Namespace: "", Name: "virtualservices.networking.istio.io"}, istio)
-	if err == nil {
-		data["istioEnable"] = "true"
-	} else {
-		data["istioEnable"] = "false"
-	}
-	servicemonitor := &extv1.CustomResourceDefinition{}
-	err = r.Get(ctx, types.NamespacedName{Namespace: "", Name: "servicemonitors.monitoring.coreos.com"}, servicemonitor)
-	if err == nil {
-		data["serviceMonitorEnable"] = "true"
-	} else {
-		data["serviceMonitorEnable"] = "false"
-	}
 	entity.ConfigMapData.FromMap(data)
-	return ctrl.Result{}, r.Update(ctx, instance)
+	r.Log.Info("ConfigMap Value:", entity.ConfigMapData.ToJson())
+	return ctrl.Result{}, nil
 }
 
 func (r *ConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
