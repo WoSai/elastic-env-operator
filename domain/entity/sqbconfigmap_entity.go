@@ -2,6 +2,7 @@ package entity
 
 import (
 	"encoding/json"
+	"fmt"
 	v1 "k8s.io/api/core/v1"
 	"strconv"
 	"strings"
@@ -84,12 +85,10 @@ func (sc *SQBConfigMapEntity) FromMap(data map[string]string) {
 	}
 }
 
-func (sc *SQBConfigMapEntity) ToJson() string {
-	s, err := json.Marshal(sc)
-	if err != nil {
-		return ""
-	}
-	return string(s)
+func (sc *SQBConfigMapEntity) ToString() string {
+	return fmt.Sprintf("ingressOpen: %v, istioInject: %v, istioEnable: %v, serviceMonitorEnable: %v, " +
+		"victoriaMetricsEnable: %v", sc.ingressOpen, sc.istioInject, sc.istioEnable, sc.serviceMonitorEnable,
+		sc.victoriaMetricsEnable)
 }
 
 func (sc *SQBConfigMapEntity) GetDomainNames(prefix string) map[string]string {
