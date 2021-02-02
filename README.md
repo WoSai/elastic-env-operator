@@ -49,10 +49,10 @@ spec:
   - class: nginx # ingress-controller对应的class
     annotation:
       key: value
-    host: "merchant-enrolment.iwosai.com" 
+    host: "xx.com" 
   - class: nginx-vpc
     annotation:
-    host: "merchant-enrolment.beta.iwosai.com"
+    host: "xx.com"
   # service相关配置
   ports:
   - name: http-80  # name命名规则：{istio支持的protocol}-{port}
@@ -68,8 +68,8 @@ spec:
   - ""
   hostAliases: # 同k8s pod的hostalias
   - hostnames:
-    - "apollo.shouqianba.com"
-    ip: "172.16.16.235"
+    - "xx.com"
+    ip: "1.1.1.1"
   resources: # 资源限制
     limits: # 可选
       cpu: ""
@@ -184,7 +184,7 @@ metadata:
   annotations:
     qa.shouqianba.com/delete: "xxx"  # 明确删除
     qa.shouqianba.com/public-entry: "true" #是否开启外网入口，默认不开启
-    qa.shouqianba.com/init-container-image: "registry.wosai-inc.com/xxx" # 初始化容器镜像，默认为busybox
+    qa.shouqianba.com/init-container-image: "docker.io/xxx" # 初始化容器镜像，默认为busybox
     qa.shouqianba.com/special-virtualservice-ingressclass: "nginx" # 特性环境入口host作用于哪个ingress
     qa.shouqianba.com/passthrough-deployment: # 透传到下游deployment的annotation
     qa.shouqianba.com/passthrough-pod:
@@ -234,7 +234,7 @@ data:
   ingressOpen: "false" # 集群服务默认是否创建ingress
   istioInject: "false" # 集群服务默认是否开启istio注入
   domainPostfix: | # ingressOpen=true时SQBApplication的ingress host默认会配置SQBApplication name + domainPostfix 域名
-    {"nginx-vpc":"*.beta.iwosai.com","nginx":"*.iwosai.com"}
+    {"nginx-vpc":"*.xx.com","nginx":"*.xx.com"}
   globalDefaultDeploy: |   # 存放默认的SQBApplication的deploy的值
     {"key": "value"}
   deploymentSpec: |  # deployment的spec的一些默认配置
