@@ -93,19 +93,20 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 		_ = json.Unmarshal([]byte(anno), &deployment.Annotations)
 	}
 	// init lifecycle
-	if deploy.Lifecycle != nil && deploy.Lifecycle.Init != nil {
-		init := deploy.Lifecycle.Init
-		image, ok := h.sqbdeployment.Annotations[entity.InitContainerAnnotationKey]
+	image, ok := h.sqbdeployment.Annotations[entity.InitContainerAnnotationKey]
+	if (deploy.Lifecycle != nil && deploy.Lifecycle.Init != nil) || ok {
 		if !ok {
 			image = "busybox:1.32"
 		}
 		initContainer := corev1.Container{
 			Name:            "init-1",
 			Image:           image,
-			Command:         init.Exec.Command,
 			Env:             deploy.Env,
 			VolumeMounts:    volumeMounts,
 			ImagePullPolicy: corev1.PullIfNotPresent,
+		}
+		if deploy.Lifecycle != nil && deploy.Lifecycle.Init != nil {
+			initContainer.Command = deploy.Lifecycle.Init.Exec.Command
 		}
 		deployment.Spec.Template.Spec.InitContainers = []corev1.Container{initContainer}
 	}
@@ -228,6 +229,26 @@ func (h *deploymentHandler) getVolumeAndVolumeMounts(volumemap []*qav1alpha1.Vol
 				VolumeSource: corev1.VolumeSource{
 					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
 						ClaimName: volumeSpec.PersistentVolumeClaimName,
+					},
+				},
+			})
+			continue
+		}
+		if volumeSpec.DownwardAPI != nil {
+			items := make([]corev1.DownwardAPIVolumeFile, 0)
+			for _, item := range volumeSpec.DownwardAPI {
+				items = append(items, corev1.DownwardAPIVolumeFile{
+					Path: item.FileName,
+					FieldRef: &corev1.ObjectFieldSelector{
+						FieldPath: item.FieldPath,
+					},
+				})
+			}
+			volumes = append(volumes, corev1.Volume{
+				Name: volumeName,
+				VolumeSource: corev1.VolumeSource{
+					DownwardAPI: &corev1.DownwardAPIVolumeSource{
+						Items: items,
 					},
 				},
 			})

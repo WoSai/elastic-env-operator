@@ -668,6 +668,18 @@ spec:
                   properties:
                     configMap:
                       type: string
+                    downwardApi:
+                      items:
+                        properties:
+                          fieldPath:
+                            type: string
+                          fileName:
+                            type: string
+                        required:
+                        - fieldPath
+                        - fileName
+                        type: object
+                      type: array
                     emptyDir:
                       type: boolean
                     hostPath:
