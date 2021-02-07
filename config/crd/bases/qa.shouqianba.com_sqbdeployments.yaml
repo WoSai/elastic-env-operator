@@ -596,7 +596,7 @@ spec:
                   properties:
                     configMap:
                       type: string
-                    downwardApi:
+                    downwardAPI:
                       items:
                         properties:
                           fieldPath:
