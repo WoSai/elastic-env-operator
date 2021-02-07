@@ -79,7 +79,7 @@ type VolumeSpec struct {
 	EmptyDir                  bool              `json:"emptyDir,omitempty"`
 	PersistentVolumeClaim     bool              `json:"persistentVolumeClaim,omitempty"`
 	PersistentVolumeClaimName string            `json:"persistentVolumeClaimName,omitempty"`
-	DownwardAPI               []DownwardAPIFile `json:"downwardApi,omitempty"`
+	DownwardAPI               []DownwardAPIFile `json:"downwardAPI,omitempty"`
 }
 
 type DownwardAPIFile struct {
