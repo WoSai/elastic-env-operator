@@ -72,13 +72,19 @@ type DeploySpec struct {
 }
 
 type VolumeSpec struct {
-	MountPath                 string `json:"mountPath"`
-	HostPath                  string `json:"hostPath,omitempty"`
-	ConfigMap                 string `json:"configMap,omitempty"`
-	Secret                    string `json:"secret,omitempty"`
-	EmptyDir                  bool   `json:"emptyDir,omitempty"`
-	PersistentVolumeClaim     bool   `json:"persistentVolumeClaim,omitempty"`
-	PersistentVolumeClaimName string `json:"persistentVolumeClaimName,omitempty"`
+	MountPath                 string            `json:"mountPath"`
+	HostPath                  string            `json:"hostPath,omitempty"`
+	ConfigMap                 string            `json:"configMap,omitempty"`
+	Secret                    string            `json:"secret,omitempty"`
+	EmptyDir                  bool              `json:"emptyDir,omitempty"`
+	PersistentVolumeClaim     bool              `json:"persistentVolumeClaim,omitempty"`
+	PersistentVolumeClaimName string            `json:"persistentVolumeClaimName,omitempty"`
+	DownwardAPI               []DownwardAPIFile `json:"downwardAPI,omitempty"`
+}
+
+type DownwardAPIFile struct {
+	FileName  string `json:"fileName"`
+	FieldPath string `json:"fieldPath"`
 }
 
 type NodeAffinity struct {

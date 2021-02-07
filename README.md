@@ -116,6 +116,10 @@ spec:
     persistentVolumeClaim: true
   - mountPath: "/path3"
     configMap: "configmap"
+  - mountPath: /path4
+    downwardApi:
+    - fileName: labels
+      fieldPath: metadata.labels 
   nodeAffinity: # 亲和性，只根据node的label选择,key表示node的label key
     require:
     - key: "role"
