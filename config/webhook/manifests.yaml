@@ -7,7 +7,7 @@ metadata:
   name: validating-webhook-configuration
 webhooks:
 - clientConfig:
-    caBundle: Cg==
+    caBundle: (base64 encoded self-signed cert.pem)
     service:
       name: webhook-service
       namespace: system
