@@ -50,8 +50,9 @@ deploy: manifests kustomize
 
 # Generate manifests e.g. CRD, RBAC etc.
 # 取消了自动生成ClusterRole rbac:roleName=manager-role
+# 取消自动生成webhook
 manifests: controller-gen
-	$(CONTROLLER_GEN) crd:crdVersions="v1" webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+	$(CONTROLLER_GEN) crd:crdVersions="v1" paths="./..." output:crd:artifacts:config=config/crd/bases
 
 # Run go fmt against code
 fmt:
