@@ -18,6 +18,7 @@ type SQBConfigMapEntity struct {
 	istioEnable                  bool              // 集群是否安装istio
 	serviceMonitorEnable         bool              // 集群是否安装prometheus
 	victoriaMetricsEnable        bool              // 集群是否安装victoria metrics,serviceMonitorEnable和victoriaMetricsEnable互斥
+	pvcEnable                    bool              // 集群是否使用PVC
 	domainPostfix                map[string]string // 默认的域名后缀{"ingress class":"host"}
 	imagePullSecrets             string            // 默认的image pull secret名称
 	istioTimeout                 int64             // istio连接超时时间
@@ -40,6 +41,7 @@ func (sc *SQBConfigMapEntity) FromMap(data map[string]string) {
 	if sc.serviceMonitorEnable && sc.victoriaMetricsEnable {
 		sc.victoriaMetricsEnable = false
 	}
+	sc.pvcEnable = data["pvcEnable"] == "true"
 
 	if istioTimeout, ok := data["istioTimeout"]; ok {
 		timeout, err := strconv.Atoi(istioTimeout)
@@ -144,6 +146,10 @@ func (sc *SQBConfigMapEntity) IsServiceMonitorEnable() bool {
 
 func (sc *SQBConfigMapEntity) IsVictoriaMetricsEnable() bool {
 	return sc.victoriaMetricsEnable
+}
+
+func (sc *SQBConfigMapEntity) IsPVCEnable() bool {
+	return sc.pvcEnable
 }
 
 func (sc *SQBConfigMapEntity) SpecialVirtualServiceIngress() string {
