@@ -40,6 +40,21 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 		return err
 	}
 
+	sqbapplication := &qav1alpha1.SQBApplication{}
+	if err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: h.sqbdeployment.Namespace, Name: h.sqbdeployment.Spec.Selector.App},
+		sqbapplication); err != nil {
+		return err
+	}
+
+	containerPorts := make([]corev1.ContainerPort, len(sqbapplication.Spec.Ports))
+	for i, port := range sqbapplication.Spec.Ports {
+		containerPorts[i] = corev1.ContainerPort{
+			Name: port.Name,
+			ContainerPort: port.TargetPort.IntVal,
+			Protocol: port.Protocol,
+		}
+	}
+
 	deploy := h.sqbdeployment.Spec.DeploySpec
 	volumes, volumeMounts := h.getVolumeAndVolumeMounts(deploy.Volumes)
 	container := corev1.Container{
@@ -51,6 +66,7 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 		ReadinessProbe: deploy.HealthCheck,
 		Command:        deploy.Command,
 		Args:           deploy.Args,
+		Ports:          containerPorts,
 	}
 	if deploy.Resources != nil {
 		container.Resources = corev1.ResourceRequirements{
@@ -93,13 +109,13 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 		_ = json.Unmarshal([]byte(anno), &deployment.Annotations)
 	}
 	// init lifecycle
-	image, ok := h.sqbdeployment.Annotations[entity.InitContainerAnnotationKey]
-	if (deploy.Lifecycle != nil && deploy.Lifecycle.Init != nil) || ok {
-		if !ok {
+	image := entity.ConfigMapData.InitContainerImage()
+	if (deploy.Lifecycle != nil && deploy.Lifecycle.Init != nil) || image != "" {
+		if image == "" {
 			image = "busybox:1.32"
 		}
 		initContainer := corev1.Container{
-			Name:            "init-1",
+			Name:            "init0",
 			Image:           image,
 			Env:             deploy.Env,
 			VolumeMounts:    volumeMounts,

@@ -17,17 +17,20 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"flag"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/controllers"
 	"github.com/wosai/elastic-env-operator/domain/entity"
 	"github.com/wosai/elastic-env-operator/domain/handler"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"time"
 
@@ -55,21 +58,21 @@ func init() {
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
+	var namespace string
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&namespace, "namespace", "elastic-env-operator-system", "operator manager's namespace")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New())
-	syncPeriod := 24 * time.Hour
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: metricsAddr,
 		Port:               9443,
 		LeaderElection:     enableLeaderElection,
 		LeaderElectionID:   "7bea0070.shouqianba.com",
-		SyncPeriod:         &syncPeriod,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -104,14 +107,6 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "SQBApplication")
 		os.Exit(1)
 	}
-	if err = (&controllers.ConfigMapReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("ConfigMap"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "ConfigMap")
-		os.Exit(1)
-	}
 
 	if err = (&controllers.DeploymentReconciler{
 		Client: mgr.GetClient(),
@@ -128,18 +123,23 @@ func main() {
 	}
 
 	go func() {
-		timer := time.NewTimer(60 * time.Second)
+		ctx := context.Background()
+		ticker := time.NewTicker(60 * time.Second)
 		for {
-			if !entity.ConfigMapData.Initialized {
-				select {
-				case <-timer.C:
-					panic("operator configmap is not valid")
-				case <-time.After(time.Second):
-				}
-			} else {
-				timer.Stop()
-				break
+			configmap := &corev1.ConfigMap{}
+			err := mgr.GetClient().Get(ctx, client.ObjectKey{Namespace: namespace, Name: "operator-configmap"}, configmap)
+			if err != nil {
+				panic("get operator-configmap failed!")
 			}
+			entity.ConfigMapData.FromMap(configmap.Data)
+			if !entity.ConfigMapData.IsInitialized() {
+				entity.ConfigMapData.SetInitialized()
+			}
+			if !entity.ConfigMapData.IsReady() {
+				time.Sleep(time.Second * time.Duration(entity.ConfigMapData.OperatorDelay()))
+				entity.ConfigMapData.SetReady()
+			}
+			<-ticker.C
 		}
 	}()
 

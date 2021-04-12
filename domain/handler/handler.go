@@ -53,11 +53,11 @@ func SetK8sScheme(s *runtime.Scheme) {
 }
 
 func HandleReconcile(r SQBReconciler) (ctrl.Result, error) {
-	if !entity.ConfigMapData.Initialized {
+	if !entity.ConfigMapData.IsInitialized() {
 		return ctrl.Result{RequeueAfter: time.Second}, nil
 	}
 
-	if !entity.ConfigMapData.Ready {
+	if !entity.ConfigMapData.IsReady() {
 		return ctrl.Result{}, nil
 	}
 

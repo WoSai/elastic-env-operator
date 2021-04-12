@@ -251,6 +251,7 @@ data:
   operatorDelay: "30"  # 延迟处理时间
   serviceMonitorEnable: "false"
   victoriaMetricsEnable: "false"
+  initContainerImage: "xxx"
 ```
 
 ### secret

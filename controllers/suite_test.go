@@ -115,13 +115,6 @@ var _ = BeforeSuite(func(done Done) {
 	}).SetupWithManager(mgr)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = (&ConfigMapReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("ConfigMap"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr)
-	Expect(err).ToNot(HaveOccurred())
-
 	err = (&DeploymentReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("Deployment"),

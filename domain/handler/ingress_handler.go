@@ -90,12 +90,12 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 			entity.GroupKey: h.sqbapplication.Labels[entity.GroupKey],
 		})
 		if len(domain.Annotation) != 0 {
-			ingress.Annotations = domain.Annotation
+			ingress.Annotations = util.MergeStringMap(ingress.Annotations, domain.Annotation)
 			ingress.Annotations[entity.IngressClassAnnotationKey] = domain.Class
 		} else {
-			ingress.Annotations = map[string]string{
+			ingress.Annotations = util.MergeStringMap(ingress.Annotations, map[string]string{
 				entity.IngressClassAnnotationKey: domain.Class,
-			}
+			})
 		}
 		if err = CreateOrUpdate(h.ctx, ingress); err != nil {
 			return err
