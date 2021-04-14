@@ -237,21 +237,22 @@ metadata:
 data:
   ingressOpen: "false" # 集群服务默认是否创建ingress
   istioInject: "false" # 集群服务默认是否开启istio注入
+  istioEnable: "false" # 集群是否安装istio
+  istioTimeout: "30" # istio超时时间，单位秒
+  istioGateways: | # istio的virtualservice的gateways配置
   domainPostfix: | # ingressOpen=true时SQBApplication的ingress host默认会配置SQBApplication name + domainPostfix 域名
     {"nginx-vpc":"*.xx.com","nginx":"*.xx.com"}
-  globalDefaultDeploy: |   # 存放默认的SQBApplication的deploy的值
-    {"key": "value"}
   deploymentSpec: |  # deployment的spec的一些默认配置
     {"template":{"spec":{"enableServiceLinks":false,"terminationGracePeriodSeconds":300}}}
   imagePullSecrets: "reg-wosai"
-  istioTimeout: "30" # istio超时时间，单位秒
-  istioGateways: | # istio的virtualservice的gateways配置
     ["istio-system/ingressgateway","mesh"]
   specialVirtualServiceIngress: "nginx"  # 特殊入口所在ingress,公网(nginx)、经典网络(nginx-internal)、vpc网络(nginx-vpc)
   operatorDelay: "30"  # 延迟处理时间
   serviceMonitorEnable: "false"
   victoriaMetricsEnable: "false"
-  initContainerImage: "xxx"
+  initContainerImage: "busybox:1.32"
+  pvcEnable: "false"
+  baseFlag: "base"
 ```
 
 ### secret

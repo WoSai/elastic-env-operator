@@ -49,9 +49,9 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 	containerPorts := make([]corev1.ContainerPort, len(sqbapplication.Spec.Ports))
 	for i, port := range sqbapplication.Spec.Ports {
 		containerPorts[i] = corev1.ContainerPort{
-			Name: port.Name,
+			Name:          port.Name,
 			ContainerPort: port.TargetPort.IntVal,
-			Protocol: port.Protocol,
+			Protocol:      port.Protocol,
 		}
 	}
 

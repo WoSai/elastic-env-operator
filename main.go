@@ -32,6 +32,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"strings"
 	"time"
 
 	victoriametrics "github.com/VictoriaMetrics/operator/api/v1beta1"
@@ -122,32 +123,38 @@ func main() {
 		os.Exit(1)
 	}
 
-	go func() {
-		ctx := context.Background()
-		ticker := time.NewTicker(60 * time.Second)
-		for {
-			configmap := &corev1.ConfigMap{}
-			err := mgr.GetClient().Get(ctx, client.ObjectKey{Namespace: namespace, Name: "operator-configmap"}, configmap)
-			if err != nil {
-				panic("get operator-configmap failed!")
-			}
-			entity.ConfigMapData.FromMap(configmap.Data)
-			if !entity.ConfigMapData.IsInitialized() {
-				entity.ConfigMapData.SetInitialized()
-			}
-			if !entity.ConfigMapData.IsReady() {
-				time.Sleep(time.Second * time.Duration(entity.ConfigMapData.OperatorDelay()))
-				entity.ConfigMapData.SetReady()
-			}
-			<-ticker.C
-		}
-	}()
-
+	go syncConfig(mgr.GetClient(), namespace)
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
+	}
+}
+
+func syncConfig(c client.Client, ns string) {
+	ctx := context.Background()
+	ticker := time.NewTicker(60 * time.Second)
+	for {
+		configmap := &corev1.ConfigMap{}
+		err := c.Get(ctx, client.ObjectKey{Namespace: ns, Name: "operator-configmap"}, configmap)
+		if err != nil {
+			if strings.Contains(err.Error(), "the cache is not started, can not read objects") {
+				time.Sleep(time.Second)
+				continue
+			}
+			setupLog.Error(err, "get operator-configmap failed!", "namespace", ns)
+			panic("get operator-configmap failed!")
+		}
+		entity.ConfigMapData.FromMap(configmap.Data)
+		if !entity.ConfigMapData.IsInitialized() {
+			entity.ConfigMapData.SetInitialized()
+		}
+		if !entity.ConfigMapData.IsReady() {
+			time.Sleep(time.Second * time.Duration(entity.ConfigMapData.OperatorDelay()))
+			entity.ConfigMapData.SetReady()
+		}
+		<-ticker.C
 	}
 }

@@ -16,23 +16,24 @@ type (
 		ingressOpen                  bool              // 默认是否开启ingress
 		istioInject                  bool              // 默认是否启用istio
 		istioEnable                  bool              // 集群是否安装istio
+		istioTimeout                 int64             // istio连接超时时间
+		istioGateways                []string          // virtualservice应用的gateway
 		serviceMonitorEnable         bool              // 集群是否安装prometheus
 		victoriaMetricsEnable        bool              // 集群是否安装victoria metrics,serviceMonitorEnable和victoriaMetricsEnable互斥
 		pvcEnable                    bool              // 集群是否使用PVC
 		domainPostfix                map[string]string // 默认的域名后缀{"ingress class":"host"}
 		imagePullSecrets             string            // 默认的image pull secret名称
-		istioTimeout                 int64             // istio连接超时时间
-		istioGateways                []string          // virtualservice应用的gateway
 		specialVirtualServiceIngress string            // 特性入口的域名对应的ingress class
 		deploymentSpec               string            // 默认的deployment全局配置
 		operatorDelay                int               // 启动完成后的延迟时间，主要为了operator重启后不全量reconcile
 		initContainerImage           string            // init container镜像
+		baseFlag                     string            // 基础环境标识
 	}
 )
 
 // operator相关的业务配置实体
 type SQBConfigMapEntity struct {
-	data        *configMapData
+	data        configMapData
 	mux         sync.RWMutex
 	initialized bool // 是否初始化，初始化后才开始接收event，初始化之前的event requeue
 	ready       bool // 是否已就绪，就绪后才真正开始处理event，Initialized到Ready状态之间的event直接忽略
@@ -90,6 +91,10 @@ func (sc *SQBConfigMapEntity) FromMap(data map[string]string) {
 	}
 	sc.data.operatorDelay = operatorDeplay
 	sc.data.initContainerImage = data["initContainerImage"]
+	sc.data.baseFlag = data["baseFlag"]
+	if sc.data.baseFlag == "" {
+		sc.data.baseFlag = "base"
+	}
 }
 
 func (sc *SQBConfigMapEntity) ToString() string {
@@ -228,4 +233,10 @@ func (sc *SQBConfigMapEntity) InitContainerImage() string {
 	sc.mux.RLock()
 	defer sc.mux.RUnlock()
 	return sc.data.initContainerImage
+}
+
+func (sc *SQBConfigMapEntity) BaseFlag() string {
+	sc.mux.RLock()
+	defer sc.mux.RUnlock()
+	return sc.data.baseFlag
 }
