@@ -17,22 +17,19 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/controllers"
 	"github.com/wosai/elastic-env-operator/domain/entity"
 	"github.com/wosai/elastic-env-operator/domain/handler"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
-	"strings"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"time"
 
 	victoriametrics "github.com/VictoriaMetrics/operator/api/v1beta1"
@@ -109,6 +106,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&controllers.ConfigMapReconciler{
+		Client: mgr.GetClient(),
+		Log:    ctrl.Log.WithName("controllers").WithName("ConfigMap"),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ConfigMap")
+		os.Exit(1)
+	}
+
 	if err = (&controllers.DeploymentReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("Deployment"),
@@ -123,7 +129,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	go syncConfig(mgr.GetClient(), namespace)
+	go initConfig(mgr)
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")
@@ -133,28 +139,20 @@ func main() {
 	}
 }
 
-func syncConfig(c client.Client, ns string) {
-	ctx := context.Background()
-	ticker := time.NewTicker(60 * time.Second)
+func initConfig(manager manager.Manager) {
+	<-manager.Elected()
+	setupLog.Info("manager become leader")
+	timer := time.NewTimer(60 * time.Second)
 	for {
-		configmap := &corev1.ConfigMap{}
-		err := c.Get(ctx, client.ObjectKey{Namespace: ns, Name: "operator-configmap"}, configmap)
-		if err != nil {
-			if strings.Contains(err.Error(), "the cache is not started, can not read objects") {
-				time.Sleep(time.Second)
-				continue
-			}
-			setupLog.Error(err, "get operator-configmap failed!", "namespace", ns)
-			panic("get operator-configmap failed!")
-		}
-		entity.ConfigMapData.FromMap(configmap.Data)
 		if !entity.ConfigMapData.IsInitialized() {
-			entity.ConfigMapData.SetInitialized()
+			select {
+			case <-timer.C:
+				panic("operator configmap is not valid")
+			case <-time.After(time.Second):
+			}
+		} else {
+			timer.Stop()
+			break
 		}
-		if !entity.ConfigMapData.IsReady() {
-			time.Sleep(time.Second * time.Duration(entity.ConfigMapData.OperatorDelay()))
-			entity.ConfigMapData.SetReady()
-		}
-		<-ticker.C
 	}
 }

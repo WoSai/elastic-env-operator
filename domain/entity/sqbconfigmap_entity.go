@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 var ConfigMapData = &SQBConfigMapEntity{}
@@ -94,6 +95,16 @@ func (sc *SQBConfigMapEntity) FromMap(data map[string]string) {
 	sc.data.baseFlag = data["baseFlag"]
 	if sc.data.baseFlag == "" {
 		sc.data.baseFlag = "base"
+	}
+	if !sc.initialized {
+		sc.initialized = true
+	}
+	if !sc.ready {
+		go func() {
+			timer := time.NewTimer(time.Duration(operatorDeplay) * time.Second)
+			<-timer.C
+			sc.ready = true
+		}()
 	}
 }
 
@@ -209,18 +220,6 @@ func (sc *SQBConfigMapEntity) IsReady() bool {
 	sc.mux.RLock()
 	defer sc.mux.RUnlock()
 	return sc.ready
-}
-
-func (sc *SQBConfigMapEntity) SetReady() {
-	sc.mux.Lock()
-	defer sc.mux.Unlock()
-	sc.ready = true
-}
-
-func (sc *SQBConfigMapEntity) SetInitialized() {
-	sc.mux.Lock()
-	defer sc.mux.Unlock()
-	sc.initialized = true
 }
 
 func (sc *SQBConfigMapEntity) OperatorDelay() int {
