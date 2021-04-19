@@ -32,14 +32,15 @@ func NewSqbdeploymentIngressHandler(sqbdeployment *qav1alpha1.SQBDeployment, ctx
 // 2 服务相同、class相同、host相同，只是path不同，认为应该配置在同一个ingress
 // 3 如果确定不同path需要不同的ingress annotation而要配置在不同的ingress中的，这些情况手动配置
 func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
-	domainHosts := make([]string, 0)
-	for _, domain := range h.sqbapplication.Spec.Domains {
+	ingressNames := make([]string, len(h.sqbapplication.Spec.Domains))
+	for i, domain := range h.sqbapplication.Spec.Domains {
 		ingress := &v1beta1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: h.sqbapplication.Namespace,
 				Name:      getIngressName(h.sqbapplication.Name, domain.Class, domain.Host),
 			},
 		}
+		ingressNames[i] = ingress.Name
 		err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: ingress.Namespace, Name: ingress.Name}, ingress)
 		if err != nil && !apierrors.IsNotFound(err) {
 			return err
@@ -74,10 +75,8 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 			}
 			paths = append(paths, path)
 		}
-		host := domain.Host
-		domainHosts = append(domainHosts, host)
 		rule := v1beta1.IngressRule{
-			Host: host,
+			Host: domain.Host,
 			IngressRuleValue: v1beta1.IngressRuleValue{
 				HTTP: &v1beta1.HTTPIngressRuleValue{
 					Paths: paths,
@@ -110,14 +109,8 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 		return err
 	}
 
-loopIngress:
 	for _, ingress := range ingressList.Items {
-		if h.isAutoIngress(ingress) {
-			for _, rule := range ingress.Spec.Rules {
-				if util.ContainString(domainHosts, rule.Host) {
-					continue loopIngress
-				}
-			}
+		if h.isAutoIngress(ingress) && !util.ContainString(ingressNames, ingress.Name) {
 			if err = Delete(h.ctx, &ingress); err != nil {
 				return err
 			}

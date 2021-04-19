@@ -240,12 +240,12 @@ data:
   istioEnable: "false" # 集群是否安装istio
   istioTimeout: "30" # istio超时时间，单位秒
   istioGateways: | # istio的virtualservice的gateways配置
+    ["istio-system/ingressgateway","mesh"]
   domainPostfix: | # ingressOpen=true时SQBApplication的ingress host默认会配置SQBApplication name + domainPostfix 域名
     {"nginx-vpc":"*.xx.com","nginx":"*.xx.com"}
   deploymentSpec: |  # deployment的spec的一些默认配置
     {"template":{"spec":{"enableServiceLinks":false,"terminationGracePeriodSeconds":300}}}
   imagePullSecrets: "reg-wosai"
-    ["istio-system/ingressgateway","mesh"]
   specialVirtualServiceIngress: "nginx"  # 特殊入口所在ingress,公网(nginx)、经典网络(nginx-internal)、vpc网络(nginx-vpc)
   operatorDelay: "30"  # 延迟处理时间
   serviceMonitorEnable: "false"
