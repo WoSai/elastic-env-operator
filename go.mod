@@ -4,7 +4,6 @@ go 1.13
 
 require (
 	github.com/VictoriaMetrics/operator v0.7.1
-	github.com/evanphx/json-patch v4.5.0+incompatible
 	github.com/go-logr/logr v0.1.0
 	github.com/gogo/protobuf v1.3.1
 	github.com/imdario/mergo v0.3.9

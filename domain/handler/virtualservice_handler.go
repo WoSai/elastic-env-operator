@@ -76,10 +76,11 @@ func (h *virtualServiceHandler) getOrGenerateHttpRoutes(httpRoutes []*istioapi.H
 	resultHttpRoutes := make([]*istioapi.HTTPRoute, 0)
 	subpaths := h.sqbapplication.Spec.Subpaths
 	planes := h.sqbapplication.Status.Planes
+	baseFlag := entity.ConfigMapData.BaseFlag()
 	// 特殊处理base,base需要放在最后
-	_, ok := planes["base"]
+	_, ok := planes[baseFlag]
 	if ok {
-		delete(planes, "base")
+		delete(planes, baseFlag)
 	}
 	// plane+subpath决定一条route,path有顺序要求
 	// 处理特性环境
@@ -96,13 +97,13 @@ func (h *virtualServiceHandler) getOrGenerateHttpRoutes(httpRoutes []*istioapi.H
 	}
 	// 处理基础环境
 	if ok {
-		planes["base"] = 1
+		planes[baseFlag] = 1
 		for _, subpath := range subpaths {
 			httpRoute := generateBaseHttpRoute(subpath.ServiceName, subpath.Path)
 			resultHttpRoutes = append(resultHttpRoutes, httpRoute)
 		}
 
-		found, route := findRoute(HTTPRoutes(httpRoutes), h.sqbapplication.Name, "base")
+		found, route := findRoute(HTTPRoutes(httpRoutes), h.sqbapplication.Name, baseFlag)
 		if found {
 			httpRoute := istioapi.HTTPRoute(route.(HTTPRoute))
 			resultHttpRoutes = append(resultHttpRoutes, &httpRoute)
@@ -117,9 +118,10 @@ func (h *virtualServiceHandler) getOrGenerateHttpRoutes(httpRoutes []*istioapi.H
 func (h *virtualServiceHandler) getOrGenerateTcpRoutes(tcpRoutes []*istioapi.TCPRoute) []*istioapi.TCPRoute {
 	resultTcpRoutes := make([]*istioapi.TCPRoute, 0)
 	planes := h.sqbapplication.Status.Planes
-	_, ok := planes["base"]
+	baseFlag := entity.ConfigMapData.BaseFlag()
+	_, ok := planes[baseFlag]
 	if ok {
-		delete(planes, "base")
+		delete(planes, baseFlag)
 	}
 	// 处理特性环境
 	for plane := range planes {
@@ -141,8 +143,8 @@ func (h *virtualServiceHandler) getOrGenerateTcpRoutes(tcpRoutes []*istioapi.TCP
 	}
 	// 处理基础环境
 	if ok {
-		planes["base"] = 1
-		found, route := findRoute(TCPRoutes(tcpRoutes), h.sqbapplication.Name, "base")
+		planes[baseFlag] = 1
+		found, route := findRoute(TCPRoutes(tcpRoutes), h.sqbapplication.Name, baseFlag)
 		if found {
 			tcpRoute := istioapi.TCPRoute(route.(TCPRoute))
 			resultTcpRoutes = append(resultTcpRoutes, &tcpRoute)
@@ -151,7 +153,7 @@ func (h *virtualServiceHandler) getOrGenerateTcpRoutes(tcpRoutes []*istioapi.TCP
 				Route: []*istioapi.RouteDestination{
 					{Destination: &istioapi.Destination{
 						Host:   h.sqbapplication.Name,
-						Subset: util.GetSubsetName(h.sqbapplication.Name, "base"),
+						Subset: util.GetSubsetName(h.sqbapplication.Name, baseFlag),
 					}},
 				},
 			}
@@ -202,7 +204,7 @@ func generatePlaneHttpRoute(host, plane, path string) *istioapi.HTTPRoute {
 }
 
 func generateBaseHttpRoute(host, path string) *istioapi.HTTPRoute {
-	plane := "base"
+	plane := entity.ConfigMapData.BaseFlag()
 	httpRoute := &istioapi.HTTPRoute{
 		Route: []*istioapi.HTTPRouteDestination{
 			{Destination: &istioapi.Destination{

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
 	"github.com/wosai/elastic-env-operator/domain/util"
@@ -27,10 +28,19 @@ func NewSqbdeploymentIngressHandler(sqbdeployment *qav1alpha1.SQBDeployment, ctx
 	return &ingressHandler{sqbdeployment: sqbdeployment, ctx: ctx}
 }
 
+// 1 服务名+nginx class + host唯一对应一个ingress
+// 2 服务相同、class相同、host相同，只是path不同，认为应该配置在同一个ingress
+// 3 如果确定不同path需要不同的ingress annotation而要配置在不同的ingress中的，这些情况手动配置
 func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
-	domainHosts := make([]string, 0)
-	for _, domain := range h.sqbapplication.Spec.Domains {
-		ingress := &v1beta1.Ingress{ObjectMeta: metav1.ObjectMeta{Namespace: h.sqbapplication.Namespace, Name: h.sqbapplication.Name + "-" + domain.Class}}
+	ingressNames := make([]string, len(h.sqbapplication.Spec.Domains))
+	for i, domain := range h.sqbapplication.Spec.Domains {
+		ingress := &v1beta1.Ingress{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: h.sqbapplication.Namespace,
+				Name:      getIngressName(h.sqbapplication.Name, domain.Class, domain.Host),
+			},
+		}
+		ingressNames[i] = ingress.Name
 		err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: ingress.Namespace, Name: ingress.Name}, ingress)
 		if err != nil && !apierrors.IsNotFound(err) {
 			return err
@@ -65,44 +75,31 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 			}
 			paths = append(paths, path)
 		}
-		// 一个domain只能有一个host
-		host := domain.Host
-		domainHosts = append(domainHosts, host)
-		newrule := v1beta1.IngressRule{
-			Host: host,
+		rule := v1beta1.IngressRule{
+			Host: domain.Host,
 			IngressRuleValue: v1beta1.IngressRuleValue{
 				HTTP: &v1beta1.HTTPIngressRuleValue{
 					Paths: paths,
 				},
 			},
 		}
-		// 与newrule的host不同的rule保留，是special virtualservice的入口或手动配置
-		rules := make([]v1beta1.IngressRule, 0)
-		for _, rule := range ingress.Spec.Rules {
-			if rule.Host != newrule.Host {
-				rules = append(rules, rule)
-			}
-		}
-		rules = append(rules, newrule)
-		ingress.Spec.Rules = rules
+		ingress.Spec.Rules = []v1beta1.IngressRule{rule}
 		ingress.Labels = util.MergeStringMap(ingress.Labels, map[string]string{
 			entity.AppKey:   h.sqbapplication.Name,
 			entity.GroupKey: h.sqbapplication.Labels[entity.GroupKey],
 		})
 		if len(domain.Annotation) != 0 {
-			ingress.Annotations = domain.Annotation
-			ingress.Annotations[entity.IngressClassAnnotationKey] = domain.Class
-		} else {
-			ingress.Annotations = map[string]string{
-				entity.IngressClassAnnotationKey: domain.Class,
-			}
+			ingress.Annotations = util.MergeStringMap(ingress.Annotations, domain.Annotation)
 		}
+		ingress.Annotations = util.MergeStringMap(ingress.Annotations, map[string]string{
+			entity.IngressClassAnnotationKey: domain.Class,
+		})
 		if err = CreateOrUpdate(h.ctx, ingress); err != nil {
 			return err
 		}
 	}
 
-	// 如果ingress的host没有包含在domainHosts中，且ingress的name是sqbapplication.Name-<domain.class>格式，则删除该ingress
+	// 如果ingress的host没有包含在domainHosts中，且ingress是自动生成的，则删除该ingress
 	ingressList := &v1beta1.IngressList{}
 	err := k8sclient.List(h.ctx, ingressList, &client.ListOptions{
 		Namespace:     h.sqbapplication.Namespace,
@@ -112,35 +109,32 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 		return err
 	}
 
-loopIngress:
 	for _, ingress := range ingressList.Items {
-		for _, rule := range ingress.Spec.Rules {
-			if util.ContainString(domainHosts, rule.Host) {
-				continue loopIngress
+		if h.isAutoIngress(ingress) && !util.ContainString(ingressNames, ingress.Name) {
+			if err = Delete(h.ctx, &ingress); err != nil {
+				return err
 			}
-		}
-		if ingress.Name != h.sqbapplication.Name+"-"+ingress.Annotations[entity.IngressClassAnnotationKey] {
-			continue loopIngress
-		}
-		if err = Delete(h.ctx, &ingress); err != nil {
-			return err
 		}
 	}
 	return nil
 }
 
+// 外网特殊入口创建新的ingress
 func (h *ingressHandler) CreateOrUpdateForSqbdeployment() error {
 	ingressClass := SpecialVirtualServiceIngress(h.sqbdeployment)
-	ingress := &v1beta1.Ingress{ObjectMeta: metav1.ObjectMeta{
-		Namespace: h.sqbdeployment.Namespace,
-		Name:      h.sqbdeployment.Labels[entity.AppKey] + "-" + ingressClass,
-	}}
-	if err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: ingress.Namespace, Name: ingress.Name}, ingress); err != nil {
+	host := entity.ConfigMapData.GetDomainNameByClass(h.sqbdeployment.Name, SpecialVirtualServiceIngress(h.sqbdeployment))
+	ingress := &v1beta1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: h.sqbdeployment.Namespace,
+			Name:      getIngressName(h.sqbdeployment.Labels[entity.AppKey], ingressClass, host),
+		},
+	}
+	if err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: ingress.Namespace, Name: ingress.Name}, ingress); err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
 
-	newrule := v1beta1.IngressRule{
-		Host: entity.ConfigMapData.GetDomainNameByClass(h.sqbdeployment.Name, SpecialVirtualServiceIngress(h.sqbdeployment)),
+	rule := v1beta1.IngressRule{
+		Host: host,
 		IngressRuleValue: v1beta1.IngressRuleValue{
 			HTTP: &v1beta1.HTTPIngressRuleValue{
 				Paths: []v1beta1.HTTPIngressPath{
@@ -154,14 +148,7 @@ func (h *ingressHandler) CreateOrUpdateForSqbdeployment() error {
 			},
 		},
 	}
-	rules := make([]v1beta1.IngressRule, 0)
-	for _, rule := range ingress.Spec.Rules {
-		if rule.Host != newrule.Host {
-			rules = append(rules, rule)
-		}
-	}
-	rules = append(rules, newrule)
-	ingress.Spec.Rules = rules
+	ingress.Spec.Rules = []v1beta1.IngressRule{rule}
 	return CreateOrUpdate(h.ctx, ingress)
 }
 
@@ -175,6 +162,9 @@ func (h *ingressHandler) DeleteForSqbapplication() error {
 		return err
 	}
 	for _, ingress := range ingressList.Items {
+		if !h.isAutoIngress(ingress) {
+			continue
+		}
 		if err = Delete(h.ctx, &ingress); err != nil {
 			return err
 		}
@@ -187,21 +177,16 @@ func (h *ingressHandler) DeleteForSqbdeployment() error {
 	host := entity.ConfigMapData.GetDomainNameByClass(h.sqbdeployment.Name, ingressClass)
 	ingress := &v1beta1.Ingress{ObjectMeta: metav1.ObjectMeta{
 		Namespace: h.sqbdeployment.Namespace,
-		Name:      h.sqbdeployment.Labels[entity.AppKey] + "-" + ingressClass,
+		Name:      getIngressName(h.sqbdeployment.Labels[entity.AppKey], ingressClass, host),
 	}}
 	err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: ingress.Namespace, Name: ingress.Name}, ingress)
 	if err != nil {
 		return client.IgnoreNotFound(err)
-	} else {
-		rules := make([]v1beta1.IngressRule, 0)
-		for _, rule := range ingress.Spec.Rules {
-			if rule.Host != host {
-				rules = append(rules, rule)
-			}
-		}
-		ingress.Spec.Rules = rules
-		return CreateOrUpdate(h.ctx, ingress)
 	}
+	if err = Delete(h.ctx, ingress); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (h *ingressHandler) Handle() error {
@@ -224,4 +209,26 @@ func (h *ingressHandler) Handle() error {
 		return h.CreateOrUpdateForSqbdeployment()
 	}
 	return nil
+}
+
+// getIngressName, 生成ingress的名称
+func getIngressName(appName, nginxClass, host string) string {
+	return fmt.Sprintf("%s.%s.%s", appName, nginxClass, host)
+}
+
+// isAutoIngressName 判断一个ingress是否是自动生成的
+func (h *ingressHandler) isAutoIngress(ingress v1beta1.Ingress) bool {
+	if ingress.Annotations == nil || ingress.Annotations[entity.IngressClassAnnotationKey] == "" || len(ingress.Spec.Rules) < 1 {
+		return false
+	}
+	// 新规则
+	if getIngressName(h.sqbapplication.Name, ingress.Annotations[entity.IngressClassAnnotationKey],
+		ingress.Spec.Rules[0].Host) == ingress.Name {
+		return true
+	}
+	// 老规则
+	if fmt.Sprintf("%s-%s", h.sqbapplication.Name, ingress.Annotations[entity.IngressClassAnnotationKey]) == ingress.Name {
+		return true
+	}
+	return false
 }

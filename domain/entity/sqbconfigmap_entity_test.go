@@ -58,6 +58,6 @@ func TestConfigMap(t *testing.T) {
 	})
 
 	t.Run("initialized", func(t *testing.T) {
-		assert.Equal(t, configmap.Initialized, true)
+		assert.Equal(t, configmap.IsInitialized(), true)
 	})
 }

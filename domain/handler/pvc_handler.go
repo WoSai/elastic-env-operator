@@ -119,6 +119,9 @@ func (h *pvcHandler) getPVCName(mountPath string) string {
 }
 
 func (h *pvcHandler) Handle() error {
+	if !entity.ConfigMapData.IsPVCEnable() {
+		return nil
+	}
 	if deleted, _ := IsDeleted(h.sqbdeployment); deleted {
 		return h.Delete()
 	}

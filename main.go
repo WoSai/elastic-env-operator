@@ -29,6 +29,7 @@ import (
 	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"time"
 
 	victoriametrics "github.com/VictoriaMetrics/operator/api/v1beta1"
@@ -55,21 +56,21 @@ func init() {
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
+	var namespace string
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
+	flag.StringVar(&namespace, "namespace", "elastic-env-operator-system", "operator manager's namespace")
 	flag.Parse()
 
 	ctrl.SetLogger(zap.New())
-	syncPeriod := 24 * time.Hour
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
 		Scheme:             scheme,
 		MetricsBindAddress: metricsAddr,
 		Port:               9443,
 		LeaderElection:     enableLeaderElection,
 		LeaderElectionID:   "7bea0070.shouqianba.com",
-		SyncPeriod:         &syncPeriod,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -104,6 +105,7 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "SQBApplication")
 		os.Exit(1)
 	}
+
 	if err = (&controllers.ConfigMapReconciler{
 		Client: mgr.GetClient(),
 		Log:    ctrl.Log.WithName("controllers").WithName("ConfigMap"),
@@ -127,27 +129,30 @@ func main() {
 		os.Exit(1)
 	}
 
-	go func() {
-		timer := time.NewTimer(60 * time.Second)
-		for {
-			if !entity.ConfigMapData.Initialized {
-				select {
-				case <-timer.C:
-					panic("operator configmap is not valid")
-				case <-time.After(time.Second):
-				}
-			} else {
-				timer.Stop()
-				break
-			}
-		}
-	}()
-
+	go initConfig(mgr)
 	// +kubebuilder:scaffold:builder
 
 	setupLog.Info("starting manager")
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
+	}
+}
+
+func initConfig(manager manager.Manager) {
+	<-manager.Elected()
+	setupLog.Info("manager become leader")
+	timer := time.NewTimer(60 * time.Second)
+	for {
+		if !entity.ConfigMapData.IsInitialized() {
+			select {
+			case <-timer.C:
+				panic("operator configmap is not valid")
+			case <-time.After(time.Second):
+			}
+		} else {
+			timer.Stop()
+			break
+		}
 	}
 }
