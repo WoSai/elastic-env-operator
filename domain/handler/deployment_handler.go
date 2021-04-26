@@ -87,10 +87,13 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 
 	deployment.Labels = h.sqbdeployment.Labels
 	deployment.Spec.Replicas = deploy.Replicas
-	deployment.Spec.Selector = &metav1.LabelSelector{
-		MatchLabels: map[string]string{
-			entity.AppKey: h.sqbdeployment.Spec.Selector.App,
-		},
+	// 从apps/v1beta2开始，deployment的selector是不可变的
+	if deployment.Spec.Selector == nil {
+		deployment.Spec.Selector = &metav1.LabelSelector{
+			MatchLabels: map[string]string{
+				entity.AppKey: h.sqbdeployment.Spec.Selector.App,
+			},
+		}
 	}
 	deployment.Spec.Template.ObjectMeta.Labels = deployment.Labels
 	deployment.Spec.Template.Spec.Volumes = volumes
