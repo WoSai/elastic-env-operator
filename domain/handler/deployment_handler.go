@@ -95,7 +95,8 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 			},
 		}
 	}
-	deployment.Spec.Template.ObjectMeta.Labels = deployment.Labels
+	deployment.Spec.Template.ObjectMeta.Labels = util.MergeStringMap(deployment.Labels,
+		deployment.Spec.Template.ObjectMeta.Labels)
 	deployment.Spec.Template.Spec.Volumes = volumes
 	deployment.Spec.Template.Spec.HostAliases = deploy.HostAlias
 	deployment.Spec.Template.Spec.Containers = []corev1.Container{container}
