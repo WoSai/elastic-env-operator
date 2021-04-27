@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
+	"github.com/wosai/elastic-env-operator/domain/util"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,9 +28,9 @@ func (h *serviceHandler) CreateOrUpdate() error {
 		return err
 	}
 	service.Spec.Ports = h.sqbapplication.Spec.Ports
-	service.Spec.Selector = map[string]string{
-		entity.AppKey: h.sqbapplication.Name,
-	}
+	// 兼容线上的配置，因为pod的label不能更改，所以service的selector也不能更改
+	service.Spec.Selector = util.MergeStringMap(map[string]string{entity.AppKey: h.sqbapplication.Name},
+		service.Spec.Selector)
 	if anno, ok := h.sqbapplication.Annotations[entity.ServiceAnnotationKey]; ok {
 		_ = json.Unmarshal([]byte(anno), &service.Annotations)
 	} else {
