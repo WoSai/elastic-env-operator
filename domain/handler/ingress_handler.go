@@ -66,11 +66,19 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 				}
 				paths = append(paths, path)
 			}
+			// https://stackoverflow.com/questions/49829452/why-ingress-serviceport-can-be-port-and-targetport-of-service
+			// 使用target port而不是service port
+			var servicePort intstr.IntOrString
+			if ports := h.sqbapplication.Spec.Ports; len(ports) == 0 {
+				servicePort = intstr.FromInt(80)
+			} else {
+				servicePort = ports[0].TargetPort
+			}
 			// 默认路由
 			path := v1beta1.HTTPIngressPath{
 				Backend: v1beta1.IngressBackend{
 					ServiceName: h.sqbapplication.Name,
-					ServicePort: intstr.FromInt(80),
+					ServicePort: servicePort,
 				},
 			}
 			paths = append(paths, path)
