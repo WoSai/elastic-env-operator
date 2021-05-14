@@ -96,10 +96,17 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 		}
 	}
 	deployment.Spec.Template.ObjectMeta.Labels = util.MergeStringMap(deployment.Labels,
-		deployment.Spec.Template.ObjectMeta.Labels)
+		deployment.Spec.Selector.MatchLabels)
 	deployment.Spec.Template.Spec.Volumes = volumes
 	deployment.Spec.Template.Spec.HostAliases = deploy.HostAlias
-	deployment.Spec.Template.Spec.Containers = []corev1.Container{container}
+	containers := []corev1.Container{container}
+	// 兼容jaeger注入的container
+	for _, c := range deployment.Spec.Template.Spec.Containers {
+		if c.Name == "jaeger-agent" {
+			containers = append(containers, c)
+		}
+	}
+	deployment.Spec.Template.Spec.Containers = containers
 	deployment.Spec.Template.Spec.ImagePullSecrets = entity.ConfigMapData.GetImagePullSecrets()
 
 	if anno, ok := h.sqbdeployment.Annotations[entity.PodAnnotationKey]; ok {

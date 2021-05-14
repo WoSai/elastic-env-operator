@@ -24,6 +24,7 @@ rules:
   - sqbapplications/status
   - sqbdeployments/status
   - sqbplanes/status
+  - vmservicescrapes
   verbs:
   - create
   - delete
