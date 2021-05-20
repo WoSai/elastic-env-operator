@@ -57,11 +57,18 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 
 	deploy := h.sqbdeployment.Spec.DeploySpec
 	volumes, volumeMounts := h.getVolumeAndVolumeMounts(deploy.Volumes)
+	// 临时处理：/etc/podinfo不挂业务容器，避免与arms冲突  todo
+	containerMounts := make([]corev1.VolumeMount, 0)
+	for _, mount := range volumeMounts {
+		if mount.MountPath != "/etc/podinfo" {
+			containerMounts = append(containerMounts, mount)
+		}
+	}
 	container := corev1.Container{
 		Name:           h.sqbdeployment.Name,
 		Image:          deploy.Image,
 		Env:            deploy.Env,
-		VolumeMounts:   volumeMounts,
+		VolumeMounts:   containerMounts,
 		LivenessProbe:  deploy.HealthCheck,
 		ReadinessProbe: deploy.HealthCheck,
 		Command:        deploy.Command,
