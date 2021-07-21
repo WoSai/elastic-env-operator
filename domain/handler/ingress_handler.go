@@ -135,6 +135,7 @@ func (h *ingressHandler) CreateOrUpdateForSqbdeployment() error {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: h.sqbdeployment.Namespace,
 			Name:      getIngressName(h.sqbdeployment.Labels[entity.AppKey], ingressClass, host),
+			Labels:    h.sqbdeployment.Labels,
 		},
 	}
 	if err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: ingress.Namespace, Name: ingress.Name}, ingress); err != nil && !apierrors.IsNotFound(err) {
