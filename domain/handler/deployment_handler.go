@@ -111,6 +111,7 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 	for _, c := range deployment.Spec.Template.Spec.Containers {
 		if c.Name == "jaeger-agent" {
 			containers = append(containers, c)
+			deployment.Labels["sidecar.jaegertracing.io/injected"] = "jaeger-ack"
 		}
 	}
 	deployment.Spec.Template.Spec.Containers = containers
