@@ -22,4 +22,6 @@ const (
 	InitializeAnnotationKey      = "qa.shouqianba.com/initialized"
 	IngressClassAnnotationKey    = "kubernetes.io/ingress.class"
 	IstioSidecarInjectKey        = "sidecar.istio.io/inject"
+	JaegerInjectAnnotationKey    = "sidecar.jaegertracing.io/inject"
+	JaegerInjectedLabelKey       = "sidecar.jaegertracing.io/injected"
 )
