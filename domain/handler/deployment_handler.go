@@ -92,6 +92,7 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 		container.Lifecycle = &lifecycle
 	}
 
+	jaegerInjected := deployment.Labels[entity.JaegerInjectedLabelKey]
 	deployment.Labels = h.sqbdeployment.Labels
 	deployment.Spec.Replicas = deploy.Replicas
 	// 从apps/v1beta2开始，deployment的selector是不可变的。兼容线上配置，线上存量的label.app=appname+ "-ack"
@@ -111,7 +112,7 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 	for _, c := range deployment.Spec.Template.Spec.Containers {
 		if c.Name == "jaeger-agent" {
 			containers = append(containers, c)
-			deployment.Labels["sidecar.jaegertracing.io/injected"] = "jaeger-ack"
+			deployment.Labels[entity.JaegerInjectedLabelKey] = jaegerInjected
 		}
 	}
 	deployment.Spec.Template.Spec.Containers = containers
