@@ -391,6 +391,8 @@ func (h *deploymentHandler) Operate(obj runtimeObj) error {
 			}
 		}
 	}
+	// 删除deployment的时候，先更新sqbapplication和sqbplane的状态，再进行删除
+	// finalizer主要是为了避免，deployment删除之后，get不到
 	if !in.DeletionTimestamp.IsZero() {
 		controllerutil.RemoveFinalizer(in, entity.FINALIZER)
 		return CreateOrUpdate(h.ctx, in)
