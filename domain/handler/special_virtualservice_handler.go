@@ -89,7 +89,8 @@ func (h *specialVirtualServiceHandler) Handle() error {
 	if !entity.ConfigMapData.IstioEnable() {
 		return nil
 	}
-	if HasPublicEntry(h.sqbdeployment) && h.sqbdeployment.DeletionTimestamp.IsZero() {
+	deleted, _ := IsDeleted(h.sqbdeployment)
+	if HasPublicEntry(h.sqbdeployment) && !deleted {
 		return h.CreateOrUpdate()
 	}
 	return h.Delete()
