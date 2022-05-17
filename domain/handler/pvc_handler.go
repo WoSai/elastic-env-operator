@@ -103,10 +103,12 @@ func (h *pvcHandler) Delete() error {
 
 func (h *pvcHandler) getPVCList() (*corev1.PersistentVolumeClaimList, error) {
 	pvcList := &corev1.PersistentVolumeClaimList{}
-	err := k8sclient.List(h.ctx, pvcList, &client.ListOptions{LabelSelector: labels.SelectorFromSet(map[string]string{
-		entity.AppKey:   h.sqbdeployment.Spec.Selector.App,
-		entity.PlaneKey: h.sqbdeployment.Spec.Selector.Plane,
-	})})
+	err := k8sclient.List(h.ctx, pvcList, &client.ListOptions{
+		LabelSelector: labels.SelectorFromSet(map[string]string{
+			entity.AppKey:   h.sqbdeployment.Spec.Selector.App,
+			entity.PlaneKey: h.sqbdeployment.Spec.Selector.Plane}),
+		Namespace: h.sqbdeployment.Namespace,
+	})
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, err
 	}

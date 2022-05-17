@@ -54,8 +54,15 @@ func (h *sqbDeploymentListHandler) DeleteForSqbplane() error {
 
 func (h *sqbDeploymentListHandler) listByLabel(label map[string]string) ([]qav1alpha1.SQBDeployment, error) {
 	sqbdeploymentList := &qav1alpha1.SQBDeploymentList{}
+	var ns string
+	if h.sqbapplication != nil {
+		ns = h.sqbapplication.Namespace
+	} else if h.sqbplane != nil {
+		ns = h.sqbplane.Namespace
+	}
 	err := k8sclient.List(h.ctx, sqbdeploymentList, &client.ListOptions{
 		LabelSelector: labels.SelectorFromSet(label),
+		Namespace:     ns,
 	})
 	if err != nil && !apierrors.IsNotFound(err) {
 		return nil, err
