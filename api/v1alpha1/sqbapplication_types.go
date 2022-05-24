@@ -58,17 +58,18 @@ type ServiceSpec struct {
 }
 
 type DeploySpec struct {
-	Replicas     *int32                       `json:"replicas,omitempty"`
-	Image        string                       `json:"image,omitempty"`
-	Command      []string                     `json:"command,omitempty"`
-	Args         []string                     `json:"args,omitempty"`
-	HostAlias    []corev1.HostAlias           `json:"hostAliases,omitempty"`
-	Resources    *corev1.ResourceRequirements `json:"resources,omitempty"`
-	Env          []corev1.EnvVar              `json:"env,omitempty"`
-	HealthCheck  *corev1.Probe                `json:"healthCheck,omitempty"`
-	Volumes      []*VolumeSpec                `json:"volumes,omitempty"`
-	NodeAffinity *NodeAffinity                `json:"nodeAffinity,omitempty"`
-	Lifecycle    *Lifecycle                   `json:"lifecycle,omitempty"`
+	Replicas       *int32                       `json:"replicas,omitempty"`
+	Image          string                       `json:"image,omitempty"`
+	Command        []string                     `json:"command,omitempty"`
+	Args           []string                     `json:"args,omitempty"`
+	HostAlias      []corev1.HostAlias           `json:"hostAliases,omitempty"`
+	Resources      *corev1.ResourceRequirements `json:"resources,omitempty"`
+	Env            []corev1.EnvVar              `json:"env,omitempty"`
+	HealthCheck    *corev1.Probe                `json:"healthCheck,omitempty"`
+	Volumes        []*VolumeSpec                `json:"volumes,omitempty"`
+	NodeAffinity   *NodeAffinity                `json:"nodeAffinity,omitempty"`
+	Lifecycle      *Lifecycle                   `json:"lifecycle,omitempty"`
+	ServiceAccount string                       `json:"serviceAccount,omitempty"`
 }
 
 type VolumeSpec struct {
