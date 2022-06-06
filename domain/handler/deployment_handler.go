@@ -188,9 +188,6 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 		}
 		deployment.Spec.Template.Spec.Affinity = affinity
 	}
-	if deploy.ServiceAccount != "" {
-		deployment.Spec.Template.Spec.ServiceAccountName = deploy.ServiceAccount
-	}
 	controllerutil.AddFinalizer(deployment, entity.FINALIZER)
 	if specString := entity.ConfigMapData.DeploymentSpec(); specString != "" {
 		if err = h.merge(deployment, specString); err != nil {

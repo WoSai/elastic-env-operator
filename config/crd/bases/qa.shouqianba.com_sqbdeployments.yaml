@@ -591,8 +591,6 @@ spec:
                 - app
                 - plane
                 type: object
-              serviceAccount:
-                type: string
               volumes:
                 items:
                   properties:
