@@ -188,6 +188,7 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 		}
 		deployment.Spec.Template.Spec.Affinity = affinity
 	}
+	deployment.Spec.Template.Spec.ServiceAccountName = fmt.Sprintf("sqb-%s-vault-sa", h.sqbdeployment.Labels[entity.GroupKey])
 	controllerutil.AddFinalizer(deployment, entity.FINALIZER)
 	if specString := entity.ConfigMapData.DeploymentSpec(); specString != "" {
 		if err = h.merge(deployment, specString); err != nil {
