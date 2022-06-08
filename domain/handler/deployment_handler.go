@@ -308,6 +308,11 @@ func (h *deploymentHandler) vault(deployment *appv1.Deployment) {
 		}
 	}
 	if enableVault {
+		deployment.Spec.Template.Annotations["vault.hashicorp.com/tls-server-name"] = "vault-server-tls"
+		deployment.Spec.Template.Annotations["vault.hashicorp.com/tls-secret"] = "vault-server-tls"
+		deployment.Spec.Template.Annotations["vault.hashicorp.com/ca-cert"] = "/vault/tls/vault.ca"
+		deployment.Spec.Template.Annotations["vault.hashicorp.com/client-cert"] = "/vault/tls/vault.crt"
+		deployment.Spec.Template.Annotations["vault.hashicorp.com/client-key"] = "/vault/tls/vault.key"
 		deployment.Spec.Template.Annotations["vault.hashicorp.com/role"] = fmt.Sprintf("sqb-%s-alicloud-role", group)
 		deployment.Spec.Template.Annotations["vault.hashicorp.com/agent-cache-enable"] = "true"
 		deployment.Spec.Template.Annotations["vault.hashicorp.com/agent-inject"] = "true"
