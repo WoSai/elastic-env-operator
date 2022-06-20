@@ -32,6 +32,7 @@ func NewSqbdeploymentIngressHandler(sqbdeployment *qav1alpha1.SQBDeployment, ctx
 // 2 服务相同、class相同、host相同，只是path不同，认为应该配置在同一个ingress
 // 3 如果确定不同path需要不同的ingress annotation而要配置在不同的ingress中的，这些情况手动配置
 func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
+	pathType := v1.PathTypeImplementationSpecific
 	ingressNames := make([]string, len(h.sqbapplication.Spec.Domains))
 	for i, domain := range h.sqbapplication.Spec.Domains {
 		ingress := &v1.Ingress{
@@ -55,6 +56,7 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 						Port: v1.ServiceBackendPort{Number: 80},
 					},
 				},
+				PathType: &pathType,
 			}
 			paths = append(paths, path)
 		} else {
@@ -67,6 +69,7 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 							Port: v1.ServiceBackendPort{Number: int32(subpath.ServicePort)},
 						},
 					},
+					PathType: &pathType,
 				}
 				paths = append(paths, path)
 			}
@@ -88,6 +91,7 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 						},
 					},
 				},
+				PathType: &pathType,
 			}
 			paths = append(paths, path)
 		}
@@ -138,6 +142,7 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 // 外网特殊入口创建新的ingress
 func (h *ingressHandler) CreateOrUpdateForSqbdeployment() error {
 	ingressClass := SpecialVirtualServiceIngress(h.sqbdeployment)
+	pathType := v1.PathTypeImplementationSpecific
 	host := entity.ConfigMapData.GetDomainNameByClass(h.sqbdeployment.Name, SpecialVirtualServiceIngress(h.sqbdeployment))
 	ingress := &v1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
@@ -162,6 +167,7 @@ func (h *ingressHandler) CreateOrUpdateForSqbdeployment() error {
 								Port: v1.ServiceBackendPort{Number: 80},
 							},
 						},
+						PathType: &pathType,
 					},
 				},
 			},
