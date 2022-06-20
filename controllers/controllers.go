@@ -10,12 +10,12 @@ var (
 	// 处理创建删除和generation、annotation的更新
 	GenerationAnnotationPredicate = predicate.Funcs{
 		UpdateFunc: func(event event.UpdateEvent) bool {
-			if event.MetaOld == nil || event.MetaNew == nil || event.ObjectOld == nil || event.ObjectNew == nil {
+			if event.ObjectOld == nil || event.ObjectNew == nil {
 				return false
 			}
 			//generation不变且annotation也不变，不处理
-			if event.MetaNew.GetGeneration() == event.MetaOld.GetGeneration() &&
-				reflect.DeepEqual(event.MetaOld.GetAnnotations(), event.MetaNew.GetAnnotations()) {
+			if event.ObjectNew.GetGeneration() == event.ObjectOld.GetGeneration() &&
+				reflect.DeepEqual(event.ObjectOld.GetAnnotations(), event.ObjectNew.GetAnnotations()) {
 				return false
 			}
 			return true

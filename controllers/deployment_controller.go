@@ -39,8 +39,7 @@ type DeploymentReconciler struct {
 // +kubebuilder:rbac:groups=qa.shouqianba.com,resources=sqbplanes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=qa.shouqianba.com,resources=sqbplanes/status,verbs=get;update;patch
 
-func (r *DeploymentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	ctx := context.Background()
+func (r *DeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	return sqbhandler.HandleReconcile(sqbhandler.NewDeploymentHandlerWithReq(req, ctx))
 }
 
@@ -48,13 +47,13 @@ func (r *DeploymentReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&v12.Deployment{}, builder.WithPredicates(predicate.Funcs{
 			UpdateFunc: func(event event.UpdateEvent) bool {
-				if !event.MetaNew.GetDeletionTimestamp().IsZero() {
+				if !event.ObjectNew.GetDeletionTimestamp().IsZero() {
 					return true
 				}
 				return false
 			},
 			GenericFunc: func(event event.GenericEvent) bool {
-				if !event.Meta.GetDeletionTimestamp().IsZero() {
+				if !event.Object.GetDeletionTimestamp().IsZero() {
 					return true
 				}
 				return false

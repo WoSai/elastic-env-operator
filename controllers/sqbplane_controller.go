@@ -37,8 +37,7 @@ type SQBPlaneReconciler struct {
 // +kubebuilder:rbac:groups=qa.shouqianba.com,resources=sqbplanes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=qa.shouqianba.com,resources=sqbplanes/status,verbs=get;update;patch
 
-func (r *SQBPlaneReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	ctx := context.Background()
+func (r *SQBPlaneReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	return sqbhandler.HandleReconcile(sqbhandler.NewSqbPlaneHanlder(req, ctx))
 }
 

@@ -6,7 +6,7 @@ import (
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
 	"github.com/wosai/elastic-env-operator/domain/util"
-	"k8s.io/api/networking/v1beta1"
+	"k8s.io/api/networking/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -34,7 +34,7 @@ func NewSqbdeploymentIngressHandler(sqbdeployment *qav1alpha1.SQBDeployment, ctx
 func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 	ingressNames := make([]string, len(h.sqbapplication.Spec.Domains))
 	for i, domain := range h.sqbapplication.Spec.Domains {
-		ingress := &v1beta1.Ingress{
+		ingress := &v1.Ingress{
 			ObjectMeta: metav1.ObjectMeta{
 				Namespace: h.sqbapplication.Namespace,
 				Name:      getIngressName(h.sqbapplication.Name, domain.Class, domain.Host),
@@ -46,22 +46,26 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 			return err
 		}
 
-		paths := make([]v1beta1.HTTPIngressPath, 0)
+		paths := make([]v1.HTTPIngressPath, 0)
 		if IsIstioInject(h.sqbapplication) {
-			path := v1beta1.HTTPIngressPath{
-				Backend: v1beta1.IngressBackend{
-					ServiceName: "istio-ingressgateway" + "-" + h.sqbapplication.Namespace,
-					ServicePort: intstr.FromInt(80),
+			path := v1.HTTPIngressPath{
+				Backend: v1.IngressBackend{
+					Service: &v1.IngressServiceBackend{
+						Name: "istio-ingressgateway" + "-" + h.sqbapplication.Namespace,
+						Port: v1.ServiceBackendPort{Number: 80},
+					},
 				},
 			}
 			paths = append(paths, path)
 		} else {
 			for _, subpath := range h.sqbapplication.Spec.Subpaths {
-				path := v1beta1.HTTPIngressPath{
+				path := v1.HTTPIngressPath{
 					Path: subpath.Path,
-					Backend: v1beta1.IngressBackend{
-						ServiceName: subpath.ServiceName,
-						ServicePort: intstr.FromInt(subpath.ServicePort),
+					Backend: v1.IngressBackend{
+						Service: &v1.IngressServiceBackend{
+							Name: subpath.ServiceName,
+							Port: v1.ServiceBackendPort{Number: int32(subpath.ServicePort)},
+						},
 					},
 				}
 				paths = append(paths, path)
@@ -75,23 +79,27 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 				servicePort = ports[0].TargetPort
 			}
 			// 默认路由
-			path := v1beta1.HTTPIngressPath{
-				Backend: v1beta1.IngressBackend{
-					ServiceName: h.sqbapplication.Name,
-					ServicePort: servicePort,
+			path := v1.HTTPIngressPath{
+				Backend: v1.IngressBackend{
+					Service: &v1.IngressServiceBackend{
+						Name: h.sqbapplication.Name,
+						Port: v1.ServiceBackendPort{
+							Number: servicePort.IntVal,
+						},
+					},
 				},
 			}
 			paths = append(paths, path)
 		}
-		rule := v1beta1.IngressRule{
+		rule := v1.IngressRule{
 			Host: domain.Host,
-			IngressRuleValue: v1beta1.IngressRuleValue{
-				HTTP: &v1beta1.HTTPIngressRuleValue{
+			IngressRuleValue: v1.IngressRuleValue{
+				HTTP: &v1.HTTPIngressRuleValue{
 					Paths: paths,
 				},
 			},
 		}
-		ingress.Spec.Rules = []v1beta1.IngressRule{rule}
+		ingress.Spec.Rules = []v1.IngressRule{rule}
 		ingress.Labels = util.MergeStringMap(ingress.Labels, map[string]string{
 			entity.AppKey:   h.sqbapplication.Name,
 			entity.GroupKey: h.sqbapplication.Labels[entity.GroupKey],
@@ -108,7 +116,7 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 	}
 
 	// 如果ingress的host没有包含在domainHosts中，且ingress是自动生成的，则删除该ingress
-	ingressList := &v1beta1.IngressList{}
+	ingressList := &v1.IngressList{}
 	err := k8sclient.List(h.ctx, ingressList, &client.ListOptions{
 		Namespace:     h.sqbapplication.Namespace,
 		LabelSelector: labels.SelectorFromSet(map[string]string{entity.AppKey: h.sqbapplication.Name}),
@@ -131,7 +139,7 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 func (h *ingressHandler) CreateOrUpdateForSqbdeployment() error {
 	ingressClass := SpecialVirtualServiceIngress(h.sqbdeployment)
 	host := entity.ConfigMapData.GetDomainNameByClass(h.sqbdeployment.Name, SpecialVirtualServiceIngress(h.sqbdeployment))
-	ingress := &v1beta1.Ingress{
+	ingress := &v1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: h.sqbdeployment.Namespace,
 			Name:      getIngressName(h.sqbdeployment.Labels[entity.AppKey], ingressClass, host),
@@ -142,27 +150,29 @@ func (h *ingressHandler) CreateOrUpdateForSqbdeployment() error {
 		return err
 	}
 
-	rule := v1beta1.IngressRule{
+	rule := v1.IngressRule{
 		Host: host,
-		IngressRuleValue: v1beta1.IngressRuleValue{
-			HTTP: &v1beta1.HTTPIngressRuleValue{
-				Paths: []v1beta1.HTTPIngressPath{
+		IngressRuleValue: v1.IngressRuleValue{
+			HTTP: &v1.HTTPIngressRuleValue{
+				Paths: []v1.HTTPIngressPath{
 					{
-						Backend: v1beta1.IngressBackend{
-							ServiceName: "istio-ingressgateway" + "-" + h.sqbdeployment.Namespace,
-							ServicePort: intstr.FromInt(80),
+						Backend: v1.IngressBackend{
+							Service: &v1.IngressServiceBackend{
+								Name: "istio-ingressgateway" + "-" + h.sqbdeployment.Namespace,
+								Port: v1.ServiceBackendPort{Number: 80},
+							},
 						},
 					},
 				},
 			},
 		},
 	}
-	ingress.Spec.Rules = []v1beta1.IngressRule{rule}
+	ingress.Spec.Rules = []v1.IngressRule{rule}
 	return CreateOrUpdate(h.ctx, ingress)
 }
 
 func (h *ingressHandler) DeleteForSqbapplication() error {
-	ingressList := &v1beta1.IngressList{}
+	ingressList := &v1.IngressList{}
 	err := k8sclient.List(h.ctx, ingressList, &client.ListOptions{
 		Namespace:     h.sqbapplication.Namespace,
 		LabelSelector: labels.SelectorFromSet(map[string]string{entity.AppKey: h.sqbapplication.Name}),
@@ -184,7 +194,7 @@ func (h *ingressHandler) DeleteForSqbapplication() error {
 func (h *ingressHandler) DeleteForSqbdeployment() error {
 	ingressClass := SpecialVirtualServiceIngress(h.sqbdeployment)
 	host := entity.ConfigMapData.GetDomainNameByClass(h.sqbdeployment.Name, ingressClass)
-	ingress := &v1beta1.Ingress{ObjectMeta: metav1.ObjectMeta{
+	ingress := &v1.Ingress{ObjectMeta: metav1.ObjectMeta{
 		Namespace: h.sqbdeployment.Namespace,
 		Name:      getIngressName(h.sqbdeployment.Labels[entity.AppKey], ingressClass, host),
 	}}
@@ -226,7 +236,7 @@ func getIngressName(appName, nginxClass, host string) string {
 }
 
 // isAutoIngressName 判断一个ingress是否是自动生成的
-func (h *ingressHandler) isAutoIngress(ingress v1beta1.Ingress) bool {
+func (h *ingressHandler) isAutoIngress(ingress v1.Ingress) bool {
 	if ingress.Annotations == nil || ingress.Annotations[entity.IngressClassAnnotationKey] == "" || len(ingress.Spec.Rules) < 1 {
 		return false
 	}
