@@ -43,8 +43,8 @@ func (h *sqbApplicationHandler) Operate(obj runtimeObj) error {
 	handlers := []SQBHandler{
 		NewServiceHandler(in, h.ctx),
 		NewSqbapplicationIngressHandler(in, h.ctx),
-		NewDestinationRuleHandler(in, h.ctx),
-		NewVirtualServiceHandler(in, h.ctx),
+		//NewDestinationRuleHandler(in, h.ctx),
+		//NewVirtualServiceHandler(in, h.ctx),
 		NewServiceMonitorHandler(in, h.ctx),
 		NewSqbDeploymentListHandlerForSqbapplication(in, h.ctx),
 		NewVMServiceScrapeHandler(in, h.ctx),
