@@ -1,6 +1,6 @@
 module github.com/wosai/elastic-env-operator
 
-go 1.13
+go 1.17
 
 require (
 	github.com/VictoriaMetrics/operator v0.7.1
