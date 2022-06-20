@@ -328,7 +328,8 @@ func (h *deploymentHandler) addVaultAnnotation(deployment *appv1.Deployment, gro
   {{with secret "alicloud/creds/sqb-%s-alicloud-role" -}}
   "accessKey": "{{ .Data.access_key }}",
   "secretKey": "{{ .Data.secret_key }}",
-  "securityToken": "{{ .Data.security_token }}"
+  "securityToken": "{{ .Data.security_token }}",
+  "expiration": "{{ .Data.expiration }}"
   {{- end }}
 }`
 	deployment.Spec.Template.Annotations[fmt.Sprintf("vault.hashicorp.com/agent-inject-template-%s", secretPath)] = fmt.Sprintf(template, group)
