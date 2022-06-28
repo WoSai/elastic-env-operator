@@ -36,8 +36,7 @@ type SQBApplicationReconciler struct {
 // +kubebuilder:rbac:groups=qa.shouqianba.com,resources=sqbapplications,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=qa.shouqianba.com,resources=sqbapplications/status,verbs=get;update;patch
 
-func (r *SQBApplicationReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	ctx := context.Background()
+func (r *SQBApplicationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	return sqbhandler.HandleReconcile(sqbhandler.NewSqbApplicationHanlder(req, ctx))
 }
 

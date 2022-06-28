@@ -16,6 +16,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"strings"
 	"time"
 )
 
@@ -188,6 +189,7 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 		}
 		deployment.Spec.Template.Spec.Affinity = affinity
 	}
+	h.vault(deployment)
 	controllerutil.AddFinalizer(deployment, entity.FINALIZER)
 	if specString := entity.ConfigMapData.DeploymentSpec(); specString != "" {
 		if err = h.merge(deployment, specString); err != nil {
@@ -292,6 +294,53 @@ func (h *deploymentHandler) getVolumeAndVolumeMounts(volumemap []*qav1alpha1.Vol
 		}
 	}
 	return
+}
+
+func (h *deploymentHandler) vault(deployment *appv1.Deployment) {
+	// 判断环境变量ALICLOUD_SECRET_PATH
+	enableVault := false
+	group := h.sqbdeployment.Labels[entity.GroupKey]
+	h.removeVaultAnnotation(deployment)
+	for _, env := range h.sqbdeployment.Spec.Env {
+		if strings.HasPrefix(env.Name, "ALICLOUD_CREDS_PATH") {
+			h.addVaultAnnotation(deployment, group, env.Value)
+			enableVault = true
+		}
+	}
+	if enableVault {
+		deployment.Spec.Template.Annotations["vault.hashicorp.com/tls-server-name"] = "vault-server-tls"
+		deployment.Spec.Template.Annotations["vault.hashicorp.com/tls-secret"] = "vault-server-tls"
+		deployment.Spec.Template.Annotations["vault.hashicorp.com/ca-cert"] = "/vault/tls/vault.ca"
+		deployment.Spec.Template.Annotations["vault.hashicorp.com/client-cert"] = "/vault/tls/vault.crt"
+		deployment.Spec.Template.Annotations["vault.hashicorp.com/client-key"] = "/vault/tls/vault.key"
+		deployment.Spec.Template.Annotations["vault.hashicorp.com/role"] = fmt.Sprintf("sqb-%s-alicloud-role", group)
+		deployment.Spec.Template.Annotations["vault.hashicorp.com/agent-cache-enable"] = "true"
+		deployment.Spec.Template.Annotations["vault.hashicorp.com/agent-inject"] = "true"
+		deployment.Spec.Template.Spec.ServiceAccountName = fmt.Sprintf("sqb-%s-vault-sa", group)
+	} else {
+		deployment.Spec.Template.Spec.ServiceAccountName = "default"
+	}
+}
+
+func (h *deploymentHandler) addVaultAnnotation(deployment *appv1.Deployment, group string, secretPath string) {
+	deployment.Spec.Template.Annotations[fmt.Sprintf("vault.hashicorp.com/agent-inject-secret-%s", secretPath)] = fmt.Sprintf("alicloud/creds/sqb-%s-alicloud-role", group)
+	template := `{
+  {{with secret "alicloud/creds/sqb-%s-alicloud-role" -}}
+  "accessKey": "{{ .Data.access_key }}",
+  "secretKey": "{{ .Data.secret_key }}",
+  "securityToken": "{{ .Data.security_token }}",
+  "expiration": "{{ .Data.expiration }}"
+  {{- end }}
+}`
+	deployment.Spec.Template.Annotations[fmt.Sprintf("vault.hashicorp.com/agent-inject-template-%s", secretPath)] = fmt.Sprintf(template, group)
+}
+
+func (h *deploymentHandler) removeVaultAnnotation(deployment *appv1.Deployment) {
+	for k, _ := range deployment.Spec.Template.Annotations {
+		if strings.HasPrefix(k, "vault.hashicorp.com") {
+			delete(deployment.Spec.Template.Annotations, k)
+		}
+	}
 }
 
 func (h *deploymentHandler) Delete() error {

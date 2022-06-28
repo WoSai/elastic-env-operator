@@ -17,7 +17,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/wosai/elastic-env-operator/domain/entity"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"os"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -36,8 +35,7 @@ type ConfigMapReconciler struct {
 // +kubebuilder:rbac:groups=qa.shouqianba.com,resources=sqbplanes,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=qa.shouqianba.com,resources=sqbplanes/status,verbs=get;update;patch
 
-func (r *ConfigMapReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	ctx := context.Background()
+func (r *ConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	instance := &corev1.ConfigMap{}
 	err := r.Get(ctx, req.NamespacedName, instance)
 	if err != nil {
@@ -56,8 +54,8 @@ func (r *ConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&corev1.ConfigMap{}, builder.WithPredicates(predicate.NewPredicateFuncs(
-			func(meta metav1.Object, object runtime.Object) bool {
-				if meta.GetNamespace() == namespace && meta.GetName() == "operator-configmap" {
+			func(object client.Object) bool {
+				if object.GetNamespace() == namespace && object.GetName() == "operator-configmap" {
 					return true
 				}
 				return false

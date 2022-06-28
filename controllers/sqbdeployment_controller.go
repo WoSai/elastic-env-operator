@@ -37,8 +37,7 @@ type SQBDeploymentReconciler struct {
 // +kubebuilder:rbac:groups=qa.shouqianba.com,resources=sqbdeployments,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=qa.shouqianba.com,resources=sqbdeployments/status,verbs=get;update;patch
 
-func (r *SQBDeploymentReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	ctx := context.Background()
+func (r *SQBDeploymentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	return handler.HandleReconcile(handler.NewSqbDeploymentHanlder(req, ctx))
 }
 

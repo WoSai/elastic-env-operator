@@ -18,9 +18,11 @@ package controllers
 
 import (
 	"context"
+	"github.com/go-logr/zapr"
 	"github.com/gogo/protobuf/proto"
 	"github.com/wosai/elastic-env-operator/domain/entity"
 	"github.com/wosai/elastic-env-operator/domain/handler"
+	"go.uber.org/zap"
 	istio "istio.io/client-go/pkg/apis/networking/v1beta1"
 	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -35,7 +37,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/envtest/printer"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
@@ -61,7 +62,7 @@ func TestAPIs(t *testing.T) {
 }
 
 var _ = BeforeSuite(func(done Done) {
-	logf.SetLogger(zap.LoggerTo(GinkgoWriter, false))
+	logf.SetLogger(zapr.NewLogger(zap.L()))
 
 	By("bootstrapping test environment")
 	testEnv = &envtest.Environment{
