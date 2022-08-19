@@ -296,15 +296,9 @@ func (h *deploymentHandler) getVolumeAndVolumeMounts(volumemap []*qav1alpha1.Vol
 }
 
 func (h *deploymentHandler) vault(deployment *appv1.Deployment) {
-	// 判断环境变量SQB_VAULT
-	enableVault := false
+	// 判断group label
 	group := h.sqbdeployment.Labels[entity.GroupKey]
-	for _, env := range h.sqbdeployment.Spec.Env {
-		if env.Name == "SQB_VAULT" && env.Value == "sqb-vault" {
-			enableVault = true
-		}
-	}
-	if enableVault {
+	if group != "" {
 		deployment.Spec.Template.Spec.ServiceAccountName = fmt.Sprintf("sqb-%s-vault-sa", group)
 	} else {
 		deployment.Spec.Template.Spec.ServiceAccountName = "default"
