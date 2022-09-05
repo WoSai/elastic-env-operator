@@ -39,7 +39,7 @@ func (h *vmserviceScrapeHandler) CreateOrUpdate() error {
 		return err
 	}
 	for i, endpoint := range endpoints {
-		endpoint.BearerTokenSecret.Key = ""
+		endpoint.BearerTokenFile = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 		endpoints[i] = endpoint
 	}
 	vmservice.Spec.Endpoints = endpoints
