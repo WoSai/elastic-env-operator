@@ -66,7 +66,12 @@ func (h *pvcHandler) CreateOrUpdate() error {
 						corev1.ResourceStorage: resource.MustParse("2Gi"),
 					},
 				},
-				StorageClassName: proto.String("ack" + "-" + h.sqbdeployment.Labels[entity.GroupKey]),
+			}
+			group := h.sqbdeployment.Labels[entity.GroupKey]
+			if group == "" {
+				pvc.Spec.StorageClassName = proto.String("ack-qa")
+			} else {
+				pvc.Spec.StorageClassName = proto.String("ack" + "-" + group)
 			}
 			pvc.Labels = h.sqbdeployment.Labels
 			if err = CreateOrUpdate(h.ctx, pvc); err != nil {
