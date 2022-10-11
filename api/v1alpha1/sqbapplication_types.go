@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"github.com/wosai/elastic-env-operator/domain/util"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -138,11 +137,11 @@ type SQBApplicationList struct {
 	Items           []SQBApplication `json:"items"`
 }
 
-//merge list和map都合并去重
+// merge list和map都合并去重
 func (old *SQBApplication) Merge(news *SQBApplication) {
 	// annotation、label
-	old.Annotations = util.MergeStringMap(old.Annotations, news.Annotations)
-	old.Labels = util.MergeStringMap(old.Labels, news.Labels)
+	old.Annotations = MergeStringMap(old.Annotations, news.Annotations)
+	old.Labels = MergeStringMap(old.Labels, news.Labels)
 	// domain使用新的覆盖
 	old.Spec.Domains = news.Spec.Domains
 	// subpath用新的覆盖

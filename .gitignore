@@ -79,3 +79,4 @@ tags
 .idea/
 coverage.txt
 bin/
+.DS_Store
