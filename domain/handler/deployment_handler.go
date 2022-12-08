@@ -93,7 +93,7 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 	}
 
 	jaegerInjected := deployment.Labels[entity.JaegerInjectedLabelKey]
-	deployment.Labels = h.sqbdeployment.Labels
+	deployment.Labels = util.MergeStringMap(deployment.Labels, h.sqbdeployment.Labels)
 	deployment.Spec.Replicas = deploy.Replicas
 	// 从apps/v1beta2开始，deployment的selector是不可变的。兼容线上配置，线上存量的label.app=appname+ "-ack"
 	if deployment.Spec.Selector == nil {
