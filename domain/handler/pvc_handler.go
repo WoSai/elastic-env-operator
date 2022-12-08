@@ -7,6 +7,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
+	"github.com/wosai/elastic-env-operator/domain/util"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -73,7 +74,7 @@ func (h *pvcHandler) CreateOrUpdate() error {
 			} else {
 				pvc.Spec.StorageClassName = proto.String("ack" + "-" + group)
 			}
-			pvc.Labels = h.sqbdeployment.Labels
+			pvc.Labels = util.MergeStringMap(pvc.Labels, h.sqbdeployment.Labels)
 			if err = CreateOrUpdate(h.ctx, pvc); err != nil {
 				return err
 			}

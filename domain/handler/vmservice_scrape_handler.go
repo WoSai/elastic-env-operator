@@ -6,6 +6,7 @@ import (
 	vmv1beta1 "github.com/VictoriaMetrics/operator/api/v1beta1"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
+	"github.com/wosai/elastic-env-operator/domain/util"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -43,7 +44,7 @@ func (h *vmserviceScrapeHandler) CreateOrUpdate() error {
 		endpoints[i] = endpoint
 	}
 	vmservice.Spec.Endpoints = endpoints
-	vmservice.Labels = h.sqbapplication.Labels
+	vmservice.Labels = util.MergeStringMap(vmservice.Labels, h.sqbapplication.Labels)
 	return CreateOrUpdate(h.ctx, vmservice)
 }
 

@@ -77,6 +77,7 @@ func (h *specialVirtualServiceHandler) CreateOrUpdate() error {
 	})
 
 	specialvirtualservice.Spec.Http = httproutes
+	specialvirtualservice.Labels = util.MergeStringMap(specialvirtualservice.Labels, h.sqbdeployment.Labels)
 	return CreateOrUpdate(h.ctx, specialvirtualservice)
 }
 

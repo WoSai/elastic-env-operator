@@ -112,6 +112,9 @@ func UpdateStatus(ctx context.Context, obj runtimeObj) error {
 }
 
 func Delete(ctx context.Context, obj runtimeObj) error {
+	if _, ok := obj.GetAnnotations()[entity.KubevelaLastAppliedTime]; ok {
+		return nil
+	}
 	kind, _ := apiutil.GVKForObject(obj, k8sScheme)
 	err := k8sclient.Delete(ctx, obj)
 	log.Info("delete obj", "kind", kind,
