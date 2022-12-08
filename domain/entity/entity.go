@@ -24,4 +24,5 @@ const (
 	IstioSidecarInjectKey        = "sidecar.istio.io/inject"
 	JaegerInjectAnnotationKey    = "sidecar.jaegertracing.io/inject"
 	JaegerInjectedLabelKey       = "sidecar.jaegertracing.io/injected"
+	KubevelaLastAppliedTime      = "app.oam.dev/last-applied-time"
 )

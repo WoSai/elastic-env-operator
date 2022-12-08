@@ -36,7 +36,7 @@ func (h *serviceHandler) CreateOrUpdate() error {
 	} else {
 		service.Annotations = nil
 	}
-	service.Labels = h.sqbapplication.Labels
+	service.Labels = util.MergeStringMap(service.Labels, h.sqbapplication.Labels)
 	return CreateOrUpdate(h.ctx, service)
 }
 

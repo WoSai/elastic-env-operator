@@ -6,6 +6,7 @@ import (
 	prometheus "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
+	"github.com/wosai/elastic-env-operator/domain/util"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -39,7 +40,7 @@ func (h *serviceMonitorHandler) CreateOrUpdate() error {
 		return err
 	}
 	serviceMonitor.Spec.Endpoints = endpoints
-	serviceMonitor.Labels = h.sqbapplication.Labels
+	serviceMonitor.Labels = util.MergeStringMap(serviceMonitor.Labels, h.sqbapplication.Labels)
 	return CreateOrUpdate(h.ctx, serviceMonitor)
 }
 
