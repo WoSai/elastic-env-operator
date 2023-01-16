@@ -128,6 +128,8 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 	if anno, ok := h.sqbdeployment.Annotations[entity.DeploymentAnnotationKey]; ok {
 		_ = json.Unmarshal([]byte(anno), &deployment.Annotations)
 	}
+	// 去掉jaeger注解
+	delete(deployment.Annotations, "sidecar.jaegertracing.io/inject")
 	// init lifecycle
 	image := entity.ConfigMapData.InitContainerImage()
 	if (deploy.Lifecycle != nil && deploy.Lifecycle.Init != nil) || image != "" {

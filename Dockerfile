@@ -5,16 +5,14 @@ WORKDIR /workspace
 # Copy the Go Modules manifests
 COPY go.mod go.mod
 COPY go.sum go.sum
-# cache deps before building and copying source so that we don't need to re-download as much
-# and so that source changes don't invalidate our downloaded layer
-ENV GOPROXY="https://goproxy.cn,direct" CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on
-RUN go mod download
-
-# Copy the go source
 COPY main.go main.go
 COPY api/ api/
 COPY controllers/ controllers/
 COPY domain/ domain/
+# cache deps before building and copying source so that we don't need to re-download as much
+# and so that source changes don't invalidate our downloaded layer
+ENV GOPROXY="https://goproxy.cn,direct" CGO_ENABLED=0 GOOS=linux GOARCH=amd64 GO111MODULE=on
+RUN go mod download
 
 # Build
 RUN go build -a -o manager main.go
