@@ -13,6 +13,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -186,6 +187,9 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 		deployment.Spec.Template.Spec.Affinity = affinity
 	}
 	h.vault(deployment)
+	maxUnavailable := intstr.FromInt(0)
+	deployment.Spec.Strategy.RollingUpdate =
+		&appv1.RollingUpdateDeployment{MaxUnavailable: &maxUnavailable}
 	controllerutil.AddFinalizer(deployment, entity.FINALIZER)
 	if specString := entity.ConfigMapData.DeploymentSpec(); specString != "" {
 		if err = h.merge(deployment, specString); err != nil {

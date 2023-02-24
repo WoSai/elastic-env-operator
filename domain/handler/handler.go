@@ -112,7 +112,7 @@ func UpdateStatus(ctx context.Context, obj runtimeObj) error {
 }
 
 func Delete(ctx context.Context, obj runtimeObj) error {
-	if _, ok := obj.GetAnnotations()[entity.KubevelaLastAppliedTime]; ok {
+	if _, ok := obj.GetLabels()[entity.KubevelaAppNameLabel]; ok {
 		return nil
 	}
 	kind, _ := apiutil.GVKForObject(obj, k8sScheme)
