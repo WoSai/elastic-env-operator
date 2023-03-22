@@ -53,11 +53,11 @@ func (h *specialVirtualServiceHandler) CreateOrUpdate() error {
 			Route: []*istioapi.HTTPRouteDestination{
 				{Destination: &istioapi.Destination{
 					Host:   path.ServiceName,
-					Subset: util.GetSubsetName(path.ServiceName, h.sqbdeployment.Spec.Selector.Plane),
+					Subset: util.GetSubsetName(path.ServiceName, h.sqbdeployment.Labels[entity.PlaneKey]),
 				}},
 			},
 			Headers: &istioapi.Headers{
-				Request: &istioapi.Headers_HeaderOperations{Set: map[string]string{entity.XEnvFlag: h.sqbdeployment.Spec.Selector.Plane}},
+				Request: &istioapi.Headers_HeaderOperations{Set: map[string]string{entity.XEnvFlag: h.sqbdeployment.Labels[entity.PlaneKey]}},
 			},
 			Timeout: &types2.Duration{Seconds: entity.ConfigMapData.IstioTimeout()},
 		}
@@ -72,7 +72,7 @@ func (h *specialVirtualServiceHandler) CreateOrUpdate() error {
 		},
 		Timeout: &types2.Duration{Seconds: entity.ConfigMapData.IstioTimeout()},
 		Headers: &istioapi.Headers{
-			Request: &istioapi.Headers_HeaderOperations{Set: map[string]string{entity.XEnvFlag: h.sqbdeployment.Spec.Selector.Plane}},
+			Request: &istioapi.Headers_HeaderOperations{Set: map[string]string{entity.XEnvFlag: h.sqbdeployment.Labels[entity.PlaneKey]}},
 		},
 	})
 

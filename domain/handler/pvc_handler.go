@@ -111,8 +111,8 @@ func (h *pvcHandler) getPVCList() (*corev1.PersistentVolumeClaimList, error) {
 	pvcList := &corev1.PersistentVolumeClaimList{}
 	err := k8sclient.List(h.ctx, pvcList, &client.ListOptions{
 		LabelSelector: labels.SelectorFromSet(map[string]string{
-			entity.AppKey:   h.sqbdeployment.Spec.Selector.App,
-			entity.PlaneKey: h.sqbdeployment.Spec.Selector.Plane}),
+			entity.AppKey:   h.sqbdeployment.Labels[entity.AppKey],
+			entity.PlaneKey: h.sqbdeployment.Labels[entity.PlaneKey]}),
 		Namespace: h.sqbdeployment.Namespace,
 	})
 	if err != nil && !apierrors.IsNotFound(err) {
@@ -123,7 +123,7 @@ func (h *pvcHandler) getPVCList() (*corev1.PersistentVolumeClaimList, error) {
 
 func (h *pvcHandler) getPVCName(mountPath string) string {
 	hash := md5.Sum([]byte(mountPath + h.sqbdeployment.CreationTimestamp.String()))
-	return h.sqbdeployment.Spec.Selector.App + "-" + h.sqbdeployment.Spec.Selector.Plane + "-" + fmt.Sprintf("%x", hash)
+	return h.sqbdeployment.Labels[entity.AppKey] + "-" + h.sqbdeployment.Labels[entity.PlaneKey] + "-" + fmt.Sprintf("%x", hash)
 }
 
 func (h *pvcHandler) Handle() error {

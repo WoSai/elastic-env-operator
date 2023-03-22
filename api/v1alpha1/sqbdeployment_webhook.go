@@ -17,7 +17,6 @@ limitations under the License.
 package v1alpha1
 
 import (
-	"errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -51,7 +50,7 @@ func (r *SQBDeployment) ValidateUpdate(old runtime.Object) error {
 	oldcr := old.(*SQBDeployment)
 	if r.Spec.Selector.App != oldcr.Spec.Selector.App ||
 		r.Spec.Selector.Plane != oldcr.Spec.Selector.Plane {
-		return errors.New("spec.selector is immutable")
+		sqbdeploymentlog.Info("sqbdeployment selector updated", "name", r.Name)
 	}
 	return nil
 }
