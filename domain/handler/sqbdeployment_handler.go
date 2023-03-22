@@ -4,7 +4,6 @@ import (
 	"context"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
-	"github.com/wosai/elastic-env-operator/domain/util"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -37,16 +36,6 @@ func (h *sqbDeploymentHandler) IsInitialized(obj runtimeObj) (bool, error) {
 		sqbapplication); err != nil {
 		return false, err
 	}
-
-	sqbdeployment := &qav1alpha1.SQBDeployment{}
-	sqbdeployment.Spec.DeploySpec = sqbapplication.Spec.DeploySpec
-	sqbdeployment.Merge(in)
-	in.Merge(sqbdeployment)
-
-	in.Labels = util.MergeStringMap(in.Labels, map[string]string{
-		entity.AppKey:   in.Spec.Selector.App,
-		entity.PlaneKey: in.Spec.Selector.Plane,
-	})
 	if len(in.Annotations) == 0 {
 		in.Annotations = make(map[string]string)
 	}
