@@ -4,9 +4,7 @@ import (
 	"context"
 	qav1alpha1 "github.com/wosai/elastic-env-operator/api/v1alpha1"
 	"github.com/wosai/elastic-env-operator/domain/entity"
-	"github.com/wosai/elastic-env-operator/domain/util"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type sqbDeploymentHandler struct {
@@ -25,38 +23,8 @@ func (h *sqbDeploymentHandler) GetInstance() (runtimeObj, error) {
 }
 
 // 初始化逻辑
-func (h *sqbDeploymentHandler) IsInitialized(obj runtimeObj) (bool, error) {
-	in := obj.(*qav1alpha1.SQBDeployment)
-	if in.Annotations[entity.InitializeAnnotationKey] == "true" {
-		return true, nil
-	}
-
-	// 补充默认值
-	sqbapplication := &qav1alpha1.SQBApplication{}
-	if err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: in.Namespace, Name: in.Spec.Selector.App},
-		sqbapplication); err != nil {
-		return false, err
-	}
-
-	sqbdeployment := &qav1alpha1.SQBDeployment{}
-	sqbdeployment.Spec.DeploySpec = sqbapplication.Spec.DeploySpec
-	sqbdeployment.Merge(in)
-	in.Merge(sqbdeployment)
-
-	in.Labels = util.MergeStringMap(in.Labels, map[string]string{
-		entity.AppKey:   in.Spec.Selector.App,
-		entity.PlaneKey: in.Spec.Selector.Plane,
-	})
-	if len(in.Annotations) == 0 {
-		in.Annotations = make(map[string]string)
-	}
-	in.Annotations[entity.InitializeAnnotationKey] = "true"
-	if IsIstioInject(sqbapplication) {
-		in.Annotations[entity.IstioInjectAnnotationKey] = "true"
-	} else {
-		in.Annotations[entity.IstioInjectAnnotationKey] = "false"
-	}
-	return false, CreateOrUpdate(h.ctx, in)
+func (h *sqbDeploymentHandler) IsInitialized(_ runtimeObj) (bool, error) {
+	return true, nil
 }
 
 // 正常处理逻辑
