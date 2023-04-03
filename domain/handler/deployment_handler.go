@@ -188,8 +188,10 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 	}
 	h.vault(deployment)
 	maxUnavailable := intstr.FromInt(0)
-	deployment.Spec.Strategy.RollingUpdate =
-		&appv1.RollingUpdateDeployment{MaxUnavailable: &maxUnavailable}
+	if deployment.Spec.Strategy.Type == appv1.RollingUpdateDeploymentStrategyType {
+		deployment.Spec.Strategy.RollingUpdate =
+			&appv1.RollingUpdateDeployment{MaxUnavailable: &maxUnavailable}
+	}
 	controllerutil.AddFinalizer(deployment, entity.FINALIZER)
 	if specString := entity.ConfigMapData.DeploymentSpec(); specString != "" {
 		if err = h.merge(deployment, specString); err != nil {
