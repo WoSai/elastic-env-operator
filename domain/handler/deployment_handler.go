@@ -200,14 +200,18 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 }
 
 func (h *deploymentHandler) additionalSpec(deployment *appv1.Deployment) error {
+	if specString := entity.ConfigMapData.DeploymentSpec(); specString != "" {
+		if err := h.merge(deployment, specString); err != nil {
+			return err
+		}
+	}
 	useLocalDNS := true
 	if localdns, ok := h.sqbdeployment.Annotations[entity.LocalDNSKey]; ok && localdns == "false" {
 		useLocalDNS = false
 	}
-	if specString := entity.ConfigMapData.DeploymentSpec(); specString != "" && useLocalDNS {
-		if err := h.merge(deployment, specString); err != nil {
-			return err
-		}
+	if !useLocalDNS {
+		deployment.Spec.Template.Spec.DNSConfig = nil
+		deployment.Spec.Template.Spec.DNSPolicy = ""
 	}
 	return nil
 }
