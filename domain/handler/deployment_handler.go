@@ -193,12 +193,23 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 			&appv1.RollingUpdateDeployment{MaxUnavailable: &maxUnavailable}
 	}
 	controllerutil.AddFinalizer(deployment, entity.FINALIZER)
-	if specString := entity.ConfigMapData.DeploymentSpec(); specString != "" {
-		if err = h.merge(deployment, specString); err != nil {
+	if err = h.additionalSpec(deployment); err != nil {
+		return err
+	}
+	return CreateOrUpdate(h.ctx, deployment)
+}
+
+func (h *deploymentHandler) additionalSpec(deployment *appv1.Deployment) error {
+	useLocalDNS := true
+	if localdns, ok := h.sqbdeployment.Annotations[entity.LocalDNSKey]; ok && localdns == "false" {
+		useLocalDNS = false
+	}
+	if specString := entity.ConfigMapData.DeploymentSpec(); specString != "" && useLocalDNS {
+		if err := h.merge(deployment, specString); err != nil {
 			return err
 		}
 	}
-	return CreateOrUpdate(h.ctx, deployment)
+	return nil
 }
 
 func (h *deploymentHandler) merge(deployment *appv1.Deployment, specString string) error {
