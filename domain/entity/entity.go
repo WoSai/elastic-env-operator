@@ -26,5 +26,4 @@ const (
 	JaegerInjectedLabelKey       = "sidecar.jaegertracing.io/injected"
 	KubevelaLastAppliedTime      = "app.oam.dev/last-applied-time"
 	KubevelaAppNameLabel         = "app.oam.dev/name"
-	LocalDNSKey                  = "qa.shouqianba.com/local-dns"
 )
