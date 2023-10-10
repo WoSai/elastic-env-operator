@@ -17,6 +17,7 @@ type (
 		ingressOpen                  bool              // 默认是否开启ingress
 		istioInject                  bool              // 默认是否启用istio
 		istioEnable                  bool              // 集群是否安装istio
+		istioIngressGateway          bool              // 集群是否启用istio-ingressgateway，默认与istioEnable一致
 		istioTimeout                 int64             // istio连接超时时间
 		istioGateways                []string          // virtualservice应用的gateway
 		serviceMonitorEnable         bool              // 集群是否安装prometheus
@@ -49,6 +50,7 @@ func (sc *SQBConfigMapEntity) FromMap(data map[string]string) {
 	sc.data.ingressOpen = data["ingressOpen"] == "true"
 	sc.data.istioInject = data["istioInject"] == "true"
 	sc.data.istioEnable = data["istioEnable"] == "true"
+	sc.data.istioIngressGateway = data["istioIngressGateway"] != "false"
 	sc.data.serviceMonitorEnable = data["serviceMonitorEnable"] == "true"
 	sc.data.victoriaMetricsEnable = data["victoriaMetricsEnable"] == "true"
 	if sc.data.serviceMonitorEnable && sc.data.victoriaMetricsEnable {
@@ -175,6 +177,16 @@ func (sc *SQBConfigMapEntity) IstioInject() bool {
 	defer sc.mux.RUnlock()
 	if sc.data.istioEnable {
 		return sc.data.istioInject
+	} else {
+		return false
+	}
+}
+
+func (sc *SQBConfigMapEntity) HasIstioIngressGateway() bool {
+	sc.mux.RLock()
+	defer sc.mux.RUnlock()
+	if sc.data.istioEnable {
+		return sc.data.istioIngressGateway
 	} else {
 		return false
 	}

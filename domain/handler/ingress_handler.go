@@ -48,7 +48,8 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 		}
 
 		paths := make([]v1.HTTPIngressPath, 0)
-		if IsIstioInject(h.sqbapplication) {
+		// 开启istio并且有istio-ingressgateway组件
+		if IsIstioInject(h.sqbapplication) && HasIstioIngressGateway() {
 			path := v1.HTTPIngressPath{
 				Backend: v1.IngressBackend{
 					Service: &v1.IngressServiceBackend{

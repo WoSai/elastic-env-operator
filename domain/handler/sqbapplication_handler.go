@@ -85,6 +85,10 @@ func IsIstioInject(sqbapplication *qav1alpha1.SQBApplication) bool {
 	return false
 }
 
+func HasIstioIngressGateway() bool {
+	return entity.ConfigMapData.HasIstioIngressGateway()
+}
+
 // 判断应用是否启用ingress逻辑：
 // 1.有注解，根据注解
 // 2.没有注解，根据默认配置
