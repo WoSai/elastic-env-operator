@@ -12,6 +12,7 @@ require (
 	github.com/onsi/gomega v1.10.2
 	github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring v0.43.0
 	github.com/stretchr/testify v1.6.1
+	github.com/wosai/elastic-env-operator/api v0.5.5
 	go.uber.org/zap v1.15.0
 	gotest.tools v2.2.0+incompatible
 	istio.io/api v0.0.0-20200812202721-24be265d41c3
@@ -21,7 +22,6 @@ require (
 	k8s.io/apimachinery v0.20.11
 	k8s.io/client-go v12.0.0+incompatible
 	sigs.k8s.io/controller-runtime v0.8.3
-	github.com/wosai/elastic-env-operator/api v0.5.5
 )
 
 require (
@@ -79,6 +79,6 @@ require (
 replace (
 	github.com/google/gnostic => github.com/googleapis/gnostic v0.6.9
 	github.com/googleapis/gnostic => github.com/google/gnostic v0.6.9
-	k8s.io/client-go => k8s.io/client-go v0.20.11
 	github.com/wosai/elastic-env-operator/api => ./api
+	k8s.io/client-go => k8s.io/client-go v0.20.11
 )
