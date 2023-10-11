@@ -30,6 +30,7 @@ type (
 		operatorDelay                int               // 启动完成后的延迟时间，主要为了operator重启后不全量reconcile
 		initContainerImage           string            // init container镜像
 		baseFlag                     string            // 基础环境标识
+		env                          string            // 所属环境，test/prod
 	}
 )
 
@@ -40,6 +41,11 @@ type SQBConfigMapEntity struct {
 	initialized bool // 是否初始化，初始化后才开始接收event，初始化之前的event requeue
 	ready       bool // 是否已就绪，就绪后才真正开始处理event，Initialized到Ready状态之间的event直接忽略
 }
+
+const (
+	ENV_TEST string = "test"
+	ENV_PROD string = "prod"
+)
 
 func (sc *SQBConfigMapEntity) FromMap(data map[string]string) {
 	sc.mux.Lock()
@@ -98,6 +104,7 @@ func (sc *SQBConfigMapEntity) FromMap(data map[string]string) {
 	if sc.data.baseFlag == "" {
 		sc.data.baseFlag = "base"
 	}
+	sc.data.env = data["env"]
 	if !sc.initialized {
 		sc.initialized = true
 	}
@@ -250,4 +257,14 @@ func (sc *SQBConfigMapEntity) BaseFlag() string {
 	sc.mux.RLock()
 	defer sc.mux.RUnlock()
 	return sc.data.baseFlag
+}
+
+func (sc *SQBConfigMapEntity) Env() string {
+	sc.mux.RLock()
+	defer sc.mux.RUnlock()
+	if sc.data.env != ENV_PROD {
+		return ENV_TEST
+	} else {
+		return ENV_PROD
+	}
 }
