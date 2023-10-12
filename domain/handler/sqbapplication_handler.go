@@ -45,7 +45,7 @@ func (h *sqbApplicationHandler) Operate(obj runtimeObj) error {
 		NewSqbapplicationIngressHandler(in, h.ctx),
 		//NewDestinationRuleHandler(in, h.ctx),
 		//NewVirtualServiceHandler(in, h.ctx),
-		NewServiceMonitorHandler(in, h.ctx),
+		//NewServiceMonitorHandler(in, h.ctx),
 		NewSqbDeploymentListHandlerForSqbapplication(in, h.ctx),
 		NewVMServiceScrapeHandler(in, h.ctx),
 	}
@@ -83,6 +83,10 @@ func IsIstioInject(sqbapplication *qav1alpha1.SQBApplication) bool {
 		return entity.ConfigMapData.IstioInject()
 	}
 	return false
+}
+
+func HasIstioIngressGateway() bool {
+	return entity.ConfigMapData.HasIstioIngressGateway()
 }
 
 // 判断应用是否启用ingress逻辑：
