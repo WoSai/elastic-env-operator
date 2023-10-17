@@ -41,16 +41,17 @@ func (h *serviceHandler) CreateOrUpdate() error {
 	// 兼容线上的配置，因为pod的label不能更改，所以service的selector也不能更改
 	service.Spec.Selector = util.MergeStringMap(map[string]string{entity.AppKey: h.sqbapplication.Name},
 		service.Spec.Selector)
-	// 如果是线上配置，selector需要加上version：base
-	if _, ok := service.Spec.Selector[entity.PlaneKey]; !ok && entity.ConfigMapData.Env() == entity.ENV_PROD {
-		service.Spec.Selector[entity.PlaneKey] = entity.ConfigMapData.BaseFlag()
-	}
 	if anno, ok := h.sqbapplication.Annotations[entity.ServiceAnnotationKey]; ok {
 		_ = json.Unmarshal([]byte(anno), &service.Annotations)
 	} else {
 		service.Annotations = nil
 	}
 	service.Labels = util.MergeStringMap(service.Labels, h.sqbapplication.Labels)
+	// 如果是线上配置，selector需要加上version：base， label需要加上base
+	if entity.ConfigMapData.Env() == entity.ENV_PROD {
+		service.Spec.Selector[entity.PlaneKey] = entity.ConfigMapData.BaseFlag()
+		service.Labels[entity.PlaneKey] = entity.ConfigMapData.BaseFlag()
+	}
 	return CreateOrUpdate(h.ctx, service)
 }
 
@@ -87,6 +88,7 @@ func (h *grayServiceHandler) CreateOrUpdate() error {
 		entity.PlaneKey: h.plane,
 	}
 	service.Labels = util.MergeStringMap(service.Labels, sqbapplication.Labels)
+	service.Labels[entity.PlaneKey] = h.plane
 	return CreateOrUpdate(h.ctx, service)
 }
 

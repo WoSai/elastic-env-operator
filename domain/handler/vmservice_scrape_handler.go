@@ -43,6 +43,7 @@ func (h *vmserviceScrapeHandler) CreateOrUpdate() error {
 		entity.AppKey:   h.sqbapplication.Name,
 		entity.GroupKey: h.sqbapplication.Labels[entity.GroupKey],
 	}
+	// 线上配置，增加version：base
 	if entity.ConfigMapData.Env() == entity.ENV_PROD {
 		vmservice.Spec.Selector.MatchLabels[entity.PlaneKey] = entity.ConfigMapData.BaseFlag()
 	}
