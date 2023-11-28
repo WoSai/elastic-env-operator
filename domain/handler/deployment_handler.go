@@ -115,6 +115,8 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 	if anno, ok := h.sqbdeployment.Annotations[entity.PodAnnotationKey]; ok {
 		deployment.Spec.Template.Annotations = make(map[string]string)
 		_ = json.Unmarshal([]byte(anno), &deployment.Spec.Template.Annotations)
+	} else {
+		deployment.Spec.Template.Annotations = nil
 	}
 
 	deployment.Spec.Template.Annotations = util.MergeStringMap(deployment.Spec.Template.Annotations,
@@ -123,6 +125,8 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 	if anno, ok := h.sqbdeployment.Annotations[entity.DeploymentAnnotationKey]; ok {
 		deployment.Annotations = make(map[string]string)
 		_ = json.Unmarshal([]byte(anno), &deployment.Annotations)
+	} else {
+		deployment.Annotations = nil
 	}
 	// 去掉jaeger注解和label
 	delete(deployment.Annotations, "sidecar.jaegertracing.io/inject")
