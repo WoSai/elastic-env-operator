@@ -113,6 +113,7 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 	deployment.Spec.Template.Spec.ImagePullSecrets = entity.ConfigMapData.GetImagePullSecrets()
 
 	if anno, ok := h.sqbdeployment.Annotations[entity.PodAnnotationKey]; ok {
+		deployment.Spec.Template.Annotations = make(map[string]string)
 		_ = json.Unmarshal([]byte(anno), &deployment.Spec.Template.Annotations)
 	}
 
@@ -120,6 +121,7 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 		map[string]string{entity.IstioSidecarInjectKey: h.sqbdeployment.Annotations[entity.IstioInjectAnnotationKey]})
 
 	if anno, ok := h.sqbdeployment.Annotations[entity.DeploymentAnnotationKey]; ok {
+		deployment.Annotations = make(map[string]string)
 		_ = json.Unmarshal([]byte(anno), &deployment.Annotations)
 	}
 	// 去掉jaeger注解和label
