@@ -42,6 +42,7 @@ func (h *serviceHandler) CreateOrUpdate() error {
 	service.Spec.Selector = util.MergeStringMap(map[string]string{entity.AppKey: h.sqbapplication.Name},
 		service.Spec.Selector)
 	if anno, ok := h.sqbapplication.Annotations[entity.ServiceAnnotationKey]; ok {
+		service.Annotations = make(map[string]string)
 		_ = json.Unmarshal([]byte(anno), &service.Annotations)
 	} else {
 		service.Annotations = nil
