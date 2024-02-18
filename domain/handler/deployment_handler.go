@@ -201,6 +201,7 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 		}
 		deployment.Spec.Template.Spec.Affinity = affinity
 	}
+	h.podAntiAffinity(deployment)
 	h.vault(deployment)
 	maxUnavailable := intstr.FromInt(0)
 	if deployment.Spec.Strategy.Type == appv1.RollingUpdateDeploymentStrategyType {
@@ -327,6 +328,38 @@ func (h *deploymentHandler) vault(deployment *appv1.Deployment) {
 		deployment.Spec.Template.Spec.ServiceAccountName = fmt.Sprintf("sqb-%s-vault-sa", group)
 	} else {
 		deployment.Spec.Template.Spec.ServiceAccountName = "default"
+	}
+}
+
+func (h *deploymentHandler) podAntiAffinity(deployment *appv1.Deployment) {
+	podAntiAffinity := &corev1.PodAntiAffinity{
+		PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+			{
+				Weight: 100,
+				PodAffinityTerm: corev1.PodAffinityTerm{
+					LabelSelector: &metav1.LabelSelector{
+						MatchExpressions: []metav1.LabelSelectorRequirement{
+							{
+								Key:      entity.AppKey,
+								Operator: metav1.LabelSelectorOpIn,
+								Values:   []string{deployment.Spec.Template.Labels[entity.AppKey]},
+							},
+						},
+					},
+					TopologyKey: "kubernetes.io/hostname",
+				},
+			},
+		},
+	}
+
+	if deployment.Spec.Template.Spec.Affinity != nil {
+		if deployment.Spec.Template.Spec.Affinity.PodAntiAffinity == nil {
+			deployment.Spec.Template.Spec.Affinity.PodAntiAffinity = podAntiAffinity
+		}
+	} else {
+		deployment.Spec.Template.Spec.Affinity = &corev1.Affinity{
+			PodAntiAffinity: podAntiAffinity,
+		}
 	}
 }
 
