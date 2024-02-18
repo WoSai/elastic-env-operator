@@ -340,6 +340,10 @@ func (h *deploymentHandler) startupProbe(deployment *appv1.Deployment) {
 		deployment.Spec.Template.Spec.Containers[0].LivenessProbe = deploy.HealthCheck
 		deployment.Spec.Template.Spec.Containers[0].ReadinessProbe = deploy.HealthCheck
 		deployment.Spec.Template.Spec.Containers[0].StartupProbe = startupProbe
+	} else {
+		deployment.Spec.Template.Spec.Containers[0].LivenessProbe = nil
+		deployment.Spec.Template.Spec.Containers[0].ReadinessProbe = nil
+		deployment.Spec.Template.Spec.Containers[0].StartupProbe = nil
 	}
 }
 
