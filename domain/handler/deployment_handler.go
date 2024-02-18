@@ -65,9 +65,14 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 			containerMounts = append(containerMounts, mount)
 		}
 	}
-	startupProbe := deploy.HealthCheck
+	startupProbe := &corev1.Probe{
+		InitialDelaySeconds: 10,
+		PeriodSeconds:       5,
+		SuccessThreshold:    1,
+		FailureThreshold:    60,
+	}
 	probe := deploy.HealthCheck
-	probe.InitialDelaySeconds = 1
+	probe.InitialDelaySeconds = 5
 	container := corev1.Container{
 		Name:           h.sqbdeployment.Name,
 		Image:          deploy.Image,
