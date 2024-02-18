@@ -65,15 +65,6 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 			containerMounts = append(containerMounts, mount)
 		}
 	}
-	startupProbe := &corev1.Probe{
-		InitialDelaySeconds: 10,
-		PeriodSeconds:       5,
-		SuccessThreshold:    1,
-		FailureThreshold:    deploy.HealthCheck.InitialDelaySeconds / 5,
-		TimeoutSeconds:      5,
-		Handler:             deploy.HealthCheck.Handler,
-	}
-	deploy.HealthCheck.InitialDelaySeconds = 5
 	container := corev1.Container{
 		Name:           h.sqbdeployment.Name,
 		Image:          deploy.Image,
@@ -81,7 +72,6 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 		VolumeMounts:   containerMounts,
 		LivenessProbe:  deploy.HealthCheck,
 		ReadinessProbe: deploy.HealthCheck,
-		StartupProbe:   startupProbe,
 		Command:        deploy.Command,
 		Args:           deploy.Args,
 		Ports:          containerPorts,
@@ -204,6 +194,7 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 	} else {
 		deployment.Spec.Template.Spec.Affinity = nil
 	}
+	h.startupProbe(deployment)
 	h.podAntiAffinity(deployment)
 	h.vault(deployment)
 	maxUnavailable := intstr.FromInt(0)
@@ -331,6 +322,24 @@ func (h *deploymentHandler) vault(deployment *appv1.Deployment) {
 		deployment.Spec.Template.Spec.ServiceAccountName = fmt.Sprintf("sqb-%s-vault-sa", group)
 	} else {
 		deployment.Spec.Template.Spec.ServiceAccountName = "default"
+	}
+}
+
+func (h *deploymentHandler) startupProbe(deployment *appv1.Deployment) {
+	deploy := h.sqbdeployment.Spec.DeploySpec
+	if deploy.HealthCheck != nil {
+		startupProbe := &corev1.Probe{
+			InitialDelaySeconds: 10,
+			PeriodSeconds:       5,
+			SuccessThreshold:    1,
+			FailureThreshold:    deploy.HealthCheck.InitialDelaySeconds / 5,
+			TimeoutSeconds:      deploy.HealthCheck.TimeoutSeconds,
+			Handler:             deploy.HealthCheck.Handler,
+		}
+		deploy.HealthCheck.InitialDelaySeconds = 5
+		deployment.Spec.Template.Spec.Containers[0].LivenessProbe = deploy.HealthCheck
+		deployment.Spec.Template.Spec.Containers[0].ReadinessProbe = deploy.HealthCheck
+		deployment.Spec.Template.Spec.Containers[0].StartupProbe = startupProbe
 	}
 }
 
