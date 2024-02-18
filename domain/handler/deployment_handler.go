@@ -70,6 +70,7 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 		PeriodSeconds:       5,
 		SuccessThreshold:    1,
 		FailureThreshold:    60,
+		Handler:             deploy.HealthCheck.Handler,
 	}
 	probe := deploy.HealthCheck
 	probe.InitialDelaySeconds = 5
