@@ -65,6 +65,15 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 			containerMounts = append(containerMounts, mount)
 		}
 	}
+	startupProbe := &corev1.Probe{
+		InitialDelaySeconds: 10,
+		PeriodSeconds:       5,
+		SuccessThreshold:    1,
+		FailureThreshold:    deploy.HealthCheck.InitialDelaySeconds / 5,
+		TimeoutSeconds:      5,
+		Handler:             deploy.HealthCheck.Handler,
+	}
+	deploy.HealthCheck.InitialDelaySeconds = 5
 	container := corev1.Container{
 		Name:           h.sqbdeployment.Name,
 		Image:          deploy.Image,
@@ -72,6 +81,7 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 		VolumeMounts:   containerMounts,
 		LivenessProbe:  deploy.HealthCheck,
 		ReadinessProbe: deploy.HealthCheck,
+		StartupProbe:   startupProbe,
 		Command:        deploy.Command,
 		Args:           deploy.Args,
 		Ports:          containerPorts,
@@ -191,7 +201,10 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 			affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = preferredTerms
 		}
 		deployment.Spec.Template.Spec.Affinity = affinity
+	} else {
+		deployment.Spec.Template.Spec.Affinity = nil
 	}
+	h.podAntiAffinity(deployment)
 	h.vault(deployment)
 	maxUnavailable := intstr.FromInt(0)
 	if deployment.Spec.Strategy.Type == appv1.RollingUpdateDeploymentStrategyType {
@@ -318,6 +331,38 @@ func (h *deploymentHandler) vault(deployment *appv1.Deployment) {
 		deployment.Spec.Template.Spec.ServiceAccountName = fmt.Sprintf("sqb-%s-vault-sa", group)
 	} else {
 		deployment.Spec.Template.Spec.ServiceAccountName = "default"
+	}
+}
+
+func (h *deploymentHandler) podAntiAffinity(deployment *appv1.Deployment) {
+	podAntiAffinity := &corev1.PodAntiAffinity{
+		PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
+			{
+				Weight: 100,
+				PodAffinityTerm: corev1.PodAffinityTerm{
+					LabelSelector: &metav1.LabelSelector{
+						MatchExpressions: []metav1.LabelSelectorRequirement{
+							{
+								Key:      entity.AppKey,
+								Operator: metav1.LabelSelectorOpIn,
+								Values:   []string{deployment.Spec.Template.Labels[entity.AppKey]},
+							},
+						},
+					},
+					TopologyKey: "kubernetes.io/hostname",
+				},
+			},
+		},
+	}
+
+	if deployment.Spec.Template.Spec.Affinity != nil {
+		if deployment.Spec.Template.Spec.Affinity.PodAntiAffinity == nil {
+			deployment.Spec.Template.Spec.Affinity.PodAntiAffinity = podAntiAffinity
+		}
+	} else {
+		deployment.Spec.Template.Spec.Affinity = &corev1.Affinity{
+			PodAntiAffinity: podAntiAffinity,
+		}
 	}
 }
 
