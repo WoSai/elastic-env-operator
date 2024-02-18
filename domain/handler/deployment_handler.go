@@ -65,23 +65,22 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 			containerMounts = append(containerMounts, mount)
 		}
 	}
-	probe := deploy.HealthCheck
 	startupProbe := &corev1.Probe{
 		InitialDelaySeconds: 10,
 		PeriodSeconds:       5,
 		SuccessThreshold:    1,
-		FailureThreshold:    probe.InitialDelaySeconds / 5,
+		FailureThreshold:    deploy.HealthCheck.InitialDelaySeconds / 5,
 		TimeoutSeconds:      5,
 		Handler:             deploy.HealthCheck.Handler,
 	}
-	probe.InitialDelaySeconds = 5
+	deploy.HealthCheck.InitialDelaySeconds = 5
 	container := corev1.Container{
 		Name:           h.sqbdeployment.Name,
 		Image:          deploy.Image,
 		Env:            deploy.Env,
 		VolumeMounts:   containerMounts,
-		LivenessProbe:  probe,
-		ReadinessProbe: probe,
+		LivenessProbe:  deploy.HealthCheck,
+		ReadinessProbe: deploy.HealthCheck,
 		StartupProbe:   startupProbe,
 		Command:        deploy.Command,
 		Args:           deploy.Args,
@@ -202,6 +201,8 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 			affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = preferredTerms
 		}
 		deployment.Spec.Template.Spec.Affinity = affinity
+	} else {
+		deployment.Spec.Template.Spec.Affinity = nil
 	}
 	h.podAntiAffinity(deployment)
 	h.vault(deployment)
