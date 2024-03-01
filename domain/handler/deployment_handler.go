@@ -150,53 +150,10 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 		}
 		deployment.Spec.Template.Spec.InitContainers = []corev1.Container{initContainer}
 	}
-	// NodeAffinity
-	if deploy.NodeAffinity != nil {
-		affinity := &corev1.Affinity{
-			NodeAffinity: &corev1.NodeAffinity{},
-		}
-		if len(deploy.NodeAffinity.Require) != 0 {
-			nodeSelectorTerms := make([]corev1.NodeSelectorTerm, 0)
-			for _, item := range deploy.NodeAffinity.Require {
-				nodeSelectorTerms = append(nodeSelectorTerms, corev1.NodeSelectorTerm{
-					MatchExpressions: []corev1.NodeSelectorRequirement{
-						{
-							Key:      item.Key,
-							Operator: item.Operator,
-							Values:   item.Values,
-						},
-					},
-				})
-			}
-			affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &corev1.NodeSelector{
-				NodeSelectorTerms: nodeSelectorTerms,
-			}
-		}
-		if len(deploy.NodeAffinity.Prefer) != 0 {
-			preferredTerms := make([]corev1.PreferredSchedulingTerm, 0)
-			for _, item := range deploy.NodeAffinity.Prefer {
-				preferredTerms = append(preferredTerms, corev1.PreferredSchedulingTerm{
-					Weight: item.Weight,
-					Preference: corev1.NodeSelectorTerm{
-						MatchExpressions: []corev1.NodeSelectorRequirement{
-							{
-								Key:      item.Key,
-								Operator: item.Operator,
-								Values:   item.Values,
-							},
-						},
-					},
-				})
-			}
-			affinity.NodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = preferredTerms
-		}
-		deployment.Spec.Template.Spec.Affinity = affinity
-	} else {
-		deployment.Spec.Template.Spec.Affinity = nil
-	}
-	h.startupProbe(deployment)
-	h.podAntiAffinity(deployment)
-	h.vault(deployment)
+	h.addNodeAffinity(deployment)
+	h.addStartupProbe(deployment)
+	h.addPodAntiAffinity(deployment)
+	h.addVaultConfig(deployment)
 	maxUnavailable := intstr.FromInt(0)
 	if deployment.Spec.Strategy.Type == appv1.RollingUpdateDeploymentStrategyType {
 		deployment.Spec.Strategy.RollingUpdate =
@@ -315,7 +272,7 @@ func (h *deploymentHandler) getVolumeAndVolumeMounts(volumemap []*qav1alpha1.Vol
 	return
 }
 
-func (h *deploymentHandler) vault(deployment *appv1.Deployment) {
+func (h *deploymentHandler) addVaultConfig(deployment *appv1.Deployment) {
 	// 判断group label
 	group := h.sqbdeployment.Labels[entity.GroupKey]
 	if group != "" {
@@ -325,7 +282,58 @@ func (h *deploymentHandler) vault(deployment *appv1.Deployment) {
 	}
 }
 
-func (h *deploymentHandler) startupProbe(deployment *appv1.Deployment) {
+func (h *deploymentHandler) addNodeAffinity(deployment *appv1.Deployment) {
+	deploy := h.sqbdeployment.Spec
+	if deploy.NodeAffinity != nil {
+		nodeAffinity := &corev1.NodeAffinity{}
+		if len(deploy.NodeAffinity.Require) != 0 {
+			nodeSelectorTerms := make([]corev1.NodeSelectorTerm, 0)
+			for _, item := range deploy.NodeAffinity.Require {
+				nodeSelectorTerms = append(nodeSelectorTerms, corev1.NodeSelectorTerm{
+					MatchExpressions: []corev1.NodeSelectorRequirement{
+						{
+							Key:      item.Key,
+							Operator: item.Operator,
+							Values:   item.Values,
+						},
+					},
+				})
+			}
+			nodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution = &corev1.NodeSelector{
+				NodeSelectorTerms: nodeSelectorTerms,
+			}
+		}
+		if len(deploy.NodeAffinity.Prefer) != 0 {
+			preferredTerms := make([]corev1.PreferredSchedulingTerm, 0)
+			for _, item := range deploy.NodeAffinity.Prefer {
+				preferredTerms = append(preferredTerms, corev1.PreferredSchedulingTerm{
+					Weight: item.Weight,
+					Preference: corev1.NodeSelectorTerm{
+						MatchExpressions: []corev1.NodeSelectorRequirement{
+							{
+								Key:      item.Key,
+								Operator: item.Operator,
+								Values:   item.Values,
+							},
+						},
+					},
+				})
+			}
+			nodeAffinity.PreferredDuringSchedulingIgnoredDuringExecution = preferredTerms
+		}
+		if deployment.Spec.Template.Spec.Affinity != nil {
+			deployment.Spec.Template.Spec.Affinity.NodeAffinity = nodeAffinity
+		} else {
+			deployment.Spec.Template.Spec.Affinity = &corev1.Affinity{
+				NodeAffinity: nodeAffinity,
+			}
+		}
+	} else {
+		deployment.Spec.Template.Spec.Affinity = nil
+	}
+}
+
+func (h *deploymentHandler) addStartupProbe(deployment *appv1.Deployment) {
 	deploy := h.sqbdeployment.Spec.DeploySpec
 	if deploy.HealthCheck != nil {
 		startupProbe := &corev1.Probe{
@@ -347,7 +355,7 @@ func (h *deploymentHandler) startupProbe(deployment *appv1.Deployment) {
 	}
 }
 
-func (h *deploymentHandler) podAntiAffinity(deployment *appv1.Deployment) {
+func (h *deploymentHandler) addPodAntiAffinity(deployment *appv1.Deployment) {
 	podAntiAffinity := &corev1.PodAntiAffinity{
 		PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{
 			{
