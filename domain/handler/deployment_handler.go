@@ -329,7 +329,9 @@ func (h *deploymentHandler) addNodeAffinity(deployment *appv1.Deployment) {
 			}
 		}
 	} else {
-		deployment.Spec.Template.Spec.Affinity = nil
+		if deployment.Spec.Template.Spec.Affinity != nil {
+			deployment.Spec.Template.Spec.Affinity.NodeAffinity = nil
+		}
 	}
 }
 
