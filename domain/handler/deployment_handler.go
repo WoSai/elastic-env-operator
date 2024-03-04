@@ -155,14 +155,7 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 	h.addStartupProbe(deployment)
 	h.addPodAntiAffinity(deployment)
 	h.addVaultConfig(deployment)
-	maxUnavailable := intstr.FromInt(0)
-	if deployment.Spec.Strategy.Type == appv1.RollingUpdateDeploymentStrategyType {
-		if deployment.Spec.Strategy.RollingUpdate != nil {
-			if deployment.Spec.Strategy.RollingUpdate.MaxUnavailable.String() == "25%" {
-				deployment.Spec.Strategy.RollingUpdate.MaxUnavailable = &maxUnavailable
-			}
-		}
-	}
+	h.configRollingUpdate(deployment)
 	controllerutil.AddFinalizer(deployment, entity.FINALIZER)
 	if err = h.additionalSpec(deployment); err != nil {
 		return err
@@ -274,6 +267,19 @@ func (h *deploymentHandler) getVolumeAndVolumeMounts(volumemap []*qav1alpha1.Vol
 		}
 	}
 	return
+}
+
+func (h *deploymentHandler) configRollingUpdate(deployment *appv1.Deployment) {
+	if deployment.Spec.Strategy.Type == appv1.RollingUpdateDeploymentStrategyType {
+		maxUnavailable := intstr.FromInt(0)
+		if deployment.Spec.Strategy.RollingUpdate != nil {
+			if deployment.Spec.Strategy.RollingUpdate.MaxUnavailable.String() == "25%" {
+				deployment.Spec.Strategy.RollingUpdate.MaxUnavailable = &maxUnavailable
+			}
+		} else {
+			deployment.Spec.Strategy.RollingUpdate = &appv1.RollingUpdateDeployment{MaxUnavailable: &maxUnavailable}
+		}
+	}
 }
 
 func (h *deploymentHandler) addVaultConfig(deployment *appv1.Deployment) {
