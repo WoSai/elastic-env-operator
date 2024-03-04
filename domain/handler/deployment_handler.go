@@ -14,6 +14,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"math"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -338,11 +339,12 @@ func (h *deploymentHandler) addNodeAffinity(deployment *appv1.Deployment) {
 func (h *deploymentHandler) addStartupProbe(deployment *appv1.Deployment) {
 	deploy := h.sqbdeployment.Spec.DeploySpec
 	if deploy.HealthCheck != nil {
+		initialDelaySeconds := int32(math.Max(float64(deploy.HealthCheck.InitialDelaySeconds), 180))
 		startupProbe := &corev1.Probe{
 			InitialDelaySeconds: 10,
 			PeriodSeconds:       5,
 			SuccessThreshold:    1,
-			FailureThreshold:    deploy.HealthCheck.InitialDelaySeconds / 5,
+			FailureThreshold:    initialDelaySeconds / 5,
 			TimeoutSeconds:      deploy.HealthCheck.TimeoutSeconds,
 			Handler:             deploy.HealthCheck.Handler,
 		}
