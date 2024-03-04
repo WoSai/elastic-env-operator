@@ -157,8 +157,11 @@ func (h *deploymentHandler) CreateOrUpdate() error {
 	h.addVaultConfig(deployment)
 	maxUnavailable := intstr.FromInt(0)
 	if deployment.Spec.Strategy.Type == appv1.RollingUpdateDeploymentStrategyType {
-		deployment.Spec.Strategy.RollingUpdate =
-			&appv1.RollingUpdateDeployment{MaxUnavailable: &maxUnavailable}
+		if deployment.Spec.Strategy.RollingUpdate != nil {
+			if deployment.Spec.Strategy.RollingUpdate.MaxUnavailable.String() == "25%" {
+				deployment.Spec.Strategy.RollingUpdate.MaxUnavailable = &maxUnavailable
+			}
+		}
 	}
 	controllerutil.AddFinalizer(deployment, entity.FINALIZER)
 	if err = h.additionalSpec(deployment); err != nil {
