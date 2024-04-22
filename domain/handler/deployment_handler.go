@@ -350,14 +350,14 @@ func (h *deploymentHandler) addStartupProbe(deployment *appv1.Deployment) {
 	if deploy.HealthCheck != nil {
 		initialDelaySeconds := int32(math.Max(float64(deploy.HealthCheck.InitialDelaySeconds), 180))
 		startupProbe := &corev1.Probe{
-			InitialDelaySeconds: 10,
-			PeriodSeconds:       5,
+			InitialDelaySeconds: deploy.HealthCheck.InitialDelaySeconds,
+			PeriodSeconds:       10,
 			SuccessThreshold:    1,
-			FailureThreshold:    initialDelaySeconds / 5,
+			FailureThreshold:    initialDelaySeconds / 10,
 			TimeoutSeconds:      deploy.HealthCheck.TimeoutSeconds,
 			Handler:             deploy.HealthCheck.Handler,
 		}
-		deploy.HealthCheck.InitialDelaySeconds = 5
+		deploy.HealthCheck.InitialDelaySeconds = 10
 		deployment.Spec.Template.Spec.Containers[0].LivenessProbe = deploy.HealthCheck
 		deployment.Spec.Template.Spec.Containers[0].ReadinessProbe = deploy.HealthCheck
 		deployment.Spec.Template.Spec.Containers[0].StartupProbe = startupProbe
