@@ -136,6 +136,24 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 		return err
 	}
 
+	// 查询对应的sqbdeployment，ingressNames加上sqbdeployment对应的ingress
+	sqbdeploymentList := &qav1alpha1.SQBDeploymentList{}
+	err = k8sclient.List(h.ctx, sqbdeploymentList, &client.ListOptions{
+		Namespace:     h.sqbapplication.Namespace,
+		LabelSelector: labels.SelectorFromSet(map[string]string{entity.AppKey: h.sqbapplication.Name}),
+	})
+	if err != nil && !apierrors.IsNotFound(err) {
+		return err
+	}
+	for _, sqbdeployment := range sqbdeploymentList.Items {
+		if sqbdeployment.GetAnnotations()[entity.PublicEntryAnnotationKey] == "true" {
+			ingressClass := SpecialVirtualServiceIngress(&sqbdeployment)
+			host := entity.ConfigMapData.GetDomainNameByClass(sqbdeployment.Name, ingressClass)
+			name := getIngressName(h.sqbapplication.Name, ingressClass, host)
+			ingressNames = append(ingressNames, name)
+		}
+	}
+
 	for _, ingress := range ingressList.Items {
 		if h.isAutoIngress(ingress) && !util.ContainString(ingressNames, ingress.Name) {
 			if err = Delete(h.ctx, &ingress); err != nil {
