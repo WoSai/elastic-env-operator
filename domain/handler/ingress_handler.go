@@ -105,6 +105,7 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 			},
 		}
 		ingress.Spec.Rules = []v1.IngressRule{rule}
+		ingress.Spec.IngressClassName = &domain.Class
 		ingress.Labels = util.MergeStringMap(ingress.Labels, map[string]string{
 			entity.AppKey:   h.sqbapplication.Name,
 			entity.GroupKey: h.sqbapplication.Labels[entity.GroupKey],
@@ -112,9 +113,14 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 		if len(domain.Annotation) != 0 {
 			ingress.Annotations = util.MergeStringMap(ingress.Annotations, domain.Annotation)
 		}
-		ingress.Annotations = util.MergeStringMap(ingress.Annotations, map[string]string{
+		mergedAnnotations := map[string]string{
 			entity.IngressClassAnnotationKey: domain.Class,
-		})
+		}
+		if domain.Class == "nginx" {
+			mergedAnnotations["nginx.ingress.kubernetes.io/server-snippet"] = "location ~ ^/metrics {deny all;return 404;}"
+		}
+
+		ingress.Annotations = util.MergeStringMap(ingress.Annotations, mergedAnnotations)
 		if err = CreateOrUpdate(h.ctx, ingress); err != nil {
 			return err
 		}
@@ -149,6 +155,10 @@ func (h *ingressHandler) CreateOrUpdateForSqbdeployment() error {
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: h.sqbdeployment.Namespace,
 			Name:      getIngressName(h.sqbdeployment.Labels[entity.AppKey], ingressClass, host),
+			Annotations: map[string]string{
+				"kubernetes.io/ingress.class":                ingressClass,
+				"nginx.ingress.kubernetes.io/server-snippet": "location ~ ^/metrics {deny all;return 404;}",
+			},
 		},
 	}
 	if err := k8sclient.Get(h.ctx, client.ObjectKey{Namespace: ingress.Namespace, Name: ingress.Name}, ingress); err != nil && !apierrors.IsNotFound(err) {
@@ -175,6 +185,7 @@ func (h *ingressHandler) CreateOrUpdateForSqbdeployment() error {
 		},
 	}
 	ingress.Spec.Rules = []v1.IngressRule{rule}
+	ingress.Spec.IngressClassName = &ingressClass
 	return CreateOrUpdate(h.ctx, ingress)
 }
 
