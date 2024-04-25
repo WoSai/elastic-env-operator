@@ -105,7 +105,6 @@ func (h *ingressHandler) CreateOrUpdateForSqbapplication() error {
 			},
 		}
 		ingress.Spec.Rules = []v1.IngressRule{rule}
-		ingress.Spec.IngressClassName = &domain.Class
 		ingress.Labels = util.MergeStringMap(ingress.Labels, map[string]string{
 			entity.AppKey:   h.sqbapplication.Name,
 			entity.GroupKey: h.sqbapplication.Labels[entity.GroupKey],
@@ -203,7 +202,6 @@ func (h *ingressHandler) CreateOrUpdateForSqbdeployment() error {
 		},
 	}
 	ingress.Spec.Rules = []v1.IngressRule{rule}
-	ingress.Spec.IngressClassName = &ingressClass
 	return CreateOrUpdate(h.ctx, ingress)
 }
 
