@@ -97,6 +97,9 @@ func CreateOrUpdate(ctx context.Context, obj runtimeObj) error {
 			"namespace", obj.GetNamespace(), "name", obj.GetName(), "error", err)
 		return err
 	}
+	if _, ok := obj.GetLabels()[entity.KubevelaAppNameLabel]; ok {
+		return nil
+	}
 	err := k8sclient.Update(ctx, obj)
 	log.Info("update obj", "kind", kind,
 		"namespace", obj.GetNamespace(), "name", obj.GetName(), "error", err)
