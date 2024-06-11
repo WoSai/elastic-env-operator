@@ -49,10 +49,12 @@ func (h *serviceHandler) CreateOrUpdate() error {
 	}
 	service.Labels = util.MergeStringMap(service.Labels, h.sqbapplication.Labels)
 	// 如果是线上配置，selector需要加上version：base， label需要加上base
-	if entity.ConfigMapData.Env() == entity.ENV_PROD {
-		service.Spec.Selector[entity.PlaneKey] = entity.ConfigMapData.BaseFlag()
-		service.Labels[entity.PlaneKey] = entity.ConfigMapData.BaseFlag()
-	}
+	//if entity.ConfigMapData.Env() == entity.ENV_PROD {
+	//	service.Spec.Selector[entity.PlaneKey] = entity.ConfigMapData.BaseFlag()
+	//	service.Labels[entity.PlaneKey] = entity.ConfigMapData.BaseFlag()
+	//}
+	// 去掉selector的version字段
+	delete(service.Spec.Selector, entity.PlaneKey)
 	return CreateOrUpdate(h.ctx, service)
 }
 
