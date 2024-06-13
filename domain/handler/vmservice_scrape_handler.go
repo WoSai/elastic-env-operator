@@ -44,9 +44,11 @@ func (h *vmserviceScrapeHandler) CreateOrUpdate() error {
 		entity.GroupKey: h.sqbapplication.Labels[entity.GroupKey],
 	}
 	// 线上配置，增加version：base
-	if entity.ConfigMapData.Env() == entity.ENV_PROD {
-		vmservice.Spec.Selector.MatchLabels[entity.PlaneKey] = entity.ConfigMapData.BaseFlag()
-	}
+	//if entity.ConfigMapData.Env() == entity.ENV_PROD {
+	//	vmservice.Spec.Selector.MatchLabels[entity.PlaneKey] = entity.ConfigMapData.BaseFlag()
+	//}
+	// 去掉selector的version字段
+	delete(vmservice.Spec.Selector.MatchLabels, entity.PlaneKey)
 	vmservice.Spec.NamespaceSelector.MatchNames = []string{h.sqbapplication.Namespace}
 
 	endpoints := make([]vmv1beta1.Endpoint, 0)
